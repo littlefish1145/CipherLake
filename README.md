@@ -49,6 +49,7 @@ Nexus 的加密系统采用**微服务架构 + 信封加密（Envelope Encryptio
 - AWS Signature V4 + JWT (HS256) 双认证
 - IAM 子系统：用户、组、策略、角色、Access Key、桶策略
 - STS 临时安全令牌（AssumeRole）
+- Virtual-hosted-style 请求支持（桶名从 Host 头解析，兼容浏览器直传场景）
 - TLS/mTLS 支持，自动证书生成与热重载
 - 多级速率限制（IP / 用户 / 桶 / API 方法）
 - CORS 基于 Bucket 配置验证
@@ -125,6 +126,7 @@ cp config.yaml config.local.yaml
 
 | 配置段 | 说明 |
 |--------|------|
+| `node` | 节点角色、监听地址、数据目录、集群对等节点、域名（virtual-hosted-style） |
 | `auth` | JWT 密钥、令牌有效期、匿名访问 |
 | `encryption` | KMS 类型（local/vault）、主密钥路径、Vault Transit 密钥名 |
 | `crypto_services` | 加密微服务配置：分布式模式、gRPC 地址、mTLS、密钥路径、审计大小 |
@@ -135,6 +137,7 @@ cp config.yaml config.local.yaml
 | `tls` | 证书路径、自动证书、最低版本 |
 | `ratelimit` | IP/用户/桶/API 速率限制 |
 | `replication` | 允许私有地址端点（内网部署） |
+| `task_queue` | 后台任务队列：持久化、工作线程、重试策略、死信队列 |
 
 ### 环境变量
 
@@ -247,6 +250,32 @@ pipelines:
 ```
 
 可用插件：`image_compress` · `image_resize` · `thumbnail_generator` · `image_metadata_extract` · `metadata_extract` · `encrypt_pii` · `video_thumbnail` · `pdf_to_text`
+
+---
+
+## 后台任务队列
+
+向量索引、全文索引和管线处理等后台任务通过 `internal/taskqueue` 统一调度：
+
+- **持久化存储**：任务默认持久化到 BoltDB（`data/tasks.db`），进程重启后可恢复执行
+- **工作线程池**：可配置并发工作线程数，避免无限制 goroutine 导致资源耗尽
+- **指数退避重试**：任务失败时按指数退避策略自动重试，支持最大重试次数
+- **死信队列**：超过最大重试次数的任务进入死信队列，便于后续排查与人工处理
+- **优先级**：高优先级任务优先被消费
+- **截止期限**：任务可配置执行截止时间，超时自动转入死信队列
+
+相关配置项：
+
+```yaml
+task_queue:
+  enabled: true
+  store_path: "data/tasks.db"
+  workers: 4
+  poll_interval: "500ms"
+  retry_base: "1s"
+  max_retry_delay: "5m"
+  default_retry: 3
+```
 
 ---
 

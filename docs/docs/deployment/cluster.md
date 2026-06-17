@@ -76,6 +76,9 @@ nexusctl cluster join --node-id node3 --address node3:9090 --leader node1:9090
 All gateway nodes share the same configuration:
 
 ```yaml
+node:
+  domain: "s3.example.com"       # Domain for virtual-hosted-style requests
+
 gateway:
   address: ":9000"
   access_key: "${ACCESS_KEY}"
@@ -89,6 +92,11 @@ metadata:
       - "node2:9090"
       - "node3:9090"
 ```
+
+The `node.domain` field enables virtual-hosted-style S3 requests where the
+bucket name is extracted from the `Host` header (e.g.
+`mybucket.s3.example.com`). Multiple domains can be specified as a
+comma-separated list (e.g. `"s3.example.com,localhost"`).
 
 ## Step 3: Configure Load Balancer
 

@@ -7,6 +7,14 @@ environment variable.
 ## Configuration File Structure
 
 ```yaml
+# Node configuration
+node:
+  role: "all"                    # all | gateway | metadata | storage
+  listen_addr: ":8080"           # S3 gateway listen address
+  data_dir: "./data"             # Data directory
+  cluster_peers: []              # Cluster peer addresses
+  domain: "s3.example.com"       # Domain(s) for virtual-hosted-style requests (comma-separated)
+
 # Gateway (S3 API) configuration
 gateway:
   address: ":9000"              # Listen address
@@ -177,7 +185,37 @@ scheduler:
       cron: "0 3 * * *"
     - name: "index-rebuild"
       cron: "0 4 * * 0"
+
+# Background task queue
+task_queue:
+  enabled: true
+  store_path: "data/tasks.db"    # BoltDB path for task persistence
+  workers: 4                     # Concurrent worker goroutines
+  poll_interval: "500ms"         # Polling interval for new tasks
+  retry_base: "1s"               # Base delay for exponential backoff
+  max_retry_delay: "5m"          # Cap for retry backoff
+  default_retry: 3               # Default max attempts per task
 ```
+
+## Background Task Queue
+
+The `task_queue` section controls how asynchronous background work—such as
+vector indexing, full-text indexing, and pipeline execution—is scheduled and
+retried.
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `enabled` | `true` | Enable the task queue. When disabled, background tasks are skipped. |
+| `store_path` | `data/tasks.db` | BoltDB file used to persist tasks. |
+| `workers` | `4` | Number of concurrent workers that consume tasks. |
+| `poll_interval` | `500ms` | How often workers poll for new tasks. |
+| `retry_base` | `1s` | Initial delay before the first retry. |
+| `max_retry_delay` | `5m` | Maximum delay between retries. |
+| `default_retry` | `3` | Default maximum attempts for tasks submitted by the gateway. |
+
+Failed tasks are retried with exponential backoff. After exhausting all
+attempts, they are moved to the dead-letter queue and can be inspected in the
+configured BoltDB store.
 
 ## Environment Variables
 

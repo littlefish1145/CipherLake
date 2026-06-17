@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"nexus/internal/units"
+
 	"github.com/spf13/viper"
 )
 
@@ -30,14 +32,14 @@ type FTSConfig struct {
 
 // BackupConfig defines the configuration for backup and recovery.
 type BackupConfig struct {
-	Enabled        bool   `mapstructure:"enabled"`
-	Dir            string `mapstructure:"dir"`
-	Interval       string `mapstructure:"interval"`
-	RetentionDays  []int  `mapstructure:"retention_days"`
-	RemoteType     string `mapstructure:"remote_type"`
-	RemoteEndpoint string `mapstructure:"remote_endpoint"`
-	RemoteBucket   string `mapstructure:"remote_bucket"`
-	RemotePrefix   string `mapstructure:"remote_prefix"`
+	Enabled         bool   `mapstructure:"enabled"`
+	Dir             string `mapstructure:"dir"`
+	Interval        string `mapstructure:"interval"`
+	RetentionDays   []int  `mapstructure:"retention_days"`
+	RemoteType      string `mapstructure:"remote_type"`
+	RemoteEndpoint  string `mapstructure:"remote_endpoint"`
+	RemoteBucket    string `mapstructure:"remote_bucket"`
+	RemotePrefix    string `mapstructure:"remote_prefix"`
 	EncryptionKeyID string `mapstructure:"encryption_key_id"`
 }
 
@@ -46,12 +48,12 @@ type StorageClassConfig struct {
 	BackendType string `mapstructure:"backend_type"` // "file", "s3", "azure", "erasure"
 	BackendPath string `mapstructure:"backend_path"` // for file backend
 	// S3 configuration
-	S3Endpoint      string `mapstructure:"s3_endpoint"`
-	S3Region        string `mapstructure:"s3_region"`
-	S3Bucket        string `mapstructure:"s3_bucket"`
-	S3AccessKey     string `mapstructure:"s3_access_key"`
-	S3SecretKey     string `mapstructure:"s3_secret_key"`
-	S3ForcePathStyle bool  `mapstructure:"s3_force_path_style"`
+	S3Endpoint       string `mapstructure:"s3_endpoint"`
+	S3Region         string `mapstructure:"s3_region"`
+	S3Bucket         string `mapstructure:"s3_bucket"`
+	S3AccessKey      string `mapstructure:"s3_access_key"`
+	S3SecretKey      string `mapstructure:"s3_secret_key"`
+	S3ForcePathStyle bool   `mapstructure:"s3_force_path_style"`
 	// Azure configuration
 	AzureAccountName string `mapstructure:"azure_account_name"`
 	AzureAccountKey  string `mapstructure:"azure_account_key"`
@@ -63,12 +65,12 @@ type StorageClassConfig struct {
 }
 
 type ObservabilityConfig struct {
-	MetricsEnabled      bool   `mapstructure:"metrics_enabled"`
-	MetricsPath         string `mapstructure:"metrics_path"`
-	TracingEnabled      bool   `mapstructure:"tracing_enabled"`
-	TracingEndpoint     string `mapstructure:"tracing_endpoint"`
-	TracingServiceName  string `mapstructure:"tracing_service_name"`
-	TracingInsecure     bool   `mapstructure:"tracing_insecure"`
+	MetricsEnabled     bool   `mapstructure:"metrics_enabled"`
+	MetricsPath        string `mapstructure:"metrics_path"`
+	TracingEnabled     bool   `mapstructure:"tracing_enabled"`
+	TracingEndpoint    string `mapstructure:"tracing_endpoint"`
+	TracingServiceName string `mapstructure:"tracing_service_name"`
+	TracingInsecure    bool   `mapstructure:"tracing_insecure"`
 }
 
 type ResumableConfig struct {
@@ -79,29 +81,40 @@ type ResumableConfig struct {
 	MaxSessionSize  string `mapstructure:"max_session_size"`
 }
 
+type TaskQueueConfig struct {
+	Enabled       bool   `mapstructure:"enabled"`
+	StorePath     string `mapstructure:"store_path"`
+	Workers       int    `mapstructure:"workers"`
+	PollInterval  string `mapstructure:"poll_interval"`
+	RetryBase     string `mapstructure:"retry_base"`
+	MaxRetryDelay string `mapstructure:"max_retry_delay"`
+	DefaultRetry  int    `mapstructure:"default_retry"`
+}
+
 type Config struct {
-	Version        string           `mapstructure:"version"`
-	Node           NodeConfig       `mapstructure:"node"`
-	Tiering        TieringConfig    `mapstructure:"tiering"`
-	Encryption     EncryptionConfig `mapstructure:"encryption"`
-	CryptoServices CryptoServicesConfig `mapstructure:"crypto_services"`
-	Vector         VectorConfig     `mapstructure:"vector"`
-	Pipelines      PipelineConfig   `mapstructure:"pipelines"`
-	Cache          CacheConfig      `mapstructure:"cache"`
-	Performance    PerformanceConfig `mapstructure:"performance"`
-	Logging        LoggingConfig    `mapstructure:"logging"`
-	Auth           AuthConfig       `mapstructure:"auth"`
-	IAM            IAMConfig        `mapstructure:"iam"`
-	TLS            TLSConfig        `mapstructure:"tls"`
-	RateLimit      RateLimitConfig   `mapstructure:"ratelimit"`
-	Replication    ReplicationConfig `mapstructure:"replication"`
-	Events         EventsConfig      `mapstructure:"events"`
-	Observability  ObservabilityConfig `mapstructure:"observability"`
+	Version        string                        `mapstructure:"version"`
+	Node           NodeConfig                    `mapstructure:"node"`
+	Tiering        TieringConfig                 `mapstructure:"tiering"`
+	Encryption     EncryptionConfig              `mapstructure:"encryption"`
+	CryptoServices CryptoServicesConfig          `mapstructure:"crypto_services"`
+	Vector         VectorConfig                  `mapstructure:"vector"`
+	Pipelines      PipelineConfig                `mapstructure:"pipelines"`
+	Cache          CacheConfig                   `mapstructure:"cache"`
+	Performance    PerformanceConfig             `mapstructure:"performance"`
+	Logging        LoggingConfig                 `mapstructure:"logging"`
+	Auth           AuthConfig                    `mapstructure:"auth"`
+	IAM            IAMConfig                     `mapstructure:"iam"`
+	TLS            TLSConfig                     `mapstructure:"tls"`
+	RateLimit      RateLimitConfig               `mapstructure:"ratelimit"`
+	Replication    ReplicationConfig             `mapstructure:"replication"`
+	Events         EventsConfig                  `mapstructure:"events"`
+	Observability  ObservabilityConfig           `mapstructure:"observability"`
 	StorageClasses map[string]StorageClassConfig `mapstructure:"storage_classes"`
-	Raft           RaftConfig         `mapstructure:"raft"`
-	Backup         BackupConfig       `mapstructure:"backup"`
-	FTS            FTSConfig          `mapstructure:"fts"`
-	Resumable      ResumableConfig    `mapstructure:"resumable"`
+	Raft           RaftConfig                    `mapstructure:"raft"`
+	Backup         BackupConfig                  `mapstructure:"backup"`
+	FTS            FTSConfig                     `mapstructure:"fts"`
+	Resumable      ResumableConfig               `mapstructure:"resumable"`
+	TaskQueue      TaskQueueConfig               `mapstructure:"task_queue"`
 }
 
 type ReplicationConfig struct {
@@ -122,21 +135,22 @@ type NodeConfig struct {
 	ListenAddr   string   `mapstructure:"listen_addr"`
 	DataDir      string   `mapstructure:"data_dir"`
 	ClusterPeers []string `mapstructure:"cluster_peers"`
+	Domain       string   `mapstructure:"domain"`
 }
 
 type AuthConfig struct {
-	RequireAuth    bool   `mapstructure:"require_auth"`
-	AnonymousRead  bool   `mapstructure:"anonymous_read"`
-	JWTSecret      string `mapstructure:"jwt_secret"`
-	TokenExpiry    string `mapstructure:"token_expiry"`
-	RefreshExpiry  string `mapstructure:"refresh_expiry"`
+	RequireAuth   bool   `mapstructure:"require_auth"`
+	AnonymousRead bool   `mapstructure:"anonymous_read"`
+	JWTSecret     string `mapstructure:"jwt_secret"`
+	TokenExpiry   string `mapstructure:"token_expiry"`
+	RefreshExpiry string `mapstructure:"refresh_expiry"`
 }
 
 // IAMConfig for the new IAM system
 type IAMConfig struct {
-	Enabled       bool   `mapstructure:"enabled"`
-	DBPath        string `mapstructure:"db_path"`
-	MasterKeyPath string `mapstructure:"master_key_path"`
+	Enabled        bool   `mapstructure:"enabled"`
+	DBPath         string `mapstructure:"db_path"`
+	MasterKeyPath  string `mapstructure:"master_key_path"`
 	STSServiceAddr string `mapstructure:"sts_service_addr"`
 }
 
@@ -151,19 +165,19 @@ type TLSConfig struct {
 }
 
 type RateLimitConfig struct {
-	Enabled           bool              `mapstructure:"enabled"`
-	GlobalRPS         int64             `mapstructure:"global_rps"`
-	GlobalBurst       int               `mapstructure:"global_burst"`
-	IPRPS             int64             `mapstructure:"ip_rps"`
-	IPBurst           int               `mapstructure:"ip_burst"`
-	UserRPS           int               `mapstructure:"user_rps"`
-	UserBurst         int               `mapstructure:"user_burst"`
-	BucketRPS         int               `mapstructure:"bucket_rps"`
-	BucketBurst       int               `mapstructure:"bucket_burst"`
-	UploadBytesPerSec int64             `mapstructure:"upload_bytes_per_sec"`
-	UploadBurstBytes  int64             `mapstructure:"upload_burst_bytes"`
+	Enabled           bool                      `mapstructure:"enabled"`
+	GlobalRPS         int64                     `mapstructure:"global_rps"`
+	GlobalBurst       int                       `mapstructure:"global_burst"`
+	IPRPS             int64                     `mapstructure:"ip_rps"`
+	IPBurst           int                       `mapstructure:"ip_burst"`
+	UserRPS           int                       `mapstructure:"user_rps"`
+	UserBurst         int                       `mapstructure:"user_burst"`
+	BucketRPS         int                       `mapstructure:"bucket_rps"`
+	BucketBurst       int                       `mapstructure:"bucket_burst"`
+	UploadBytesPerSec int64                     `mapstructure:"upload_bytes_per_sec"`
+	UploadBurstBytes  int64                     `mapstructure:"upload_burst_bytes"`
 	APILimits         map[string]APILimitConfig `mapstructure:"api_limits"`
-	Whitelist         []string          `mapstructure:"whitelist"`
+	Whitelist         []string                  `mapstructure:"whitelist"`
 }
 
 type APILimitConfig struct {
@@ -172,28 +186,44 @@ type APILimitConfig struct {
 }
 
 type TieringConfig struct {
-	Enabled      bool     `mapstructure:"enabled"`
-	Schedule     string   `mapstructure:"schedule"`
-	HotMaxSize   string   `mapstructure:"hot_max_size"`
-	WarmDevices  []string `mapstructure:"warm_devices"`
-	ColdDevices  []string `mapstructure:"cold_devices"`
-	ArchivePath  string   `mapstructure:"archive_path"`
-	HotMaxBytes  int64    `mapstructure:"-"`
-	WarmEnabled  bool     `mapstructure:"warm_enabled"`
-	ColdEnabled  bool     `mapstructure:"cold_enabled"`
-	ArchiveEnabled bool   `mapstructure:"archive_enabled"`
+	Enabled        bool     `mapstructure:"enabled"`
+	Schedule       string   `mapstructure:"schedule"`
+	HotMaxSize     string   `mapstructure:"hot_max_size"`
+	WarmDevices    []string `mapstructure:"warm_devices"`
+	ColdDevices    []string `mapstructure:"cold_devices"`
+	ArchivePath    string   `mapstructure:"archive_path"`
+	HotMaxBytes    int64    `mapstructure:"-"`
+	WarmEnabled    bool     `mapstructure:"warm_enabled"`
+	ColdEnabled    bool     `mapstructure:"cold_enabled"`
+	ArchiveEnabled bool     `mapstructure:"archive_enabled"`
 }
 
+// Tier size multipliers relative to HotMaxBytes.
+const (
+	WarmTierMultiplier    = 5
+	ColdTierMultiplier    = 20
+	ArchiveTierMultiplier = 100
+)
+
+// WarmMaxBytes returns the warm tier capacity limit.
+func (c TieringConfig) WarmMaxBytes() int64 { return c.HotMaxBytes * WarmTierMultiplier }
+
+// ColdMaxBytes returns the cold tier capacity limit.
+func (c TieringConfig) ColdMaxBytes() int64 { return c.HotMaxBytes * ColdTierMultiplier }
+
+// ArchiveMaxBytes returns the archive tier capacity limit.
+func (c TieringConfig) ArchiveMaxBytes() int64 { return c.HotMaxBytes * ArchiveTierMultiplier }
+
 type EncryptionConfig struct {
-	KMSType           string `mapstructure:"kms_type"`
-	VaultAddr         string `mapstructure:"vault_addr"`
-	VaultTokenFile    string `mapstructure:"vault_token_file"`
-	VaultTransitKey   string `mapstructure:"vault_transit_key"`
-	AWSKMSKeyID       string `mapstructure:"aws_kms_key_id"`
-	AWSRegion         string `mapstructure:"aws_region"`
+	KMSType            string `mapstructure:"kms_type"`
+	VaultAddr          string `mapstructure:"vault_addr"`
+	VaultTokenFile     string `mapstructure:"vault_token_file"`
+	VaultTransitKey    string `mapstructure:"vault_transit_key"`
+	AWSKMSKeyID        string `mapstructure:"aws_kms_key_id"`
+	AWSRegion          string `mapstructure:"aws_region"`
 	KMSDegradationMode string `mapstructure:"kms_degradation_mode"` // "reject_writes" or "read_only"
-	EnableDedup       bool   `mapstructure:"enable_dedup"`
-	MasterKeyPath     string `mapstructure:"master_key_path"`
+	EnableDedup        bool   `mapstructure:"enable_dedup"`
+	MasterKeyPath      string `mapstructure:"master_key_path"`
 }
 
 // CryptoServicesConfig for distributed crypto microservices
@@ -252,23 +282,23 @@ type PipelineConfig struct {
 }
 
 type CacheConfig struct {
-	MetadataMaxSize string `mapstructure:"metadata_max_size"`
-	ObjectMaxSize   string `mapstructure:"object_max_size"`
-	Policy          string `mapstructure:"policy"`
-	MetadataMaxBytes int64 `mapstructure:"-"`
-	ObjectMaxBytes   int64 `mapstructure:"-"`
-	TTL             time.Duration `mapstructure:"ttl"`
+	MetadataMaxSize  string        `mapstructure:"metadata_max_size"`
+	ObjectMaxSize    string        `mapstructure:"object_max_size"`
+	Policy           string        `mapstructure:"policy"`
+	MetadataMaxBytes int64         `mapstructure:"-"`
+	ObjectMaxBytes   int64         `mapstructure:"-"`
+	TTL              time.Duration `mapstructure:"ttl"`
 }
 
 type PerformanceConfig struct {
-	MaxUploadSize        string   `mapstructure:"max_upload_size"`
-	MaxConcurrentUploads int      `mapstructure:"max_concurrent_uploads"`
-	IOWorkersPerCore     int      `mapstructure:"io_workers_per_core"`
-	MaxUploadBytes       int64    `mapstructure:"-"`
-	UseDirectIO          bool     `mapstructure:"use_direct_io"`
-	EnableHTTP2          bool     `mapstructure:"enable_http2"`
-	ReadBufferSize       int      `mapstructure:"read_buffer_size"`
-	WriteBufferSize      int      `mapstructure:"write_buffer_size"`
+	MaxUploadSize        string `mapstructure:"max_upload_size"`
+	MaxConcurrentUploads int    `mapstructure:"max_concurrent_uploads"`
+	IOWorkersPerCore     int    `mapstructure:"io_workers_per_core"`
+	MaxUploadBytes       int64  `mapstructure:"-"`
+	UseDirectIO          bool   `mapstructure:"use_direct_io"`
+	EnableHTTP2          bool   `mapstructure:"enable_http2"`
+	ReadBufferSize       int    `mapstructure:"read_buffer_size"`
+	WriteBufferSize      int    `mapstructure:"write_buffer_size"`
 }
 
 type LoggingConfig struct {
@@ -370,6 +400,13 @@ func Load(configPath string) (*Config, error) {
 	viper.SetDefault("resumable.default_expiry", "24h")
 	viper.SetDefault("resumable.cleanup_interval", "5m")
 	viper.SetDefault("resumable.max_session_size", "100GB")
+	viper.SetDefault("task_queue.enabled", true)
+	viper.SetDefault("task_queue.store_path", "data/tasks.db")
+	viper.SetDefault("task_queue.workers", 4)
+	viper.SetDefault("task_queue.poll_interval", "500ms")
+	viper.SetDefault("task_queue.retry_base", "1s")
+	viper.SetDefault("task_queue.max_retry_delay", "5m")
+	viper.SetDefault("task_queue.default_retry", 3)
 
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("failed to read config: %w", err)
@@ -391,35 +428,35 @@ func (c *Config) normalize() error {
 	var err error
 
 	if c.Tiering.HotMaxSize != "" {
-		c.Tiering.HotMaxBytes, err = parseSize(c.Tiering.HotMaxSize)
+		c.Tiering.HotMaxBytes, err = units.ParseSize(c.Tiering.HotMaxSize)
 		if err != nil {
 			return fmt.Errorf("invalid hot_max_size: %w", err)
 		}
 	}
 
 	if c.Vector.HotIndexSize != "" {
-		c.Vector.HotIndexBytes, err = parseSize(c.Vector.HotIndexSize)
+		c.Vector.HotIndexBytes, err = units.ParseSize(c.Vector.HotIndexSize)
 		if err != nil {
 			return fmt.Errorf("invalid hot_index_size: %w", err)
 		}
 	}
 
 	if c.Cache.MetadataMaxSize != "" {
-		c.Cache.MetadataMaxBytes, err = parseSize(c.Cache.MetadataMaxSize)
+		c.Cache.MetadataMaxBytes, err = units.ParseSize(c.Cache.MetadataMaxSize)
 		if err != nil {
 			return fmt.Errorf("invalid metadata_max_size: %w", err)
 		}
 	}
 
 	if c.Cache.ObjectMaxSize != "" {
-		c.Cache.ObjectMaxBytes, err = parseSize(c.Cache.ObjectMaxSize)
+		c.Cache.ObjectMaxBytes, err = units.ParseSize(c.Cache.ObjectMaxSize)
 		if err != nil {
 			return fmt.Errorf("invalid object_max_size: %w", err)
 		}
 	}
 
 	if c.Performance.MaxUploadSize != "" {
-		c.Performance.MaxUploadBytes, err = parseSize(c.Performance.MaxUploadSize)
+		c.Performance.MaxUploadBytes, err = units.ParseSize(c.Performance.MaxUploadSize)
 		if err != nil {
 			return fmt.Errorf("invalid max_upload_size: %w", err)
 		}
@@ -442,44 +479,4 @@ func (c *Config) normalize() error {
 	}
 
 	return nil
-}
-
-func parseSize(s string) (int64, error) {
-	if len(s) == 0 {
-		return 0, fmt.Errorf("empty size string")
-	}
-
-	var multiplier int64 = 1
-
-	if len(s) >= 2 {
-		switch s[len(s)-2:] {
-		case "GB":
-			multiplier = 1 << 30
-			s = s[:len(s)-2]
-		case "MB":
-			multiplier = 1 << 20
-			s = s[:len(s)-2]
-		case "KB":
-			multiplier = 1 << 10
-			s = s[:len(s)-2]
-		case "TB":
-			multiplier = 1 << 40
-			s = s[:len(s)-2]
-		default:
-			if s[len(s)-1] == 'B' {
-				multiplier = 1
-				s = s[:len(s)-1]
-			}
-		}
-	} else if len(s) == 1 && s[0] == 'B' {
-		return 0, nil
-	}
-
-	var value int64
-	_, err := fmt.Sscanf(s, "%d", &value)
-	if err != nil {
-		return 0, err
-	}
-
-	return value * multiplier, nil
 }

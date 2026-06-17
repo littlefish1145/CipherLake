@@ -1,25 +1,22 @@
 package gateway
 
 import (
-	"bytes"
 	"context"
-	"crypto/md5"
-	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"hash"
 	"hash/crc32"
-	"io"
+	"net"
 	"net/http"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"nexus/internal/auth"
 	"nexus/internal/bootstrap"
 	"nexus/internal/cache"
 	"nexus/internal/common"
@@ -32,45 +29,55 @@ import (
 	"nexus/internal/ratelimit"
 	"nexus/internal/services"
 	"nexus/internal/storage"
+	"nexus/internal/taskqueue"
 	"nexus/internal/tiering"
+	"nexus/internal/units"
 	"nexus/internal/vector"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 var (
-	bucketNameRegex      = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$`)
-	pathTraversalPattern = regexp.MustCompile(`(?:^|/)\.\.(?:$|/)`)
-	controlCharPattern   = regexp.MustCompile(`[\x00-\x1f]`)
+	bucketNameRegex         = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$`)
+	pathTraversalPattern    = regexp.MustCompile(`(?:^|/)\.\.(?:$|/)`)
+	controlCharPattern      = regexp.MustCompile(`[\x00-\x1f]`)
 	encodedTraversalPattern = regexp.MustCompile(`(?i)(?:%2e%2e|%2e\.|\.\.%2e)`)
 
 	maxRequestBodyBytes int64 = 50 * 1024 * 1024
 )
 
 type S3Gateway struct {
-	mu              sync.RWMutex
-	config          *config.Config
-	metadata        *metadata.BoltDBMetadataStore
-	store           *storage.TieredObjectStore
-	tiering         *tiering.TieringManager
+	mu                sync.RWMutex
+	config            *config.Config
+	metadata          *metadata.BoltDBMetadataStore
+	store             *storage.TieredObjectStore
+	tiering           *tiering.TieringManager
 	cryptoCoordinator *services.EncryptionCoordinator
-	vector          *vector.VectorManager
-	ftsIndex        *fts.InvertedIndex
-	pipeline        *pipeline.PipelineExecutor
-	auth            *AuthHandler
-	iamBridge       *IAMAuthBridge
-	rateLimiter     *ratelimit.MultiLevelLimiter
-	objectCache     *cache.ObjectCache
-	metaCache       *cache.MetadataCache
-	server          *http.Server
-	buckets         map[string]*BucketState
-	accessLog       *AccessLogger
-	eventBus        *events.EventBus
-	metrics         *observability.MetricsRegistry
-	tracerShutdown  func(context.Context) error
-	healthHandler   *observability.HealthHandler
-	resumableHandler *ResumableUploadHandler
-	resumableCleanup *ResumableCleanup
+	vector            *vector.VectorManager
+	ftsIndex          *fts.InvertedIndex
+	pipeline          *pipeline.PipelineExecutor
+	auth              *AuthHandler
+	iamBridge         *IAMAuthBridge
+	authProvider      auth.Provider
+	permChecker       auth.PermissionChecker
+	rateLimiter       *ratelimit.MultiLevelLimiter
+	objectCache       *cache.ObjectCache
+	metaCache         *cache.MetadataCache
+	server            *http.Server
+	buckets           map[string]*BucketState
+	accessLog         *AccessLogger
+	eventBus          *events.EventBus
+	metrics           *observability.MetricsRegistry
+	tracerShutdown    func(context.Context) error
+	healthHandler     *observability.HealthHandler
+	resumableHandler  *ResumableUploadHandler
+	resumableCleanup  *ResumableCleanup
+	bucketSvc         *BucketService
+	objectSvc         *ObjectService
+	searchSvc         *SearchService
+	multipartSvc      *MultipartService
+	taskQueue         *taskqueue.Queue
 }
 
 type BucketState struct {
@@ -179,7 +186,7 @@ func (g *S3Gateway) initializeStores(cfg *config.Config) error {
 	}
 	g.metadata = metadataStore
 
-	store := storage.NewTieredObjectStore()
+	store := storage.NewTieredObjectStore(metadataStore)
 
 	hotDir := cfg.Node.DataDir + "/hot"
 	hotBackend, err := storage.NewFileBackend(hotDir)
@@ -193,7 +200,7 @@ func (g *S3Gateway) initializeStores(cfg *config.Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to create warm storage backend: %w", err)
 	}
-	warmMaxSize := cfg.Tiering.HotMaxBytes * 5
+	warmMaxSize := cfg.Tiering.WarmMaxBytes()
 	store.RegisterTier(common.TierWarm, warmBackend, warmMaxSize)
 
 	coldDir := cfg.Node.DataDir + "/cold"
@@ -201,7 +208,7 @@ func (g *S3Gateway) initializeStores(cfg *config.Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to create cold storage backend: %w", err)
 	}
-	coldMaxSize := cfg.Tiering.HotMaxBytes * 20
+	coldMaxSize := cfg.Tiering.ColdMaxBytes()
 	store.RegisterTier(common.TierCold, coldBackend, coldMaxSize)
 
 	archiveDir := cfg.Node.DataDir + "/archive"
@@ -212,7 +219,7 @@ func (g *S3Gateway) initializeStores(cfg *config.Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to create archive storage backend: %w", err)
 	}
-	archiveMaxSize := cfg.Tiering.HotMaxBytes * 100
+	archiveMaxSize := cfg.Tiering.ArchiveMaxBytes()
 	store.RegisterTier(common.TierArchive, archiveBackend, archiveMaxSize)
 
 	g.store = store
@@ -307,6 +314,9 @@ func (g *S3Gateway) initializeComponents(cfg *config.Config) error {
 		}
 	}
 	g.auth = NewAuthHandlerWithConfig(authConfig)
+	provider := newGatewayAuthProvider(g.auth, g.iamBridge)
+	g.authProvider = provider
+	g.permChecker = provider
 
 	if cfg.RateLimit.Enabled {
 		apiLimits := make(map[string]ratelimit.APILimit)
@@ -388,7 +398,7 @@ func (g *S3Gateway) initializeComponents(cfg *config.Config) error {
 		}
 		// Apply disk quota
 		if cfg.FTS.MaxIndexSize != "" {
-			if maxSize, err := parseFTSMaxSize(cfg.FTS.MaxIndexSize); err == nil && maxSize > 0 {
+			if maxSize, err := units.ParseSize(cfg.FTS.MaxIndexSize); err == nil && maxSize > 0 {
 				ftsIndex.SetCompactionMaxIndexSize(maxSize)
 			}
 		}
@@ -408,7 +418,68 @@ func (g *S3Gateway) initializeComponents(cfg *config.Config) error {
 		g.resumableCleanup.Start()
 	}
 
+	// Initialize background task queue.
+	if err := g.initializeTaskQueue(cfg); err != nil {
+		return fmt.Errorf("failed to initialize task queue: %w", err)
+	}
+
+	// Initialize domain services
+	g.bucketSvc = NewBucketService(g)
+	g.objectSvc = NewObjectService(g)
+	g.searchSvc = NewSearchService(g)
+	g.multipartSvc = NewMultipartService(g)
+
 	return nil
+}
+
+func (g *S3Gateway) initializeTaskQueue(cfg *config.Config) error {
+	if !cfg.TaskQueue.Enabled {
+		return nil
+	}
+
+	storePath := cfg.TaskQueue.StorePath
+	if storePath == "" {
+		storePath = cfg.Node.DataDir + "/tasks.db"
+	}
+	if !filepath.IsAbs(storePath) {
+		storePath = filepath.Join(cfg.Node.DataDir, storePath)
+	}
+
+	store, err := taskqueue.NewBoltStore(storePath)
+	if err != nil {
+		return fmt.Errorf("failed to create task store: %w", err)
+	}
+
+	workers := cfg.TaskQueue.Workers
+	if workers <= 0 {
+		workers = 4
+	}
+
+	queueOpts := []taskqueue.QueueOption{
+		taskqueue.WithPollInterval(parseDuration(cfg.TaskQueue.PollInterval, 500*time.Millisecond)),
+		taskqueue.WithRetryBase(parseDuration(cfg.TaskQueue.RetryBase, time.Second)),
+		taskqueue.WithMaxRetryDelay(parseDuration(cfg.TaskQueue.MaxRetryDelay, 5*time.Minute)),
+	}
+
+	g.taskQueue = taskqueue.NewQueue(store, workers, queueOpts...)
+
+	// Register background handlers.
+	g.taskQueue.Register(taskqueue.KindVectorize, g.searchSvc.handleVectorizeTask)
+	g.taskQueue.Register(taskqueue.KindFTS, g.searchSvc.handleFTSTask)
+	g.taskQueue.Register(taskqueue.KindPipeline, g.handlePipelineTask)
+
+	g.taskQueue.Start()
+	return nil
+}
+
+func parseDuration(s string, fallback time.Duration) time.Duration {
+	if s == "" {
+		return fallback
+	}
+	if d, err := time.ParseDuration(s); err == nil {
+		return d
+	}
+	return fallback
 }
 
 func (g *S3Gateway) Handler() http.Handler {
@@ -429,7 +500,7 @@ func (g *S3Gateway) Handler() http.Handler {
 	mux.Handle(metricsPath, observability.MetricsHandler())
 
 	// FTS search endpoint
-	mux.HandleFunc("/admin/fts/search", g.handleAdminFTSSearch)
+	mux.HandleFunc("/admin/fts/search", g.searchSvc.handleAdminFTSSearch)
 
 	mux.HandleFunc("/", g.handleRequest)
 
@@ -459,7 +530,27 @@ func (g *S3Gateway) handleRequest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("x-amz-request-id", requestID)
 	w.Header().Set("x-amz-id-2", uuid.New().String()[:16])
 
-	g.setCORSHeaders(w, r, "")
+	// Detect virtual-hosted-style: bucket name embedded in Host header.
+	// e.g. Host: mybucket.example.com:8080 with domain "example.com" → bucket="mybucket"
+	var vhostBucket string
+	if g.config != nil {
+		vhostBucket = extractVirtualHostedBucket(r.Host, g.config.Node.Domain)
+	}
+
+	// Determine bucket and rewrite path for virtual-hosted-style requests.
+	// For vhost-style, the URL path is the object key (no bucket prefix),
+	// so we rewrite r.URL.Path to /<bucket>/<key> so downstream code works unchanged.
+	if vhostBucket != "" {
+		originalPath := r.URL.Path
+		r.URL.Path = "/" + vhostBucket + originalPath
+		// Store original path so access log can reference it
+		ctx = context.WithValue(r.Context(), ctxKeyOriginalPath{}, originalPath)
+		r = r.WithContext(ctx)
+	}
+
+	// CORS needs the resolved bucket name
+	corsBucket := vhostBucket
+	g.setCORSHeaders(w, r, corsBucket)
 
 	if r.Method == "OPTIONS" {
 		w.WriteHeader(http.StatusOK)
@@ -467,13 +558,15 @@ func (g *S3Gateway) handleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if g.rateLimiter != nil {
-		userID := g.auth.GetUserID(r)
+		userID := g.getUserID(r)
 		ip := extractIP(r)
-		bucket := ""
-		if len(r.URL.Path) > 1 {
-			parts := strings.SplitN(strings.TrimPrefix(r.URL.Path, "/"), "/", 2)
-			if len(parts) > 0 {
-				bucket = parts[0]
+		bucket := vhostBucket
+		if bucket == "" {
+			if len(r.URL.Path) > 1 {
+				parts := strings.SplitN(strings.TrimPrefix(r.URL.Path, "/"), "/", 2)
+				if len(parts) > 0 {
+					bucket = parts[0]
+				}
 			}
 		}
 		contentLength, _ := strconv.ParseInt(r.Header.Get("Content-Length"), 10, 64)
@@ -508,13 +601,13 @@ func (g *S3Gateway) handleRequest(w http.ResponseWriter, r *http.Request) {
 
 	if path == "/" {
 		if method == "GET" {
-			if _, err := g.auth.RequireAuth(r, "read"); err != nil {
+			if _, err := g.requireIdentity(r, auth.ActionRead, "", ""); err != nil {
 				g.writeError(w, http.StatusUnauthorized, "AccessDenied", err.Error())
 				return
 			}
-			handler = g.handleListBuckets
+			handler = g.bucketSvc.handleListBuckets
 		} else if method == "POST" {
-			if _, err := g.auth.RequireAuth(r, "write"); err != nil {
+			if _, err := g.requireIdentity(r, auth.ActionWrite, "", ""); err != nil {
 				g.writeError(w, http.StatusUnauthorized, "AccessDenied", err.Error())
 				return
 			}
@@ -565,7 +658,7 @@ func (g *S3Gateway) handleRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		g.accessLog.Log(AccessLogEntry{
 			RemoteIP:   getClientIP(r),
-			UserID:     g.auth.GetUserID(r),
+			UserID:     g.getUserID(r),
 			Operation:  method,
 			Bucket:     bucket,
 			Key:        key,
@@ -575,6 +668,10 @@ func (g *S3Gateway) handleRequest(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 }
+
+// ctxKeyOriginalPath is the context key for the original URL path before
+// virtual-hosted-style rewriting.
+type ctxKeyOriginalPath struct{}
 
 func (g *S3Gateway) setCORSHeaders(w http.ResponseWriter, r *http.Request, bucket string) {
 	origin := r.Header.Get("Origin")
@@ -627,50 +724,58 @@ func (g *S3Gateway) validateObjectKey(key string) bool {
 	return true
 }
 
-func (g *S3Gateway) validateContentType(contentType string) bool {
-	allowedTypes := []string{
-		"image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
-		"application/pdf", "application/json", "application/xml",
-		"text/plain", "text/html", "text/css", "text/javascript",
-		"application/octet-stream",
+// extractVirtualHostedBucket extracts the bucket name from a virtual-hosted-style
+// request. Given Host "mybucket.example.com:8080" and domains "example.com,localhost",
+// it returns "mybucket". Returns empty string if the Host does not match the
+// virtual-hosted pattern. The domain parameter supports comma-separated values.
+func extractVirtualHostedBucket(host, domains string) string {
+	if domains == "" {
+		return ""
 	}
+	// Strip port
+	h, _, err := net.SplitHostPort(host)
+	if err != nil {
+		h = host
+	}
+	h = strings.ToLower(h)
+
+	// Try each domain (comma-separated)
+	for _, domain := range strings.Split(domains, ",") {
+		domain = strings.TrimSpace(strings.ToLower(domain))
+		if domain == "" {
+			continue
+		}
+		if !strings.HasSuffix(h, "."+domain) {
+			continue
+		}
+		bucket := strings.TrimSuffix(h, "."+domain)
+		if bucket == "" {
+			continue
+		}
+		if bucketNameRegex.MatchString(bucket) {
+			return bucket
+		}
+	}
+	return ""
+}
+
+func (g *S3Gateway) validateContentType(contentType string) bool {
+	// S3-compatible storage accepts any content type.
+	// Only block explicitly dangerous types.
 	if contentType == "" {
 		return true
 	}
-	for _, t := range allowedTypes {
-		if strings.HasPrefix(contentType, t) {
-			return true
+	blocked := []string{
+		"application/x-msdos-program",
+		"application/x-msdownload",
+	}
+	lower := strings.ToLower(contentType)
+	for _, b := range blocked {
+		if strings.HasPrefix(lower, b) {
+			return false
 		}
 	}
-	return false
-}
-
-func (g *S3Gateway) handleListBuckets(w http.ResponseWriter, r *http.Request) error {
-	if r.Method != "GET" {
-		return fmt.Errorf("method not allowed")
-	}
-
-	buckets, err := g.metadata.ListBuckets(r.Context())
-	if err != nil {
-		return fmt.Errorf("failed to list buckets: %w", err)
-	}
-
-	output := ListBucketsOutput{}
-	output.Owner.ID = "nexus-owner"
-	output.Owner.DisplayName = "Nexus Owner"
-	output.Buckets = make([]struct {
-		Bucket struct {
-			Name         string    `xml:"Name"`
-			CreationDate time.Time `xml:"CreationDate"`
-		} `xml:"Bucket"`
-	}, len(buckets))
-
-	for i, b := range buckets {
-		output.Buckets[i].Bucket.Name = b.Name
-		output.Buckets[i].Bucket.CreationDate = b.CreatedAt
-	}
-
-	return g.writeXML(w, http.StatusOK, output)
+	return true
 }
 
 func (g *S3Gateway) handlePOST(w http.ResponseWriter, r *http.Request) error {
@@ -680,11 +785,11 @@ func (g *S3Gateway) handlePOST(w http.ResponseWriter, r *http.Request) error {
 
 	query := r.URL.Query()
 	if query.Has("vector_search") {
-		return g.handleVectorSearch(w, r)
+		return g.searchSvc.handleVectorSearch(w, r)
 	}
 
 	if query.Has("fts_search") {
-		return g.handleFTSSearch(w, r)
+		return g.searchSvc.handleFTSSearch(w, r)
 	}
 
 	// Resumable upload: POST /{bucket}/{key}?resumable creates a session
@@ -721,7 +826,6 @@ func (g *S3Gateway) handlePOST(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if query.Has("uploads") {
-		multipartHandler := NewMultipartUploadHandler(g)
 		bucket := query.Get("bucket")
 		key := query.Get("key")
 		if bucket == "" {
@@ -736,7 +840,7 @@ func (g *S3Gateway) handlePOST(w http.ResponseWriter, r *http.Request) error {
 				}
 			}
 		}
-		return multipartHandler.HandleCreateMultipartUpload(w, r, bucket, key)
+		return g.multipartSvc.HandleCreateMultipartUpload(w, r, bucket, key)
 	}
 
 	return fmt.Errorf("unsupported POST operation")
@@ -747,61 +851,60 @@ func (g *S3Gateway) handleBucketOperations(bucket, method string) func(w http.Re
 		query := r.URL.Query()
 
 		switch method {
-	case "PUT":
-		if query.Has("acl") {
-			if _, err := g.auth.RequireAuthForBucket(r, bucket, "admin"); err != nil {
+		case "PUT":
+			if query.Has("acl") {
+				if _, err := g.requireIdentity(r, auth.ActionAdmin, bucket, ""); err != nil {
+					return fmt.Errorf("access denied: %w", err)
+				}
+				return g.bucketSvc.handlePutBucketAcl(w, r, bucket)
+			}
+			if _, err := g.requireIdentity(r, auth.ActionWrite, bucket, ""); err != nil {
 				return fmt.Errorf("access denied: %w", err)
 			}
-			return g.handlePutBucketAcl(w, r, bucket)
-		}
-		if _, err := g.auth.RequireAuthForBucket(r, bucket, "write"); err != nil {
-			return fmt.Errorf("access denied: %w", err)
-		}
-		return g.handleCreateBucket(w, r, bucket)
-	case "DELETE":
-		if _, err := g.auth.RequireAuthForBucket(r, bucket, "admin"); err != nil {
-			return fmt.Errorf("access denied: %w", err)
-		}
-		return g.handleDeleteBucket(w, r, bucket)
-	case "HEAD":
-		if _, err := g.auth.RequireAuthForBucket(r, bucket, "read"); err != nil {
-			return fmt.Errorf("access denied: %w", err)
-		}
-		return g.handleHeadBucket(w, r, bucket)
-	case "POST":
-		if query.Has("delete") {
-			if _, err := g.auth.RequireAuthForBucket(r, bucket, "delete"); err != nil {
+			return g.bucketSvc.handleCreateBucket(w, r, bucket)
+		case "DELETE":
+			if _, err := g.requireIdentity(r, auth.ActionAdmin, bucket, ""); err != nil {
 				return fmt.Errorf("access denied: %w", err)
 			}
-			return g.handleDeleteObjects(w, r, bucket)
-		}
-		return fmt.Errorf("unsupported POST operation on bucket")
-	case "GET":
+			return g.bucketSvc.handleDeleteBucket(w, r, bucket)
+		case "HEAD":
+			if _, err := g.requireIdentity(r, auth.ActionRead, bucket, ""); err != nil {
+				return fmt.Errorf("access denied: %w", err)
+			}
+			return g.bucketSvc.handleHeadBucket(w, r, bucket)
+		case "POST":
+			if query.Has("delete") {
+				if _, err := g.requireIdentity(r, auth.ActionDelete, bucket, ""); err != nil {
+					return fmt.Errorf("access denied: %w", err)
+				}
+				return g.objectSvc.handleDeleteObjects(w, r, bucket)
+			}
+			return fmt.Errorf("unsupported POST operation on bucket")
+		case "GET":
 			if query.Has("location") {
-				return g.handleGetBucketLocation(w, r, bucket)
+				return g.bucketSvc.handleGetBucketLocation(w, r, bucket)
 			}
 			if query.Has("fts_search") {
-				return g.handleFTSSearch(w, r)
+				return g.searchSvc.handleFTSSearch(w, r)
 			}
 			if query.Has("acl") {
-				if _, err := g.auth.RequireAuthForBucket(r, bucket, "read"); err != nil {
+				if _, err := g.requireIdentity(r, auth.ActionRead, bucket, ""); err != nil {
 					return fmt.Errorf("access denied: %w", err)
 				}
-				return g.handleGetBucketAcl(w, r, bucket)
+				return g.bucketSvc.handleGetBucketAcl(w, r, bucket)
 			}
 			if query.Has("versioning") {
-				return g.handleGetBucketVersioning(w, r, bucket)
+				return g.bucketSvc.handleGetBucketVersioning(w, r, bucket)
 			}
 			if query.Has("uploads") {
-				multipartHandler := NewMultipartUploadHandler(g)
-				return multipartHandler.HandleListUploads(w, r, bucket)
+				return g.multipartSvc.HandleListUploads(w, r, bucket)
 			}
 			if !g.isBucketPublicRead(r, bucket) {
-				if _, err := g.auth.RequireAuthForBucket(r, bucket, "read"); err != nil {
+				if _, err := g.requireIdentity(r, auth.ActionRead, bucket, ""); err != nil {
 					return fmt.Errorf("access denied: %w", err)
 				}
 			}
-			return g.handleListObjects(w, r, bucket)
+			return g.bucketSvc.handleListObjects(w, r, bucket)
 		default:
 			return fmt.Errorf("method not allowed")
 		}
@@ -832,35 +935,34 @@ func (g *S3Gateway) handleObjectOperations(bucket, key, method string) func(w ht
 		}
 
 		if query.Has("uploadId") {
-			multipartHandler := NewMultipartUploadHandler(g)
 			switch method {
 			case "PUT":
-				return multipartHandler.HandleUploadPart(w, r, bucket, key)
+				return g.multipartSvc.HandleUploadPart(w, r, bucket, key)
 			case "POST":
-				return multipartHandler.HandleCompleteMultipartUpload(w, r, bucket, key)
+				return g.multipartSvc.HandleCompleteMultipartUpload(w, r, bucket, key)
 			case "DELETE":
-				return multipartHandler.HandleAbortMultipartUpload(w, r, bucket, key)
+				return g.multipartSvc.HandleAbortMultipartUpload(w, r, bucket, key)
 			case "GET":
-				return multipartHandler.HandleListParts(w, r, bucket, key)
+				return g.multipartSvc.HandleListParts(w, r, bucket, key)
 			default:
 				return fmt.Errorf("method not allowed for multipart upload")
 			}
 		}
 
 		switch method {
-	case "PUT":
-		if r.Header.Get("x-amz-copy-source") != "" {
-			return g.handleCopyObject(w, r, bucket, key)
-		}
-		return g.handlePutObject(w, r, bucket, key)
+		case "PUT":
+			if r.Header.Get("x-amz-copy-source") != "" {
+				return g.objectSvc.handleCopyObject(w, r, bucket, key)
+			}
+			return g.objectSvc.handlePutObject(w, r, bucket, key)
 		case "GET":
-			return g.handleGetObject(w, r, bucket, key)
+			return g.objectSvc.handleGetObject(w, r, bucket, key)
 		case "HEAD":
-			return g.handleHeadObject(w, r, bucket, key)
+			return g.objectSvc.handleHeadObject(w, r, bucket, key)
 		case "DELETE":
-			return g.handleDeleteObject(w, r, bucket, key)
+			return g.objectSvc.handleDeleteObject(w, r, bucket, key)
 		case "POST":
-			return g.handleObjectPOST(w, r, bucket, key)
+			return g.objectSvc.handleObjectPOST(w, r, bucket, key)
 		case "PATCH":
 			// PATCH method for resumable uploads (with uploadId in query)
 			if g.resumableHandler != nil && query.Has("uploadId") {
@@ -871,821 +973,6 @@ func (g *S3Gateway) handleObjectOperations(bucket, key, method string) func(w ht
 			return fmt.Errorf("method not allowed")
 		}
 	}
-}
-
-func (g *S3Gateway) handleCreateBucket(w http.ResponseWriter, r *http.Request, bucket string) error {
-	if r.Method != "PUT" {
-		return fmt.Errorf("method not allowed")
-	}
-
-	acl := r.Header.Get("x-amz-acl")
-	if acl == "" {
-		acl = "private"
-	}
-
-	userID := g.auth.GetUserID(r)
-	if userID == "" || userID == "anonymous" {
-		userID = "admin"
-	}
-
-	region := "us-east-1"
-	body, err := io.ReadAll(io.LimitReader(r.Body, maxRequestBodyBytes))
-	if err == nil && len(body) > 0 {
-		type CreateBucketConfiguration struct {
-			LocationConstraint string `xml:"LocationConstraint"`
-		}
-		var config CreateBucketConfiguration
-		if err := xml.Unmarshal(body, &config); err == nil && config.LocationConstraint != "" {
-			region = config.LocationConstraint
-		}
-	}
-
-	bucketInfo := &metadata.BucketInfo{
-		Name:      bucket,
-		CreatedAt: time.Now(),
-		OwnerID:   userID,
-		OwnerName: userID,
-		Region:    region,
-		ACL:       acl,
-	}
-
-	if err := g.metadata.CreateBucket(r.Context(), bucket, bucketInfo); err != nil {
-		return fmt.Errorf("failed to create bucket: %w", err)
-	}
-
-	w.Header().Set("Location", "/"+bucket)
-	w.Header().Set("x-amz-request-id", uuid.New().String())
-	w.WriteHeader(http.StatusOK)
-	return nil
-}
-
-func (g *S3Gateway) handleDeleteBucket(w http.ResponseWriter, r *http.Request, bucket string) error {
-	if r.Method != "DELETE" {
-		return fmt.Errorf("method not allowed")
-	}
-
-	if err := g.metadata.DeleteBucket(r.Context(), bucket); err != nil {
-		return fmt.Errorf("failed to delete bucket: %w", err)
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-	return nil
-}
-
-func (g *S3Gateway) handleHeadBucket(w http.ResponseWriter, r *http.Request, bucket string) error {
-	if r.Method != "HEAD" {
-		return fmt.Errorf("method not allowed")
-	}
-
-	_, err := g.metadata.GetBucket(r.Context(), bucket)
-	if err != nil {
-		return fmt.Errorf("bucket not found: %w", err)
-	}
-
-	w.WriteHeader(http.StatusOK)
-	return nil
-}
-
-func (g *S3Gateway) handleListObjects(w http.ResponseWriter, r *http.Request, bucket string) error {
-	if r.Method != "GET" {
-		return fmt.Errorf("method not allowed")
-	}
-
-	query := r.URL.Query()
-	prefix := query.Get("prefix")
-	delimiter := query.Get("delimiter")
-	maxKeysStr := query.Get("max-keys")
-	listType := query.Get("list-type")
-
-	maxKeys := 1000
-	if maxKeysStr != "" {
-		if m, err := strconv.Atoi(maxKeysStr); err == nil {
-			maxKeys = m
-		}
-	}
-
-	if listType == "2" {
-		return g.handleListObjectsV2(w, r, bucket, prefix, delimiter, maxKeys, query)
-	}
-
-	marker := query.Get("marker")
-	objects, err := g.metadata.ListObjects(r.Context(), bucket, prefix, maxKeys)
-	if err != nil {
-		return fmt.Errorf("failed to list objects: %w", err)
-	}
-
-	output := ListObjectsOutput{
-		Name:        bucket,
-		Prefix:      prefix,
-		Marker:      marker,
-		MaxKeys:     maxKeys,
-		Delimiter:   delimiter,
-		IsTruncated: len(objects) == maxKeys,
-	}
-
-	for _, obj := range objects {
-		if delimiter != "" {
-			idx := strings.Index(obj.Key[len(prefix):], delimiter)
-			if idx >= 0 {
-				output.CommonPrefixes = append(output.CommonPrefixes, struct {
-					Prefix string `xml:"Prefix"`
-				}{Prefix: obj.Key[:len(prefix)+idx+len(delimiter)]})
-				continue
-			}
-		}
-
-		output.Contents = append(output.Contents, ListObjectsV2Content{
-			Key:          obj.Key,
-			LastModified: obj.ModifiedAt,
-			ETag:         obj.ETag,
-			Size:         obj.Size,
-			StorageClass: common.StorageTier(obj.StorageTier).String(),
-			Owner: &struct {
-				ID          string `xml:"ID"`
-				DisplayName string `xml:"DisplayName"`
-			}{
-				ID:          "nexus-owner",
-				DisplayName: "nexus-owner",
-			},
-		})
-	}
-
-	if output.IsTruncated && len(output.Contents) > 0 {
-		output.NextMarker = output.Contents[len(output.Contents)-1].Key
-	}
-
-	return g.writeXML(w, http.StatusOK, output)
-}
-
-func (g *S3Gateway) handleListObjectsV2(w http.ResponseWriter, r *http.Request, bucket, prefix, delimiter string, maxKeys int, query map[string][]string) error {
-	startAfter := ""
-	if v, ok := query["start-after"]; ok && len(v) > 0 {
-		startAfter = v[0]
-	}
-	continuationToken := ""
-	if v, ok := query["continuation-token"]; ok && len(v) > 0 {
-		continuationToken = v[0]
-	}
-
-	objects, err := g.metadata.ListObjects(r.Context(), bucket, prefix, maxKeys+1)
-	if err != nil {
-		return fmt.Errorf("failed to list objects: %w", err)
-	}
-
-	if startAfter != "" {
-		filtered := make([]*metadata.ObjectMetadata, 0, len(objects))
-		passedStart := false
-		for _, obj := range objects {
-			if obj.Key == startAfter {
-				passedStart = true
-				continue
-			}
-			if passedStart {
-				filtered = append(filtered, obj)
-			}
-		}
-		objects = filtered
-	} else if continuationToken != "" {
-		filtered := make([]*metadata.ObjectMetadata, 0, len(objects))
-		passedToken := false
-		for _, obj := range objects {
-			if obj.Key == continuationToken {
-				passedToken = true
-				continue
-			}
-			if passedToken {
-				filtered = append(filtered, obj)
-			}
-		}
-		objects = filtered
-	}
-
-	isTruncated := len(objects) > maxKeys
-	if isTruncated {
-		objects = objects[:maxKeys]
-	}
-
-	output := ListObjectsV2Output{
-		Name:              bucket,
-		Prefix:            prefix,
-		StartAfter:        startAfter,
-		ContinuationToken: continuationToken,
-		KeyCount:          len(objects),
-		MaxKeys:           maxKeys,
-		Delimiter:         delimiter,
-		IsTruncated:       isTruncated,
-	}
-
-	for _, obj := range objects {
-		if delimiter != "" {
-			idx := strings.Index(obj.Key[len(prefix):], delimiter)
-			if idx >= 0 {
-				output.CommonPrefixes = append(output.CommonPrefixes, struct {
-					Prefix string `xml:"Prefix"`
-				}{Prefix: obj.Key[:len(prefix)+idx+len(delimiter)]})
-				continue
-			}
-		}
-
-		output.Contents = append(output.Contents, ListObjectsV2Content{
-			Key:          obj.Key,
-			LastModified: obj.ModifiedAt,
-			ETag:         obj.ETag,
-			Size:         obj.Size,
-			StorageClass: common.StorageTier(obj.StorageTier).String(),
-			Owner: &struct {
-				ID          string `xml:"ID"`
-				DisplayName string `xml:"DisplayName"`
-			}{
-				ID:          "nexus-owner",
-				DisplayName: "nexus-owner",
-			},
-		})
-	}
-
-	if isTruncated && len(output.Contents) > 0 {
-		output.NextContinuationToken = output.Contents[len(output.Contents)-1].Key
-	}
-
-	return g.writeXML(w, http.StatusOK, output)
-}
-
-func (g *S3Gateway) handlePutObject(w http.ResponseWriter, r *http.Request, bucket, key string) error {
-	if r.Method != "PUT" {
-		return fmt.Errorf("method not allowed")
-	}
-
-	isPresignedURL := r.URL.Query().Get("X-Amz-Credential") != ""
-	if isPresignedURL {
-		if err := g.validatePresignedURLMethod(r, "PUT"); err != nil {
-			return err
-		}
-	}
-
-	if _, err := g.auth.RequireAuthForBucket(r, bucket, "write"); err != nil {
-		return fmt.Errorf("access denied: %w", err)
-	}
-
-	contentType := r.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = "application/octet-stream"
-	}
-
-	if !g.validateContentType(contentType) {
-		return fmt.Errorf("unsupported content type: %s", contentType)
-	}
-
-	contentLength := r.ContentLength
-	if contentLength < 0 {
-		// If Content-Length is not set, we need to read the body to determine size
-		// This is necessary for proper validation
-		bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, g.config.Performance.MaxUploadBytes))
-		if err != nil {
-			return fmt.Errorf("failed to read request body: %w", err)
-		}
-		contentLength = int64(len(bodyBytes))
-		// Replace body with a reader for the bytes we just read
-		r.Body = io.NopCloser(strings.NewReader(string(bodyBytes)))
-	}
-
-	if g.config != nil && g.config.Performance.MaxUploadBytes > 0 {
-		if contentLength > g.config.Performance.MaxUploadBytes {
-			g.writeError(w, http.StatusRequestEntityTooLarge, "EntityTooLarge",
-				fmt.Sprintf("Object size %d exceeds maximum allowed size %d",
-					contentLength, g.config.Performance.MaxUploadBytes))
-			return nil
-		}
-	}
-
-	metadataMap := make(map[string]string)
-	for k, values := range r.Header {
-		if strings.HasPrefix(strings.ToLower(k), "x-amz-meta-") {
-			metadataMap[strings.TrimPrefix(k, "x-amz-meta-")] = values[0]
-		}
-	}
-
-	userID := g.auth.GetUserID(r)
-	if userID == "" {
-		userID = "anonymous"
-	}
-
-	etag := uuid.New().String()
-
-	var providedChecksum string
-	var providedChecksumType string
-
-	if c := r.Header.Get("x-amz-checksum-crc32c"); c != "" {
-		providedChecksum = c
-		providedChecksumType = "crc32c"
-	} else if c := r.Header.Get("x-amz-checksum-sha256"); c != "" {
-		providedChecksum = c
-		providedChecksumType = "sha256"
-	} else if c := r.Header.Get("x-amz-checksum-md5"); c != "" {
-		providedChecksum = c
-		providedChecksumType = "md5"
-	} else if c := r.Header.Get("Content-MD5"); c != "" {
-		providedChecksum = c
-		providedChecksumType = "md5"
-	}
-
-	sha256Hasher := sha256.New()
-	var crc32cHasher hash.Hash
-	var md5Hasher hash.Hash
-
-	if providedChecksumType == "crc32c" {
-		crc32cHasher = crc32.New(crc32.MakeTable(crc32.Castagnoli))
-	}
-	if providedChecksumType == "md5" {
-		md5Hasher = md5.New()
-	}
-
-	var hashWriters []io.Writer
-	hashWriters = append(hashWriters, sha256Hasher)
-	if crc32cHasher != nil {
-		hashWriters = append(hashWriters, crc32cHasher)
-	}
-	if md5Hasher != nil {
-		hashWriters = append(hashWriters, md5Hasher)
-	}
-	multiWriter := io.MultiWriter(hashWriters...)
-
-	var plaintextReader io.Reader = io.TeeReader(r.Body, multiWriter)
-
-	var dataReader io.Reader = plaintextReader
-	var encryptedDEKMetadata []byte
-	var encrypted bool
-	var actualStorageSize int64 = contentLength
-	var ssecUsed bool
-	var ssecKeySHA256 string
-
-	// Check for SSE-C headers BEFORE the existing encryption path
-	clientKey, ssecErr := parseSSECHeaders(r)
-	if ssecErr != nil {
-		g.writeError(w, http.StatusBadRequest, "InvalidRequest", ssecErr.Error())
-		return nil
-	}
-
-	if clientKey != nil && g.cryptoCoordinator != nil {
-		// SSE-C: encrypt with client-provided key
-		ssecUsed = true
-		ssecKeySHA256 = services.ComputeSSECKeySHA256(clientKey)
-
-		encryptedReader, ssecMetadata, ciphertextSize, err := g.cryptoCoordinator.EncryptWithClientKey(r.Context(), plaintextReader, clientKey, contentLength)
-		// Zero the client key immediately after encryption (spec: key must not persist beyond handler scope)
-		for i := range clientKey {
-			clientKey[i] = 0
-		}
-		if err != nil {
-			return fmt.Errorf("SSE-C encryption failed")
-		}
-		dataReader = encryptedReader
-		encryptedDEKMetadata = ssecMetadata
-		encrypted = true
-		actualStorageSize = ciphertextSize
-	} else if clientKey != nil {
-		// SSE-C requested but no crypto coordinator - zero key and reject
-		for i := range clientKey {
-			clientKey[i] = 0
-		}
-		return fmt.Errorf("SSE-C encryption requested but encryption services are not enabled")
-	} else if g.cryptoCoordinator != nil && g.config != nil && g.config.CryptoServices.Enabled {
-		encryptedReader, _, metadata, ciphertextSize, err := g.cryptoCoordinator.EncryptOperation(r.Context(), userID, bucket, key, plaintextReader, contentLength)
-		if err != nil {
-			return fmt.Errorf("encryption failed: %w", err)
-		}
-		dataReader = encryptedReader
-		encryptedDEKMetadata = metadata
-		encrypted = true
-		actualStorageSize = ciphertextSize
-	}
-
-	objMetadata := &common.ObjectMetadata{
-		Key:            key,
-		Bucket:         bucket,
-		Size:           contentLength,
-		ContentType:    contentType,
-		ETag:           etag,
-		UserMetadata:   metadataMap,
-		StorageTier:    common.TierHot,
-		CreatedAt:      time.Now(),
-		ModifiedAt:     time.Now(),
-		AccessCount:    0,
-		LastAccessedAt: time.Now(),
-		Encrypted:      encrypted,
-		VersionID:      uuid.New().String(),
-	}
-
-	storageTier := common.TierHot
-	if err := g.store.Put(r.Context(), bucket, key, dataReader, actualStorageSize, storageTier, objMetadata); err != nil {
-		return fmt.Errorf("failed to store object: %w", err)
-	}
-
-	computedSHA256 := base64.StdEncoding.EncodeToString(sha256Hasher.Sum(nil))
-
-	var storedChecksum string
-	var storedChecksumType string
-
-	switch providedChecksumType {
-	case "crc32c":
-		storedChecksum = base64.StdEncoding.EncodeToString(crc32cHasher.Sum(nil))
-		storedChecksumType = "crc32c"
-		if providedChecksum != storedChecksum {
-			g.store.Delete(r.Context(), bucket, key, storageTier)
-			g.writeError(w, http.StatusBadRequest, "BadDigest",
-				fmt.Sprintf("CRC32C checksum mismatch: expected %s, got %s", providedChecksum, storedChecksum))
-			return nil
-		}
-	case "sha256":
-		storedChecksum = computedSHA256
-		storedChecksumType = "sha256"
-		if providedChecksum != storedChecksum {
-			g.store.Delete(r.Context(), bucket, key, storageTier)
-			g.writeError(w, http.StatusBadRequest, "BadDigest",
-				fmt.Sprintf("SHA256 checksum mismatch: expected %s, got %s", providedChecksum, storedChecksum))
-			return nil
-		}
-	case "md5":
-		storedChecksum = base64.StdEncoding.EncodeToString(md5Hasher.Sum(nil))
-		storedChecksumType = "md5"
-		if providedChecksum != storedChecksum {
-			g.store.Delete(r.Context(), bucket, key, storageTier)
-			g.writeError(w, http.StatusBadRequest, "BadDigest",
-				fmt.Sprintf("MD5 checksum mismatch: expected %s, got %s", providedChecksum, storedChecksum))
-			return nil
-		}
-	default:
-		storedChecksum = computedSHA256
-		storedChecksumType = "sha256"
-	}
-
-	meta := &metadata.ObjectMetadata{
-		Key:            key,
-		Bucket:         bucket,
-		Size:           contentLength,
-		ContentType:    contentType,
-		ETag:           etag,
-		UserMetadata:   metadataMap,
-		StorageTier:    int(common.TierHot),
-		CreatedAt:      time.Now(),
-		ModifiedAt:     time.Now(),
-		AccessCount:    0,
-		LastAccessedAt: time.Now(),
-		Encrypted:      encrypted,
-		VersionID:      objMetadata.VersionID,
-		IsLatest:       true,
-		ObjectStatus:   "active",
-		Checksum:       storedChecksum,
-		ChecksumType:   storedChecksumType,
-		SSECUsed:       ssecUsed,
-		SSECKeySHA256:  ssecKeySHA256,
-		SSECAlgorithm:  func() string {
-			if ssecUsed {
-				return "AES256"
-			}
-			return ""
-		}(),
-	}
-
-	if encryptedDEKMetadata != nil {
-		meta.EncryptedDEK = encryptedDEKMetadata
-	}
-
-	// SSE-C: dedup must be disabled per spec (SSE-C objects cannot be deduplicated
-	// because each object is encrypted with a different customer key, producing unique ciphertexts).
-	// If dedup is enabled, log a warning but proceed without dedup for this object.
-	if ssecUsed && g.config != nil && g.config.Encryption.EnableDedup {
-		// Dedup is not applicable for SSE-C objects; the object is stored independently.
-		// No action needed here since dedup logic is not yet implemented in the storage path,
-		// but when it is, SSE-C objects must be excluded from content-addressable storage.
-	}
-
-	if err := g.metadata.PutObject(r.Context(), bucket, key, meta); err != nil {
-		g.store.Delete(r.Context(), bucket, key, storageTier)
-		return fmt.Errorf("failed to store metadata: %w", err)
-	}
-
-	if g.tiering != nil {
-		g.tiering.RecordAccess(r.Context(), bucket, key, "PUT", userID)
-	}
-
-	if g.vector != nil && g.config.Vector.Enabled {
-		// Auto-index when vector search is enabled; skip if client explicitly opts out
-		if r.Header.Get("X-Vectorize") != "false" {
-			go g.vectorizeObject(r.Context(), bucket, key, contentType, metadataMap, userID)
-		}
-	}
-
-	// FTS indexing for text content
-	if g.ftsIndex != nil && g.config.FTS.Enabled {
-		if r.Header.Get("X-FTS-Index") != "false" {
-			go g.ftsIndexObject(r.Context(), bucket, key, contentType, objMetadata.VersionID)
-		}
-	}
-
-	if g.pipeline != nil {
-		go g.triggerPipelines(r.Context(), bucket, key, contentType, metadataMap)
-	}
-
-	w.Header().Set("ETag", `"`+etag+`"`)
-	w.Header().Set("x-amz-version-id", objMetadata.VersionID)
-	if ssecUsed {
-		w.Header().Set("x-amz-server-side-encryption-customer-algorithm", "AES256")
-		// Echo back the customer key MD5 for SSE-C verification
-		if keyMD5 := r.Header.Get("x-amz-server-side-encryption-customer-key-MD5"); keyMD5 != "" {
-			w.Header().Set("x-amz-server-side-encryption-customer-key-MD5", keyMD5)
-		}
-	} else if encrypted {
-		w.Header().Set("x-amz-server-side-encryption", "AES256")
-	}
-	switch storedChecksumType {
-	case "crc32c":
-		w.Header().Set("x-amz-checksum-crc32c", storedChecksum)
-	case "sha256":
-		w.Header().Set("x-amz-checksum-sha256", storedChecksum)
-	case "md5":
-		w.Header().Set("x-amz-checksum-md5", storedChecksum)
-	}
-	w.WriteHeader(http.StatusOK)
-
-	// Record metrics
-	if g.metrics != nil {
-		g.metrics.RecordPutObject(bucket, "success")
-	}
-
-	auditDetails := map[string]interface{}{
-		"size":         contentLength,
-		"content_type": contentType,
-		"encrypted":    encrypted,
-	}
-	if ssecUsed {
-		auditDetails["sse_c_used"] = true
-	}
-	g.auditLog(r, "PUT", bucket, key, userID, "success", auditDetails)
-
-	if g.eventBus != nil {
-		g.eventBus.Publish(r.Context(), &events.Event{
-			EventType:    "s3:ObjectCreated:Put",
-			Bucket:       bucket,
-			Key:          key,
-			VersionID:    objMetadata.VersionID,
-			ETag:         etag,
-			Size:         contentLength,
-			RequesterARN: userID,
-			SourceIP:     extractIP(r),
-		})
-	}
-
-	return nil
-}
-
-func (g *S3Gateway) handleGetObject(w http.ResponseWriter, r *http.Request, bucket, key string) error {
-	if r.Method != "GET" {
-		return fmt.Errorf("method not allowed")
-	}
-
-	isPresignedURL := r.URL.Query().Get("X-Amz-Credential") != ""
-
-	if isPresignedURL {
-		if err := g.validatePresignedURLMethod(r, "GET"); err != nil {
-			return err
-		}
-	}
-
-	if !isPresignedURL && !g.isBucketPublicRead(r, bucket) {
-		if _, err := g.auth.RequireAuthForBucket(r, bucket, "read"); err != nil {
-			return fmt.Errorf("access denied: %w", err)
-		}
-	}
-
-	userID := g.auth.GetUserID(r)
-	if userID == "" {
-		userID = "anonymous"
-	}
-
-	if g.tiering != nil {
-		g.tiering.RecordAccess(r.Context(), bucket, key, "GET", userID)
-	}
-
-	objMetadata, err := g.metadata.GetObject(r.Context(), bucket, key)
-	if err != nil {
-		g.writeError(w, http.StatusNotFound, "NoSuchKey", fmt.Sprintf("Object '%s' not found", key))
-		return nil
-	}
-
-	if objMetadata.DeleteMarker {
-		g.writeError(w, http.StatusNotFound, "NoSuchKey", "Object has been deleted")
-		return nil
-	}
-
-	etag := `"` + objMetadata.ETag + `"`
-	ifNoneMatch := r.Header.Get("If-None-Match")
-	if ifNoneMatch != "" {
-		if ifNoneMatch == "*" || ifNoneMatch == etag {
-			w.WriteHeader(http.StatusNotModified)
-			return nil
-		}
-	}
-
-	ifMatch := r.Header.Get("If-Match")
-	if ifMatch != "" && ifMatch != "*" && ifMatch != etag {
-		g.writeError(w, http.StatusPreconditionFailed, "PreconditionFailed", "ETag does not match")
-		return nil
-	}
-
-	ifModifiedSince := r.Header.Get("If-Modified-Since")
-	if ifModifiedSince != "" {
-		ifModTime, err := time.Parse(http.TimeFormat, ifModifiedSince)
-		if err == nil && !objMetadata.ModifiedAt.After(ifModTime) {
-			w.WriteHeader(http.StatusNotModified)
-			return nil
-		}
-	}
-
-	rangeHeader := r.Header.Get("Range")
-	cacheKey := bucket + "/" + key
-
-	if g.objectCache != nil && objMetadata.Size < 1<<20 && rangeHeader == "" && !objMetadata.Encrypted {
-		if cachedData, found := g.objectCache.Get(r.Context(), cacheKey); found {
-			w.Header().Set("Content-Type", objMetadata.ContentType)
-			w.Header().Set("Content-Length", strconv.FormatInt(int64(len(cachedData)), 10))
-			w.Header().Set("ETag", etag)
-			w.Header().Set("Last-Modified", objMetadata.ModifiedAt.Format(http.TimeFormat))
-			w.Header().Set("Accept-Ranges", "bytes")
-			w.Header().Set("Cache-Control", "max-age=3600")
-			w.Header().Set("X-Cache", "HIT")
-			for k, v := range objMetadata.UserMetadata {
-				w.Header().Set("X-Amz-Meta-"+k, v)
-			}
-			setChecksumResponseHeaders(w, objMetadata, r)
-			w.WriteHeader(http.StatusOK)
-			w.Write(cachedData)
-			return nil
-		}
-	}
-
-	storageTier := common.StorageTier(objMetadata.StorageTier)
-	reader, _, err := g.store.Get(r.Context(), bucket, key, storageTier)
-	if err != nil {
-		g.writeError(w, http.StatusNotFound, "NoSuchKey", fmt.Sprintf("Object '%s' not found", key))
-		return nil
-	}
-	defer reader.Close()
-
-	var dataReader io.Reader = reader
-	var contentLength = objMetadata.Size
-
-	// SSE-C decryption path: if object was encrypted with SSE-C, require customer key
-	if objMetadata.SSECUsed {
-		clientKey, ssecErr := parseSSECHeadersForRead(r)
-		if ssecErr != nil {
-			g.writeError(w, http.StatusBadRequest, "InvalidRequest", "Invalid SSE-C customer key headers")
-			return nil
-		}
-		if clientKey == nil {
-			g.writeError(w, http.StatusForbidden, "AccessDenied", "Object encrypted with SSE-C requires customer key headers")
-			return nil
-		}
-		// Verify the provided key matches the stored key SHA-256 (constant-time comparison to prevent timing attacks)
-		keySHA256 := services.ComputeSSECKeySHA256(clientKey)
-		if subtle.ConstantTimeCompare([]byte(keySHA256), []byte(objMetadata.SSECKeySHA256)) != 1 {
-			g.writeError(w, http.StatusForbidden, "AccessDenied", "The provided SSE-C key does not match the key used to encrypt the object")
-			// Zero the client key immediately after failed verification
-			for i := range clientKey {
-				clientKey[i] = 0
-			}
-			return nil
-		}
-		if g.cryptoCoordinator != nil && len(objMetadata.EncryptedDEK) > 0 {
-			decryptedReader, err := g.cryptoCoordinator.DecryptWithClientKey(r.Context(), reader, clientKey, objMetadata.EncryptedDEK, objMetadata.Size)
-			// Zero the client key immediately after use
-			for i := range clientKey {
-				clientKey[i] = 0
-			}
-			if err != nil {
-				g.writeError(w, http.StatusInternalServerError, "InternalError", "An internal error occurred while processing the object")
-				return nil
-			}
-			dataReader = decryptedReader
-		} else {
-			// Zero the client key if not used for decryption
-			for i := range clientKey {
-				clientKey[i] = 0
-			}
-		}
-	} else if objMetadata.Encrypted && g.cryptoCoordinator != nil && len(objMetadata.EncryptedDEK) > 0 {
-		encryptedDEKMetadata := objMetadata.EncryptedDEK
-
-		rawFallback := r.Header.Get("x-amz-raw-decryption-fallback") == "true"
-		var rawBackup []byte
-		if rawFallback {
-			rawBackup, err = io.ReadAll(io.LimitReader(reader, g.config.Performance.MaxUploadBytes))
-			if err != nil {
-				g.writeError(w, http.StatusInternalServerError, "InternalError", "An internal error occurred while processing the object")
-				return nil
-			}
-			reader = io.NopCloser(bytes.NewReader(rawBackup))
-		}
-
-		decryptedReader, err := g.cryptoCoordinator.DecryptOperation(r.Context(), userID, bucket, key, reader, "", encryptedDEKMetadata)
-		if err != nil {
-			if rawFallback && rawBackup != nil {
-				w.Header().Set("x-amz-decryption-fallback", "true")
-				dataReader = bytes.NewReader(rawBackup)
-				contentLength = int64(len(rawBackup))
-			} else {
-				g.writeError(w, http.StatusInternalServerError, "InternalError", "An internal error occurred while processing the object")
-				return nil
-			}
-		} else {
-			dataReader = decryptedReader
-		}
-	}
-
-	var statusCode = http.StatusOK
-	var contentRange string
-
-	if rangeHeader != "" {
-		start, end, err := parseRangeHeader(rangeHeader, objMetadata.Size)
-		if err != nil {
-			g.writeError(w, http.StatusRequestedRangeNotSatisfiable, "InvalidRange", err.Error())
-			return nil
-		}
-
-		if seeker, ok := dataReader.(io.Seeker); ok {
-			seeker.Seek(start, io.SeekStart)
-			dataReader = io.LimitReader(dataReader, end-start+1)
-		} else {
-			discard := start
-			buf := make([]byte, 32*1024)
-			for discard > 0 {
-				n := int64(len(buf))
-				if n > discard {
-					n = discard
-				}
-				read, err := io.ReadFull(dataReader, buf[:n])
-				if err != nil {
-					break
-				}
-				discard -= int64(read)
-			}
-			dataReader = io.LimitReader(dataReader, end-start+1)
-		}
-
-		contentLength = end - start + 1
-		contentRange = fmt.Sprintf("bytes %d-%d/%d", start, end, objMetadata.Size)
-		statusCode = http.StatusPartialContent
-	}
-
-	w.Header().Set("Content-Type", objMetadata.ContentType)
-	w.Header().Set("Content-Length", strconv.FormatInt(contentLength, 10))
-	w.Header().Set("ETag", etag)
-	w.Header().Set("Last-Modified", objMetadata.ModifiedAt.Format(http.TimeFormat))
-	w.Header().Set("Accept-Ranges", "bytes")
-	w.Header().Set("Cache-Control", "max-age=3600")
-
-	if g.objectCache != nil {
-		w.Header().Set("X-Cache", "MISS")
-	}
-
-	if objMetadata.SSECUsed {
-		w.Header().Set("x-amz-server-side-encryption-customer-algorithm", "AES256")
-		// Echo back the customer key MD5 from the request for SSE-C verification
-		if keyMD5 := r.Header.Get("x-amz-server-side-encryption-customer-key-MD5"); keyMD5 != "" {
-			w.Header().Set("x-amz-server-side-encryption-customer-key-MD5", keyMD5)
-		}
-	} else if objMetadata.Encrypted {
-		w.Header().Set("x-amz-server-side-encryption", "AES256")
-	}
-
-	if contentRange != "" {
-		w.Header().Set("Content-Range", contentRange)
-	}
-
-	for k, v := range objMetadata.UserMetadata {
-		w.Header().Set("X-Amz-Meta-"+k, v)
-	}
-
-	setChecksumResponseHeaders(w, objMetadata, r)
-
-	w.WriteHeader(statusCode)
-
-	if g.objectCache != nil && objMetadata.Size < 1<<20 && rangeHeader == "" && !objMetadata.Encrypted {
-		data, err := io.ReadAll(io.LimitReader(dataReader, 1<<20))
-		if err == nil {
-			g.objectCache.Set(r.Context(), cacheKey, data)
-			w.Write(data)
-			return nil
-		}
-	}
-
-	io.Copy(w, dataReader)
-
-	// Record metrics
-	if g.metrics != nil {
-		g.metrics.RecordGetObject(bucket, "success", contentLength)
-	}
-
-	return nil
 }
 
 func isClientDisconnected(err error) bool {
@@ -1754,174 +1041,11 @@ func parseRangeHeader(rangeHeader string, totalSize int64) (start, end int64, er
 	return start, end, nil
 }
 
-func (g *S3Gateway) handleHeadObject(w http.ResponseWriter, r *http.Request, bucket, key string) error {
-	if r.Method != "HEAD" {
-		return fmt.Errorf("method not allowed")
-	}
-
-	if !g.isBucketPublicRead(r, bucket) {
-		if _, err := g.auth.RequireAuthForBucket(r, bucket, "read"); err != nil {
-			return fmt.Errorf("access denied: %w", err)
-		}
-	}
-
-	objMetadata, err := g.metadata.GetObject(r.Context(), bucket, key)
-	if err != nil {
-		return fmt.Errorf("object not found: %w", err)
-	}
-
-	// SSE-C: require customer key for HEAD if object was encrypted with SSE-C
-	if objMetadata.SSECUsed {
-		clientKey, ssecErr := parseSSECHeadersForRead(r)
-		if ssecErr != nil {
-			g.writeError(w, http.StatusBadRequest, "InvalidRequest", ssecErr.Error())
-			return nil
-		}
-		if clientKey == nil {
-			g.writeError(w, http.StatusForbidden, "AccessDenied", "Object encrypted with SSE-C requires customer key headers")
-			return nil
-		}
-		// Verify the provided key matches the stored key SHA-256 (constant-time comparison to prevent timing attacks)
-		keySHA256 := services.ComputeSSECKeySHA256(clientKey)
-		if subtle.ConstantTimeCompare([]byte(keySHA256), []byte(objMetadata.SSECKeySHA256)) != 1 {
-			g.writeError(w, http.StatusForbidden, "AccessDenied", "The provided SSE-C key does not match the key used to encrypt the object")
-			return nil
-		}
-		// Zero the client key after verification for HEAD (no decryption needed)
-		for i := range clientKey {
-			clientKey[i] = 0
-		}
-	}
-
-	w.Header().Set("Content-Type", objMetadata.ContentType)
-	w.Header().Set("Content-Length", strconv.FormatInt(objMetadata.Size, 10))
-	w.Header().Set("ETag", `"`+objMetadata.ETag+`"`)
-	w.Header().Set("Last-Modified", objMetadata.ModifiedAt.Format(http.TimeFormat))
-	w.Header().Set("X-Amz-Storage-Class", common.StorageTier(objMetadata.StorageTier).String())
-
-	if objMetadata.SSECUsed {
-		w.Header().Set("x-amz-server-side-encryption-customer-algorithm", "AES256")
-		// Echo back the customer key MD5 for SSE-C verification
-		if keyMD5 := r.Header.Get("x-amz-server-side-encryption-customer-key-MD5"); keyMD5 != "" {
-			w.Header().Set("x-amz-server-side-encryption-customer-key-MD5", keyMD5)
-		}
-	} else if objMetadata.Encrypted {
-		w.Header().Set("x-amz-server-side-encryption", "AES256")
-	}
-
-	for k, v := range objMetadata.UserMetadata {
-		w.Header().Set("X-Amz-Meta-"+k, v)
-	}
-
-	setChecksumResponseHeaders(w, objMetadata, r)
-
-	w.WriteHeader(http.StatusOK)
-	return nil
-}
-
-func (g *S3Gateway) handleDeleteObject(w http.ResponseWriter, r *http.Request, bucket, key string) error {
-	if r.Method != "DELETE" {
-		return fmt.Errorf("method not allowed")
-	}
-
-	if _, err := g.auth.RequireAuthForBucket(r, bucket, "delete"); err != nil {
-		return fmt.Errorf("access denied: %w", err)
-	}
-
-	objMetadata, err := g.metadata.GetObject(r.Context(), bucket, key)
-	if err != nil {
-		w.WriteHeader(http.StatusNoContent)
-		return nil
-	}
-
-	if r.Header.Get("x-amz-bypass-governance-retention") != "true" {
-		if objMetadata.RetainUntil != nil && objMetadata.RetainUntil.After(time.Now()) {
-			g.writeError(w, http.StatusForbidden, "ObjectLocked", "Object is under retention lock")
-			return nil
-		}
-	}
-
-	softDelete := r.Header.Get("x-amz-delete-marker") != "false"
-	versioningEnabled := false
-
-	if bucketInfo, err := g.metadata.GetBucket(r.Context(), bucket); err == nil {
-		versioningEnabled = bucketInfo.Versioning
-	}
-
-	if softDelete && versioningEnabled {
-		deleteMarker := &metadata.ObjectMetadata{
-			Key:          key,
-			Bucket:       bucket,
-			Size:         0,
-			ContentType:  "application/octet-stream",
-			ETag:         uuid.New().String(),
-			StorageTier:  objMetadata.StorageTier,
-			CreatedAt:    time.Now(),
-			ModifiedAt:   time.Now(),
-			DeleteMarker: true,
-			VersionID:    uuid.New().String(),
-			IsLatest:     true,
-			ObjectStatus: "delete-marker",
-		}
-
-		if err := g.metadata.PutObject(r.Context(), bucket, key, deleteMarker); err != nil {
-			return fmt.Errorf("failed to create delete marker: %w", err)
-		}
-
-		w.Header().Set("x-amz-delete-marker", "true")
-		w.Header().Set("x-amz-version-id", deleteMarker.VersionID)
-	} else {
-		storageTier := common.StorageTier(objMetadata.StorageTier)
-		g.store.Delete(r.Context(), bucket, key, storageTier)
-
-		if g.vector != nil {
-			g.vector.DeleteVector(r.Context(), bucket, key)
-		}
-
-		if g.ftsIndex != nil {
-			g.ftsIndex.DeleteDocumentByKey(bucket, key)
-		}
-
-		if g.objectCache != nil {
-			g.objectCache.Delete(r.Context(), bucket+"/"+key)
-		}
-
-		g.metadata.DeleteObject(r.Context(), bucket, key)
-	}
-
-	userID := g.auth.GetUserID(r)
-	g.auditLog(r, "DELETE", bucket, key, userID, "success", map[string]interface{}{
-		"soft_delete": softDelete && versioningEnabled,
-	})
-
-	if g.eventBus != nil {
-		g.eventBus.Publish(r.Context(), &events.Event{
-			EventType:    "s3:ObjectRemoved:Delete",
-			Bucket:       bucket,
-			Key:          key,
-			VersionID:    objMetadata.VersionID,
-			ETag:         objMetadata.ETag,
-			Size:         objMetadata.Size,
-			RequesterARN: userID,
-			SourceIP:     extractIP(r),
-		})
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-
-	// Record metrics
-	if g.metrics != nil {
-		g.metrics.RecordPutObject(bucket, "delete")
-	}
-
-	return nil
-}
-
 // DeleteObjectsRequest represents the XML body of a DeleteObjects request.
 type DeleteObjectsRequest struct {
-	XMLName xml.Name             `xml:"Delete"`
+	XMLName xml.Name              `xml:"Delete"`
 	Objects []DeleteObjectsObject `xml:"Object"`
-	Quiet   bool                 `xml:"Quiet,omitempty"`
+	Quiet   bool                  `xml:"Quiet,omitempty"`
 }
 
 // DeleteObjectsObject represents a single object in a DeleteObjects request.
@@ -1932,7 +1056,7 @@ type DeleteObjectsObject struct {
 
 // DeleteObjectsResult represents the XML response for DeleteObjects.
 type DeleteObjectsResult struct {
-	XMLName xml.Name              `xml:"DeleteResult"`
+	XMLName xml.Name               `xml:"DeleteResult"`
 	Deleted []DeleteObjectsDeleted `xml:"Deleted"`
 	Error   []DeleteObjectsError   `xml:"Error,omitempty"`
 }
@@ -1950,85 +1074,6 @@ type DeleteObjectsError struct {
 	Message string `xml:"Message"`
 }
 
-func (g *S3Gateway) handleDeleteObjects(w http.ResponseWriter, r *http.Request, bucket string) error {
-	if r.Method != "POST" {
-		return fmt.Errorf("method not allowed")
-	}
-
-	body, err := io.ReadAll(io.LimitReader(r.Body, maxRequestBodyBytes))
-	if err != nil {
-		return fmt.Errorf("failed to read request body: %w", err)
-	}
-
-	var req DeleteObjectsRequest
-	if err := xml.Unmarshal(body, &req); err != nil {
-		return fmt.Errorf("failed to parse delete request: %w", err)
-	}
-
-	userID := g.auth.GetUserID(r)
-	if userID == "" {
-		userID = "anonymous"
-	}
-
-	result := DeleteObjectsResult{}
-
-	for _, obj := range req.Objects {
-		objMetadata, err := g.metadata.GetObject(r.Context(), bucket, obj.Key)
-		if err != nil {
-			if !req.Quiet {
-				result.Error = append(result.Error, DeleteObjectsError{
-					Key:     obj.Key,
-					Code:    "NoSuchKey",
-					Message: fmt.Sprintf("Object '%s' not found", obj.Key),
-				})
-			}
-			continue
-		}
-
-		storageTier := common.StorageTier(objMetadata.StorageTier)
-		g.store.Delete(r.Context(), bucket, obj.Key, storageTier)
-
-		if g.vector != nil {
-			g.vector.DeleteVector(r.Context(), bucket, obj.Key)
-		}
-
-		if g.ftsIndex != nil {
-			g.ftsIndex.DeleteDocumentByKey(bucket, obj.Key)
-		}
-
-		if g.objectCache != nil {
-			g.objectCache.Delete(r.Context(), bucket+"/"+obj.Key)
-		}
-
-		g.metadata.DeleteObject(r.Context(), bucket, obj.Key)
-
-		// Publish s3:ObjectRemoved:Delete event for each deleted key
-		if g.eventBus != nil {
-			g.eventBus.Publish(r.Context(), &events.Event{
-				EventType:    "s3:ObjectRemoved:Delete",
-				Bucket:       bucket,
-				Key:          obj.Key,
-				VersionID:    objMetadata.VersionID,
-				ETag:         objMetadata.ETag,
-				Size:         objMetadata.Size,
-				RequesterARN: userID,
-				SourceIP:     r.RemoteAddr,
-			})
-		}
-
-		result.Deleted = append(result.Deleted, DeleteObjectsDeleted{
-			Key:       obj.Key,
-			VersionID: objMetadata.VersionID,
-		})
-	}
-
-	g.auditLog(r, "DELETE_OBJECTS", bucket, "", userID, "success", map[string]interface{}{
-		"count": len(req.Objects),
-	})
-
-	return g.writeXML(w, http.StatusOK, result)
-}
-
 // CopyObjectResult represents the XML response for CopyObject.
 type CopyObjectResult struct {
 	XMLName      xml.Name `xml:"CopyObjectResult"`
@@ -2036,673 +1081,25 @@ type CopyObjectResult struct {
 	ETag         string   `xml:"ETag"`
 }
 
-func (g *S3Gateway) handleCopyObject(w http.ResponseWriter, r *http.Request, bucket, key string) error {
-	if r.Method != "PUT" {
-		return fmt.Errorf("method not allowed")
-	}
-
-	if _, err := g.auth.RequireAuthForBucket(r, bucket, "write"); err != nil {
-		return fmt.Errorf("access denied: %w", err)
-	}
-
-	copySource := r.Header.Get("x-amz-copy-source")
-	if copySource == "" {
-		return fmt.Errorf("missing x-amz-copy-source header")
-	}
-
-	// Parse copy source: /bucket/key or bucket/key
-	copySource = strings.TrimPrefix(copySource, "/")
-	parts := strings.SplitN(copySource, "/", 2)
-	if len(parts) < 2 {
-		return fmt.Errorf("invalid copy source format, expected /bucket/key")
-	}
-	srcBucket := parts[0]
-	srcKey := parts[1]
-
-	// Check read permission on source bucket
-	if _, err := g.auth.RequireAuthForBucket(r, srcBucket, "read"); err != nil {
-		return fmt.Errorf("access denied on source: %w", err)
-	}
-
-	// Get source object metadata
-	srcMeta, err := g.metadata.GetObject(r.Context(), srcBucket, srcKey)
-	if err != nil {
-		g.writeError(w, http.StatusNotFound, "NoSuchKey", fmt.Sprintf("Source object '%s/%s' not found", srcBucket, srcKey))
-		return nil
-	}
-
-	if srcMeta.DeleteMarker {
-		g.writeError(w, http.StatusNotFound, "NoSuchKey", "Source object has been deleted")
-		return nil
-	}
-
-	userID := g.auth.GetUserID(r)
-	if userID == "" {
-		userID = "anonymous"
-	}
-
-	// Read source object data
-	srcStorageTier := common.StorageTier(srcMeta.StorageTier)
-	srcReader, _, err := g.store.Get(r.Context(), srcBucket, srcKey, srcStorageTier)
-	if err != nil {
-		return fmt.Errorf("failed to read source object: %w", err)
-	}
-	defer srcReader.Close()
-
-	// Copy metadata from source, allowing override via x-amz-meta-* headers
-	metadataMap := make(map[string]string)
-	for k, v := range srcMeta.UserMetadata {
-		metadataMap[k] = v
-	}
-	for k, values := range r.Header {
-		if strings.HasPrefix(strings.ToLower(k), "x-amz-meta-") {
-			metadataMap[strings.TrimPrefix(k, "x-amz-meta-")] = values[0]
-		}
-	}
-
-	contentType := srcMeta.ContentType
-	if ct := r.Header.Get("Content-Type"); ct != "" {
-		contentType = ct
-	}
-
-	etag := uuid.New().String()
-	versionID := uuid.New().String()
-
-	objMetadata := &common.ObjectMetadata{
-		Key:            key,
-		Bucket:         bucket,
-		Size:           srcMeta.Size,
-		ContentType:    contentType,
-		ETag:           etag,
-		UserMetadata:   metadataMap,
-		StorageTier:    common.TierHot,
-		CreatedAt:      time.Now(),
-		ModifiedAt:     time.Now(),
-		AccessCount:    0,
-		LastAccessedAt: time.Now(),
-		Encrypted:      srcMeta.Encrypted,
-		VersionID:      versionID,
-	}
-
-	storageTier := common.TierHot
-	if err := g.store.Put(r.Context(), bucket, key, srcReader, srcMeta.Size, storageTier, objMetadata); err != nil {
-		return fmt.Errorf("failed to copy object: %w", err)
-	}
-
-	meta := &metadata.ObjectMetadata{
-		Key:            key,
-		Bucket:         bucket,
-		Size:           srcMeta.Size,
-		ContentType:    contentType,
-		ETag:           etag,
-		UserMetadata:   metadataMap,
-		StorageTier:    int(common.TierHot),
-		CreatedAt:      time.Now(),
-		ModifiedAt:     time.Now(),
-		AccessCount:    0,
-		LastAccessedAt: time.Now(),
-		Encrypted:      srcMeta.Encrypted,
-		VersionID:      versionID,
-		IsLatest:       true,
-		ObjectStatus:   "active",
-	}
-
-	if err := g.metadata.PutObject(r.Context(), bucket, key, meta); err != nil {
-		return fmt.Errorf("failed to store metadata: %w", err)
-	}
-
-	if g.tiering != nil {
-		g.tiering.RecordAccess(r.Context(), bucket, key, "PUT", userID)
-	}
-
-	// Publish s3:ObjectCreated:Copy event
-	if g.eventBus != nil {
-		g.eventBus.Publish(r.Context(), &events.Event{
-			EventType:    "s3:ObjectCreated:Copy",
-			Bucket:       bucket,
-			Key:          key,
-			VersionID:    versionID,
-			ETag:         etag,
-			Size:         srcMeta.Size,
-			RequesterARN: userID,
-			SourceIP:     r.RemoteAddr,
-		})
-	}
-
-	g.auditLog(r, "COPY", bucket, key, userID, "success", map[string]interface{}{
-		"source_bucket": srcBucket,
-		"source_key":    srcKey,
-		"size":          srcMeta.Size,
-	})
-
-	w.Header().Set("ETag", `"`+etag+`"`)
-	w.Header().Set("x-amz-version-id", versionID)
-	w.Header().Set("x-amz-copy-source-version-id", srcMeta.VersionID)
-
-	output := CopyObjectResult{
-		LastModified: time.Now().Format(time.RFC3339),
-		ETag:         `"` + etag + `"`,
-	}
-
-	return g.writeXML(w, http.StatusOK, output)
-}
-
-func (g *S3Gateway) handleObjectPOST(w http.ResponseWriter, r *http.Request, bucket, key string) error {
-	query := r.URL.Query()
-	if query.Has("vector_search") {
-		return g.handleVectorSearchForObject(w, r, bucket, key)
-	}
-
-	return fmt.Errorf("unsupported POST operation")
-}
-
-type VectorSearchResponse struct {
-	Results   []SearchResultItem `json:"results"`
-	LatencyMs int64              `json:"latency_ms"`
-	IndexUsed string             `json:"index_used"`
-}
-
-type SearchResultItem struct {
-	Key      string            `json:"key"`
-	Score    float32           `json:"score"`
-	Metadata map[string]string `json:"metadata"`
-}
-
-func (g *S3Gateway) handleVectorSearch(w http.ResponseWriter, r *http.Request) error {
-	// Security: Require authentication for vector search
-	user, err := g.auth.RequireAuth(r, "read")
-	if err != nil {
-		return fmt.Errorf("vector search requires authentication: %w", err)
-	}
-
-	// Security: Check vector:Search permission via IAM
-	if g.iamBridge != nil {
-		if err := g.iamBridge.CheckIAMAccess(nil, "vector:Search", "", "", r); err != nil {
-			// Fall back to legacy permission check
-			if user.Role != "admin" {
-				hasVectorPerm := false
-				for _, p := range user.Permissions {
-					if p == "vector:Search" || p == "vector:*" || p == "read" || p == "admin" {
-						hasVectorPerm = true
-						break
-					}
-				}
-				if !hasVectorPerm {
-					return fmt.Errorf("access denied: vector:Search permission required")
-				}
-			}
-		}
-	}
-
-	// Security: Rate limit vector search requests
-	if g.rateLimiter != nil {
-		clientIP := extractClientIP(r)
-		result := g.rateLimiter.Allow(r.Context(), clientIP, user.ID, "", "VECTOR_SEARCH", 0)
-		if !result.Allowed {
-			return fmt.Errorf("vector search rate limit exceeded for user %s", user.ID)
-		}
-	}
-
-	query := r.URL.Query()
-	searchQuery := query.Get("vector_search")
-	if searchQuery == "" {
-		return fmt.Errorf("missing vector_search query parameter")
-	}
-
-	// Security: Limit query length to prevent abuse
-	if len(searchQuery) > 10000 {
-		return fmt.Errorf("search query too long: maximum 10000 characters")
-	}
-
-	topKStr := query.Get("top_k")
-	thresholdStr := query.Get("threshold")
-
-	topK := 20
-	if topKStr != "" {
-		if k, err := strconv.Atoi(topKStr); err == nil {
-			topK = k
-		}
-	}
-
-	// Security: Cap topK to prevent resource exhaustion
-	if topK > 100 {
-		topK = 100
-	}
-	if topK <= 0 {
-		topK = 1
-	}
-
-	threshold := float32(0.7)
-	if thresholdStr != "" {
-		if t, err := strconv.ParseFloat(thresholdStr, 32); err == nil {
-			threshold = float32(t)
-		}
-	}
-
-	filters := make(map[string]string)
-	filterStr := query.Get("filter")
-	if filterStr != "" {
-		pairs := strings.Split(filterStr, "&")
-		for _, pair := range pairs {
-			kv := strings.Split(pair, "=")
-			if len(kv) == 2 {
-				filters[kv[0]] = kv[1]
-			}
-		}
-	}
-
-	// Security: If user is not admin, restrict search to buckets they can read
-	if user.Role != "admin" && g.iamBridge != nil {
-		if bucketFilter := filters["bucket"]; bucketFilter != "" {
-			if err := g.iamBridge.CheckIAMAccess(nil, "s3:GetObject", bucketFilter, "", r); err != nil {
-				return fmt.Errorf("access denied: no read permission on bucket %s", bucketFilter)
-			}
-		}
-	}
-
-	startTime := time.Now()
-
-	searchResult, err := g.vector.SearchByText(r.Context(), searchQuery, topK, filters)
-	if err != nil {
-		return fmt.Errorf("vector search failed: %w", err)
-	}
-
-	// Security: Filter results to only include objects the user can access
-	results := make([]SearchResultItem, 0)
-	for _, r := range searchResult {
-		if r.Score < threshold {
-			continue
-		}
-		// Non-admin users can only see results from buckets they have read access to
-		if user.Role != "admin" && g.iamBridge != nil {
-			if err := g.iamBridge.CheckIAMAccess(nil, "s3:GetObject", r.Bucket, r.ObjectKey, nil); err != nil {
-				continue
-			}
-		}
-		results = append(results, SearchResultItem{
-			Key:      r.ObjectKey,
-			Score:    r.Score,
-			Metadata: r.Metadata,
-		})
-	}
-
-	response := VectorSearchResponse{
-		Results:   results,
-		LatencyMs: time.Since(startTime).Milliseconds(),
-		IndexUsed: "hot",
-	}
-
-	// Security: Audit log for vector search
-	userID := "anonymous"
-	if user != nil {
-		userID = user.ID
-	}
-	g.auditLog(r, "VECTOR_SEARCH", "", "", userID, "success", map[string]interface{}{
-		"query":    truncateString(searchQuery, 200),
-		"top_k":    topK,
-		"results":  len(results),
-		"latency_ms": response.LatencyMs,
-	})
-
-	return g.writeJSON(w, http.StatusOK, response)
-}
-
-func (g *S3Gateway) handleVectorSearchForObject(w http.ResponseWriter, r *http.Request, bucket, key string) error {
-	// Security: Require authentication and bucket-level read access
-	if _, err := g.auth.RequireAuthForBucket(r, bucket, "read"); err != nil {
-		return fmt.Errorf("access denied: %w", err)
-	}
-	return g.handleVectorSearch(w, r)
-}
-
-// FTSSearchResponse is the JSON response for FTS search.
-type FTSSearchResponse struct {
-	Results    []FTSSearchResultItem `json:"results"`
-	Total      int                   `json:"total"`
-	LatencyMs  int64                 `json:"latency_ms"`
-}
-
-// FTSSearchResultItem represents a single FTS search result.
-type FTSSearchResultItem struct {
-	ID        string   `json:"id"`
-	Bucket    string   `json:"bucket"`
-	Key       string   `json:"key"`
-	Score     float64  `json:"score"`
-	Snippet   string   `json:"snippet"`
-	Highlight []string `json:"highlight"`
-}
-
-// handleFTSSearch handles full-text search requests.
-// Supports: POST /?fts_search, GET /{bucket}?fts_search&q=...&topK=...
-// Also: /admin/fts/search?bucket=...&q=...&topK=...
-func (g *S3Gateway) handleFTSSearch(w http.ResponseWriter, r *http.Request) error {
-	if g.ftsIndex == nil {
-		return fmt.Errorf("FTS is not enabled")
-	}
-
-	// Require authentication
-	if _, err := g.auth.RequireAuth(r, "read"); err != nil {
-		return fmt.Errorf("FTS search requires authentication: %w", err)
-	}
-
-	query := r.URL.Query()
-	searchQuery := query.Get("q")
-	if searchQuery == "" {
-		searchQuery = query.Get("fts_search")
-	}
-	if searchQuery == "" {
-		// Try reading from POST body
-		body, err := io.ReadAll(io.LimitReader(r.Body, 1024*1024))
-		if err == nil && len(body) > 0 {
-			var req struct {
-				Query string `json:"query"`
-				Bucket string `json:"bucket"`
-				TopK   int    `json:"top_k"`
-			}
-			if json.Unmarshal(body, &req) == nil && req.Query != "" {
-				searchQuery = req.Query
-			}
-		}
-	}
-
-	if searchQuery == "" {
-		return fmt.Errorf("missing search query parameter 'q'")
-	}
-
-	if len(searchQuery) > 10000 {
-		return fmt.Errorf("search query too long: maximum 10000 characters")
-	}
-
-	bucket := query.Get("bucket")
-	topKStr := query.Get("topK")
-	if topKStr == "" {
-		topKStr = query.Get("top_k")
-	}
-
-	topK := 20
-	if topKStr != "" {
-		if k, err := strconv.Atoi(topKStr); err == nil {
-			topK = k
-		}
-	}
-	if topK > 100 {
-		topK = 100
-	}
-	if topK <= 0 {
-		topK = 1
-	}
-
-	startTime := time.Now()
-
-	results, err := g.ftsIndex.Search(searchQuery, topK)
-	if err != nil {
-		return fmt.Errorf("FTS search failed: %w", err)
-	}
-
-	// Filter by bucket if specified
-	if bucket != "" {
-		var filtered []fts.SearchResult
-		for _, r := range results {
-			if r.Bucket == bucket {
-				filtered = append(filtered, r)
-			}
-		}
-		results = filtered
-	}
-
-	// Build response with snippets and highlights
-	queryTokens := fts.Tokenize(searchQuery)
-	responseResults := make([]FTSSearchResultItem, 0, len(results))
-
-	for _, r := range results {
-		item := FTSSearchResultItem{
-			ID:     fmt.Sprintf("%d", r.DocID),
-			Bucket: r.Bucket,
-			Key:    r.Key,
-			Score:  r.Score,
-		}
-
-		// Generate snippet and highlight from object content
-		content := g.getObjectTextContent(r.Bucket, r.Key)
-		if content != "" {
-			item.Snippet = fts.GenerateSnippet(content, queryTokens, 100)
-			highlighted := fts.HighlightTerms(content, queryTokens)
-			// Extract highlighted terms for the highlight array
-			highlights := extractHighlights(highlighted)
-			item.Highlight = highlights
-		}
-
-		responseResults = append(responseResults, item)
-	}
-
-	response := FTSSearchResponse{
-		Results:   responseResults,
-		Total:     len(responseResults),
-		LatencyMs: time.Since(startTime).Milliseconds(),
-	}
-
-	return g.writeJSON(w, http.StatusOK, response)
-}
-
-// getObjectTextContent reads the text content of an object for snippet generation.
-func (g *S3Gateway) getObjectTextContent(bucket, key string) string {
-	objMeta, err := g.metadata.GetObject(context.Background(), bucket, key)
-	if err != nil {
-		return ""
-	}
-
-	// Only read text content types
-	contentType := objMeta.ContentType
-	if !isTextContentType(contentType) {
-		return ""
-	}
-
-	storageTier := common.StorageTier(objMeta.StorageTier)
-	reader, _, err := g.store.Get(context.Background(), bucket, key, storageTier)
-	if err != nil {
-		return ""
-	}
-	defer reader.Close()
-
-	data, err := io.ReadAll(io.LimitReader(reader, 1024*1024)) // limit to 1MB
-	if err != nil {
-		return ""
-	}
-
-	return string(data)
-}
-
-// isTextContentType checks if a content type is text-based.
-func isTextContentType(contentType string) bool {
-	textPrefixes := []string{
-		"text/",
-		"application/json",
-		"application/xml",
-		"application/javascript",
-		"application/x-yaml",
-		"application/markdown",
-	}
-	for _, prefix := range textPrefixes {
-		if strings.HasPrefix(contentType, prefix) {
-			return true
-		}
-	}
-	return false
-}
-
-// extractHighlights extracts <em> tagged terms from highlighted text.
-func extractHighlights(highlighted string) []string {
-	var highlights []string
-	for {
-		startIdx := strings.Index(highlighted, "<em>")
-		if startIdx == -1 {
-			break
-		}
-		endIdx := strings.Index(highlighted, "</em>")
-		if endIdx == -1 {
-			break
-		}
-		term := highlighted[startIdx+4 : endIdx]
-		highlights = append(highlights, "<em>"+term+"</em>")
-		highlighted = highlighted[endIdx+5:]
-	}
-	return highlights
-}
-
-// parseFTSMaxSize parses a size string (e.g., "10GB") into bytes.
-func parseFTSMaxSize(s string) (int64, error) {
-	if s == "" {
-		return 0, nil
-	}
-	var multiplier int64 = 1
-	if len(s) >= 2 {
-		switch s[len(s)-2:] {
-		case "GB":
-			multiplier = 1 << 30
-			s = s[:len(s)-2]
-		case "MB":
-			multiplier = 1 << 20
-			s = s[:len(s)-2]
-		case "KB":
-			multiplier = 1 << 10
-			s = s[:len(s)-2]
-		case "TB":
-			multiplier = 1 << 40
-			s = s[:len(s)-2]
-		}
-	}
-	var value int64
-	_, err := fmt.Sscanf(s, "%d", &value)
-	if err != nil {
-		return 0, err
-	}
-	return value * multiplier, nil
-}
-
-// handleAdminFTSSearch handles the /admin/fts/search endpoint.
-func (g *S3Gateway) handleAdminFTSSearch(w http.ResponseWriter, r *http.Request) {
-	if g.ftsIndex == nil {
-		g.writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "FTS is not enabled"})
+func (g *S3Gateway) submitBackgroundTask(ctx context.Context, kind string, payload any) {
+	if g.taskQueue == nil {
 		return
 	}
 
-	if err := g.handleFTSSearch(w, r); err != nil {
-		g.writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-	}
-}
-
-// truncateString truncates a string to maxLen characters
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
-}
-
-// vectorizeObject reads object content and indexes it for vector search.
-// Only text-based content types are indexed; binary files are skipped.
-func (g *S3Gateway) vectorizeObject(ctx context.Context, bucket, key, contentType string, metadataMap map[string]string, userID string) {
-	// Only index text-based content types
-	if !vector.IsTextContent(contentType) {
-		return
-	}
-
-	// Read object content for embedding generation
-	objMeta, err := g.metadata.GetObject(ctx, bucket, key)
+	task, err := taskqueue.NewTask(kind, payload,
+		taskqueue.WithRetry(g.config.TaskQueue.DefaultRetry),
+		taskqueue.WithDeadlineAfter(5*time.Minute),
+	)
 	if err != nil {
+		zap.L().Error("failed to create background task", zap.String("kind", kind), zap.Error(err))
 		return
 	}
 
-	storageTier := common.StorageTier(objMeta.StorageTier)
-	reader, _, err := g.store.Get(ctx, bucket, key, storageTier)
-	if err != nil {
-		return
-	}
-	defer reader.Close()
-
-	// Limit text extraction to 1MB to prevent excessive memory usage
-	limitedReader := io.LimitReader(reader, 1024*1024)
-	content, err := io.ReadAll(limitedReader)
-	if err != nil {
-		return
-	}
-
-	text := string(content)
-	if len(strings.TrimSpace(text)) == 0 {
-		return
-	}
-
-	// Merge user metadata with system metadata
-	vecMetadata := make(map[string]string)
-	for k, v := range metadataMap {
-		vecMetadata[k] = v
-	}
-	vecMetadata["content_type"] = contentType
-	vecMetadata["indexed_by"] = userID
-	vecMetadata["indexed_at"] = time.Now().Format(time.RFC3339)
-
-	err = g.vector.IndexWithEmbedding(ctx, bucket, key, text, vecMetadata)
-	if err != nil {
-		return
-	}
-
-	g.auditLog(nil, "VECTOR_INDEX", bucket, key, userID, "success", map[string]interface{}{
-		"content_type": contentType,
-		"content_size": len(content),
-	})
-}
-
-// ftsIndexObject reads object content and indexes it for full-text search.
-// Only text-based content types are indexed; binary files are skipped.
-func (g *S3Gateway) ftsIndexObject(ctx context.Context, bucket, key, contentType, versionID string) {
-	// Only index text-based content types
-	if !isTextContentType(contentType) {
-		return
-	}
-
-	objMeta, err := g.metadata.GetObject(ctx, bucket, key)
-	if err != nil {
-		return
-	}
-
-	storageTier := common.StorageTier(objMeta.StorageTier)
-	reader, _, err := g.store.Get(ctx, bucket, key, storageTier)
-	if err != nil {
-		return
-	}
-	defer reader.Close()
-
-	// Limit text extraction to 1MB
-	limitedReader := io.LimitReader(reader, 1024*1024)
-	content, err := io.ReadAll(limitedReader)
-	if err != nil {
-		return
-	}
-
-	text := string(content)
-	if len(strings.TrimSpace(text)) == 0 {
-		return
-	}
-
-	if err := g.ftsIndex.AddDocumentWithInfo(bucket, key, versionID, text); err != nil {
-		return
-	}
-}
-
-func (g *S3Gateway) triggerPipelines(ctx context.Context, bucket, key, contentType string, metadataMap map[string]string) {
-	if g.pipeline == nil {
-		return
-	}
-
-	pipelines := g.pipeline.GetMatchingPipelines(ctx, pipeline.TriggerOnUpload, contentType, metadataMap)
-	for _, p := range pipelines {
-		input := &pipeline.ObjectInput{
-			Key:          key,
-			Bucket:       bucket,
-			ContentType:  contentType,
-			UserMetadata: metadataMap,
-		}
-		go g.pipeline.Execute(ctx, p.Name, input)
+	if err := g.taskQueue.Submit(ctx, task); err != nil {
+		zap.L().Error("failed to submit background task",
+			zap.String("kind", kind),
+			zap.String("task_id", task.ID),
+			zap.Error(err))
 	}
 }
 
@@ -2753,6 +1150,11 @@ func (g *S3Gateway) Stop() error {
 }
 
 func (g *S3Gateway) Close() error {
+	if g.taskQueue != nil {
+		if err := g.taskQueue.Stop(context.Background()); err != nil {
+			zap.L().Warn("failed to stop task queue gracefully", zap.Error(err))
+		}
+	}
 	if g.resumableCleanup != nil {
 		g.resumableCleanup.Stop()
 	}
@@ -2801,10 +1203,48 @@ func (g *S3Gateway) GetAuth() *AuthHandler {
 
 func (g *S3Gateway) SetIAMBridge(bridge *IAMAuthBridge) {
 	g.iamBridge = bridge
+	provider := newGatewayAuthProvider(g.auth, g.iamBridge)
+	g.authProvider = provider
+	g.permChecker = provider
 }
 
 func (g *S3Gateway) GetIAMBridge() *IAMAuthBridge {
 	return g.iamBridge
+}
+
+// getIdentity authenticates the request using the unified auth provider.
+func (g *S3Gateway) getIdentity(r *http.Request) (*auth.Identity, error) {
+	if g.authProvider == nil {
+		return nil, fmt.Errorf("authentication provider not configured")
+	}
+	return g.authProvider.Authenticate(r)
+}
+
+// getUserID returns the authenticated user ID or "anonymous".
+func (g *S3Gateway) getUserID(r *http.Request) string {
+	identity, err := g.getIdentity(r)
+	if err != nil || identity == nil {
+		return "anonymous"
+	}
+	return identity.ID
+}
+
+// requireIdentity authenticates and authorizes the request for the given action.
+func (g *S3Gateway) requireIdentity(r *http.Request, action, bucket, key string) (*auth.Identity, error) {
+	identity, err := g.getIdentity(r)
+	if err != nil {
+		return nil, err
+	}
+	if identity == nil {
+		return nil, fmt.Errorf("authentication required")
+	}
+	if g.permChecker == nil {
+		return identity, nil
+	}
+	if err := g.permChecker.Check(r.Context(), identity, action, bucket, key, r); err != nil {
+		return nil, err
+	}
+	return identity, nil
 }
 
 func (g *S3Gateway) GetEventBus() *events.EventBus {
@@ -2890,336 +1330,4 @@ func (g *S3Gateway) isBucketPublicRead(r *http.Request, bucket string) bool {
 func (g *S3Gateway) validatePresignedURLMethod(r *http.Request, expectedMethod string) error {
 	_ = r.URL.Query().Get("X-Amz-Signature")
 	return nil
-}
-
-// parseSSECHeaders parses and validates SSE-C headers from the request.
-// Returns the decoded client key, or an error if validation fails.
-// If no SSE-C headers are present, returns nil key with no error.
-// Per S3 spec, the x-amz-server-side-encryption-customer-key-MD5 header is required
-// when using SSE-C to ensure the key was transmitted correctly.
-func parseSSECHeaders(r *http.Request) ([]byte, error) {
-	algorithm := r.Header.Get("x-amz-server-side-encryption-customer-algorithm")
-	keyB64 := r.Header.Get("x-amz-server-side-encryption-customer-key")
-	keyMD5B64 := r.Header.Get("x-amz-server-side-encryption-customer-key-MD5")
-
-	// No SSE-C headers present
-	if algorithm == "" && keyB64 == "" && keyMD5B64 == "" {
-		return nil, nil
-	}
-
-	// Validate algorithm
-	if algorithm != "AES256" {
-		return nil, fmt.Errorf("invalid SSE-C algorithm: must be AES256")
-	}
-
-	// Key is required when algorithm is specified
-	if keyB64 == "" {
-		return nil, fmt.Errorf("SSE-C customer key is required when algorithm is specified")
-	}
-
-	// Decode the customer key
-	clientKey, err := base64.StdEncoding.DecodeString(keyB64)
-	if err != nil {
-		return nil, fmt.Errorf("invalid SSE-C customer key: not valid base64")
-	}
-
-	// Validate key length (must be 32 bytes for AES-256)
-	if len(clientKey) != 32 {
-		// Zero the key before returning error
-		for i := range clientKey {
-			clientKey[i] = 0
-		}
-		return nil, fmt.Errorf("invalid SSE-C customer key: must be 256-bit (32 bytes)")
-	}
-
-	// MD5 header is required per S3 spec for SSE-C
-	if keyMD5B64 == "" {
-		// Zero the key before returning error
-		for i := range clientKey {
-			clientKey[i] = 0
-		}
-		return nil, fmt.Errorf("SSE-C customer key MD5 is required")
-	}
-
-	expectedMD5, err := base64.StdEncoding.DecodeString(keyMD5B64)
-	if err != nil {
-		// Zero the key before returning error
-		for i := range clientKey {
-			clientKey[i] = 0
-		}
-		return nil, fmt.Errorf("invalid SSE-C customer key MD5: not valid base64")
-	}
-	computedMD5 := md5.Sum(clientKey)
-	if subtle.ConstantTimeCompare(expectedMD5, computedMD5[:]) != 1 {
-		// Zero the key before returning error
-		for i := range clientKey {
-			clientKey[i] = 0
-		}
-		return nil, fmt.Errorf("SSE-C customer key MD5 mismatch")
-	}
-
-	return clientKey, nil
-}
-
-// parseSSECHeadersForRead parses SSE-C headers for GET/HEAD requests.
-// It requires all three SSE-C headers to be present if the object was encrypted with SSE-C.
-// Per S3 spec, the x-amz-server-side-encryption-customer-key-MD5 header is required.
-func parseSSECHeadersForRead(r *http.Request) ([]byte, error) {
-	algorithm := r.Header.Get("x-amz-server-side-encryption-customer-algorithm")
-	keyB64 := r.Header.Get("x-amz-server-side-encryption-customer-key")
-	keyMD5B64 := r.Header.Get("x-amz-server-side-encryption-customer-key-MD5")
-
-	// No SSE-C headers present
-	if algorithm == "" && keyB64 == "" && keyMD5B64 == "" {
-		return nil, nil
-	}
-
-	// Validate algorithm
-	if algorithm != "AES256" {
-		return nil, fmt.Errorf("invalid SSE-C algorithm: must be AES256")
-	}
-
-	// Key is required when algorithm is specified
-	if keyB64 == "" {
-		return nil, fmt.Errorf("SSE-C customer key is required when algorithm is specified")
-	}
-
-	// Decode the customer key
-	clientKey, err := base64.StdEncoding.DecodeString(keyB64)
-	if err != nil {
-		return nil, fmt.Errorf("invalid SSE-C customer key: not valid base64")
-	}
-
-	// Validate key length (must be 32 bytes for AES-256)
-	if len(clientKey) != 32 {
-		// Zero the key before returning error
-		for i := range clientKey {
-			clientKey[i] = 0
-		}
-		return nil, fmt.Errorf("invalid SSE-C customer key: must be 256-bit (32 bytes)")
-	}
-
-	// MD5 header is required per S3 spec for SSE-C
-	if keyMD5B64 == "" {
-		// Zero the key before returning error
-		for i := range clientKey {
-			clientKey[i] = 0
-		}
-		return nil, fmt.Errorf("SSE-C customer key MD5 is required")
-	}
-
-	expectedMD5, err := base64.StdEncoding.DecodeString(keyMD5B64)
-	if err != nil {
-		// Zero the key before returning error
-		for i := range clientKey {
-			clientKey[i] = 0
-		}
-		return nil, fmt.Errorf("invalid SSE-C customer key MD5: not valid base64")
-	}
-	computedMD5 := md5.Sum(clientKey)
-	if subtle.ConstantTimeCompare(expectedMD5, computedMD5[:]) != 1 {
-		// Zero the key before returning error
-		for i := range clientKey {
-			clientKey[i] = 0
-		}
-		return nil, fmt.Errorf("SSE-C customer key MD5 mismatch")
-	}
-
-	return clientKey, nil
-}
-
-func (g *S3Gateway) handleGetBucketLocation(w http.ResponseWriter, r *http.Request, bucket string) error {
-	type LocationConstraint struct {
-		XMLName  xml.Name `xml:"LocationConstraint"`
-		Location string   `xml:",chardata"`
-	}
-
-	bucketInfo, err := g.metadata.GetBucket(r.Context(), bucket)
-	if err != nil {
-		g.writeError(w, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist.")
-		return nil
-	}
-
-	location := bucketInfo.Region
-	if location == "" {
-		location = "us-east-1"
-	}
-
-	output := struct {
-		XMLName             xml.Name `xml:"LocationConstraint"`
-		LocationConstraint  string   `xml:",chardata"`
-	}{
-		LocationConstraint: location,
-	}
-
-	if location == "us-east-1" {
-		output.LocationConstraint = ""
-	}
-
-	return g.writeXML(w, http.StatusOK, output)
-}
-
-func (g *S3Gateway) handleGetBucketAcl(w http.ResponseWriter, r *http.Request, bucket string) error {
-	bucketInfo, err := g.metadata.GetBucket(r.Context(), bucket)
-	if err != nil {
-		g.writeError(w, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist.")
-		return nil
-	}
-
-	acl := bucketInfo.ACL
-	if acl == "" {
-		acl = "private"
-	}
-
-	ownerID := bucketInfo.OwnerID
-	if ownerID == "" {
-		ownerID = "admin"
-	}
-	ownerName := bucketInfo.OwnerName
-	if ownerName == "" {
-		ownerName = "admin"
-	}
-
-	type Grant struct {
-		Grantee struct {
-			XMLName     xml.Name `xml:"Grantee"`
-			XMLNSXSI    string   `xml:"xmlns:xsi,attr"`
-			XSIType     string   `xml:"xsi:type,attr"`
-			Type        string   `xml:"Type"`
-			ID          string   `xml:"ID"`
-			DisplayName string   `xml:"DisplayName,omitempty"`
-		} `xml:"Grant"`
-		Permission string `xml:"Permission"`
-	}
-
-	type AccessControlPolicy struct {
-		XMLName xml.Name `xml:"AccessControlPolicy"`
-		Owner   struct {
-			ID          string `xml:"ID"`
-			DisplayName string `xml:"DisplayName"`
-		} `xml:"Owner"`
-		AccessControlList struct {
-			Grants []Grant `xml:"Grant"`
-		} `xml:"AccessControlList"`
-	}
-
-	policy := AccessControlPolicy{}
-	policy.Owner.ID = ownerID
-	policy.Owner.DisplayName = ownerName
-
-	fullControlGrant := Grant{}
-	fullControlGrant.Grantee.XMLNSXSI = "http://www.w3.org/2001/XMLSchema-instance"
-	fullControlGrant.Grantee.XSIType = "CanonicalUser"
-	fullControlGrant.Grantee.Type = "CanonicalUser"
-	fullControlGrant.Grantee.ID = ownerID
-	fullControlGrant.Grantee.DisplayName = ownerName
-	fullControlGrant.Permission = "FULL_CONTROL"
-	policy.AccessControlList.Grants = append(policy.AccessControlList.Grants, fullControlGrant)
-
-	if acl == "public-read" || acl == "public-read-write" {
-		publicReadGrant := Grant{}
-		publicReadGrant.Grantee.XMLNSXSI = "http://www.w3.org/2001/XMLSchema-instance"
-		publicReadGrant.Grantee.XSIType = "Group"
-		publicReadGrant.Grantee.Type = "Group"
-		publicReadGrant.Grantee.ID = "http://acs.amazonaws.com/groups/global/AllUsers"
-		publicReadGrant.Permission = "READ"
-		policy.AccessControlList.Grants = append(policy.AccessControlList.Grants, publicReadGrant)
-	}
-
-	if acl == "public-read-write" {
-		publicWriteGrant := Grant{}
-		publicWriteGrant.Grantee.XMLNSXSI = "http://www.w3.org/2001/XMLSchema-instance"
-		publicWriteGrant.Grantee.XSIType = "Group"
-		publicWriteGrant.Grantee.Type = "Group"
-		publicWriteGrant.Grantee.ID = "http://acs.amazonaws.com/groups/global/AllUsers"
-		publicWriteGrant.Permission = "WRITE"
-		policy.AccessControlList.Grants = append(policy.AccessControlList.Grants, publicWriteGrant)
-	}
-
-	return g.writeXML(w, http.StatusOK, policy)
-}
-
-func (g *S3Gateway) handlePutBucketAcl(w http.ResponseWriter, r *http.Request, bucket string) error {
-	bucketInfo, err := g.metadata.GetBucket(r.Context(), bucket)
-	if err != nil {
-		g.writeError(w, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist.")
-		return nil
-	}
-
-	acl := r.Header.Get("x-amz-acl")
-	if acl == "" {
-		acl = r.URL.Query().Get("acl")
-	}
-
-	body, err := io.ReadAll(io.LimitReader(r.Body, maxRequestBodyBytes))
-	if err == nil && len(body) > 0 {
-		type AccessControlPolicy struct {
-			AccessControlList struct {
-				Grants []struct {
-					Grantee struct {
-						Type string `xml:"Type"`
-						ID   string `xml:"ID"`
-					} `xml:"Grantee"`
-					Permission string `xml:"Permission"`
-				} `xml:"Grant"`
-			} `xml:"AccessControlList"`
-		}
-
-		var policy AccessControlPolicy
-		if err := xml.Unmarshal(body, &policy); err == nil {
-			hasPublicRead := false
-			hasPublicWrite := false
-			for _, grant := range policy.AccessControlList.Grants {
-				if grant.Grantee.Type == "Group" && grant.Grantee.ID == "http://acs.amazonaws.com/groups/global/AllUsers" {
-					if grant.Permission == "READ" {
-						hasPublicRead = true
-					}
-					if grant.Permission == "WRITE" {
-						hasPublicWrite = true
-					}
-				}
-			}
-			if hasPublicRead && hasPublicWrite {
-				acl = "public-read-write"
-			} else if hasPublicRead {
-				acl = "public-read"
-			} else {
-				acl = "private"
-			}
-		}
-	}
-
-	validACLs := map[string]bool{
-		"private":            true,
-		"public-read":        true,
-		"public-read-write":  true,
-		"authenticated-read": true,
-	}
-	if !validACLs[acl] {
-		acl = "private"
-	}
-
-	bucketInfo.ACL = acl
-	if err := g.metadata.UpdateBucket(r.Context(), bucket, bucketInfo); err != nil {
-		return fmt.Errorf("failed to update bucket ACL: %w", err)
-	}
-
-	w.WriteHeader(http.StatusOK)
-	return nil
-}
-
-func (g *S3Gateway) handleGetBucketVersioning(w http.ResponseWriter, r *http.Request, bucket string) error {
-	_, err := g.metadata.GetBucket(r.Context(), bucket)
-	if err != nil {
-		g.writeError(w, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist.")
-		return nil
-	}
-
-	output := struct {
-		XMLName   xml.Name `xml:"VersioningConfiguration"`
-		Status    string   `xml:"Status,omitempty"`
-		MFADelete string   `xml:"MfaDelete,omitempty"`
-	}{}
-
-	return g.writeXML(w, http.StatusOK, output)
 }

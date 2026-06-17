@@ -5,6 +5,7 @@ node:
   listen_addr: ":8080"
   data_dir: "./data"
   cluster_peers: []
+  domain: "host.docker.internal,localhost"
 
 tiering:
   enabled: true
