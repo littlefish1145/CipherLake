@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"nexus/internal/units"
@@ -435,9 +436,14 @@ func Load(configPath string) (*Config, error) {
 	viper.SetDefault("task_queue.retry_base", "1s")
 	viper.SetDefault("task_queue.max_retry_delay", "5m")
 	viper.SetDefault("task_queue.default_retry", 3)
+	viper.SetDefault("pipelines.config_file", "pipelines.yaml")
+	viper.SetDefault("pipelines.max_concurrent", 100)
+	viper.SetDefault("pipelines.enabled", false)
 
 	if err := viper.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("failed to read config: %w", err)
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("failed to read config: %w", err)
+		}
 	}
 
 	var cfg Config

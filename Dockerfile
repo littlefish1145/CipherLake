@@ -17,16 +17,8 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build all binaries with static linking
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /out/nexus ./cmd/nexus
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /out/nexusctl ./cmd/nexusctl
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /out/encrypt-service ./cmd/encrypt-service
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /out/decrypt-service ./cmd/decrypt-service
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /out/keygen-service ./cmd/keygen-service
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /out/keystore-service ./cmd/keystore-service
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /out/keyunwrap-service ./cmd/keyunwrap-service
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /out/token-service ./cmd/token-service
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /out/sts-service ./cmd/sts-service
+# Build all binaries with static linking (single invocation for shared build cache)
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /out/ ./cmd/...
 
 # Install grpc_health_probe for health checks
 RUN GRPC_HEALTH_PROBE_VERSION=v0.4.52 && \

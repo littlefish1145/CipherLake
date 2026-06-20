@@ -142,6 +142,9 @@ func (q *Queue) Stop(ctx context.Context) error {
 
 func (q *Queue) runWorker(id int) {
 	defer q.wg.Done()
+	ticker := time.NewTicker(q.pollInterval)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-q.stopCh:
@@ -153,7 +156,7 @@ func (q *Queue) runWorker(id int) {
 			select {
 			case <-q.stopCh:
 				return
-			case <-time.After(q.pollInterval):
+			case <-ticker.C:
 			}
 		}
 	}

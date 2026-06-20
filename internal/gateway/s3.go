@@ -23,6 +23,7 @@ import (
 	"nexus/internal/config"
 	"nexus/internal/events"
 	"nexus/internal/fts"
+	"nexus/internal/logger"
 	"nexus/internal/metadata"
 	"nexus/internal/observability"
 	"nexus/internal/pipeline"
@@ -299,6 +300,11 @@ func (g *S3Gateway) initializeComponents(cfg *config.Config) error {
 	pipelineExecutor := pipeline.NewPipelineExecutor(cfg.Pipelines.MaxConcurrent)
 	if err := pipeline.RegisterDefaultPlugins(pipelineExecutor); err != nil {
 		return fmt.Errorf("failed to register default plugins: %w", err)
+	}
+	if cfg.Pipelines.ConfigFile != "" {
+		if err := pipelineExecutor.LoadConfig(cfg.Pipelines.ConfigFile); err != nil {
+			logger.Warn("Failed to load pipeline config", zap.String("path", cfg.Pipelines.ConfigFile), zap.Error(err))
+		}
 	}
 	g.pipeline = pipelineExecutor
 
@@ -1382,6 +1388,8 @@ func (g *S3Gateway) isBucketPublicRead(r *http.Request, bucket string) bool {
 }
 
 func (g *S3Gateway) validatePresignedURLMethod(r *http.Request, expectedMethod string) error {
-	_ = r.URL.Query().Get("X-Amz-Signature")
+	if r.Method != expectedMethod {
+		return fmt.Errorf("presigned URL method mismatch: expected %s, got %s", expectedMethod, r.Method)
+	}
 	return nil
 }

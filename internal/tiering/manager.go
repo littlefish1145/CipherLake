@@ -10,6 +10,8 @@ import (
 
 	"nexus/internal/common"
 	"nexus/internal/storage"
+
+	"go.uber.org/zap"
 )
 
 type TierDecision struct {
@@ -117,17 +119,18 @@ func (m *TierDecisionModel) calculateContentScore(metadata *common.ObjectMetadat
 	if metadata == nil || metadata.ContentType == "" {
 		return 50
 	}
-	
+
 	contentType := metadata.ContentType
-	if contentType == "image/" || contentType[:6] == "image" {
+	switch {
+	case len(contentType) >= 5 && contentType[:5] == "image":
 		return 80
-	} else if contentType == "video/" || contentType[:6] == "video" {
+	case len(contentType) >= 5 && contentType[:5] == "video":
 		return 60
-	} else if contentType == "text/" || contentType[:5] == "text" {
+	case len(contentType) >= 4 && contentType[:4] == "text":
 		return 70
+	default:
+		return 50
 	}
-	
-	return 50
 }
 
 func (m *TierDecisionModel) calculateSizeScore(metadata *common.ObjectMetadata) float64 {
@@ -278,6 +281,11 @@ func (m *TieringManager) RunTieringDecision(ctx context.Context) ([]TierDecision
 	for _, history := range m.accessHistories {
 		metadata, err := m.store.Head(ctx, history.Bucket, history.ObjectKey)
 		if err != nil {
+			zap.L().Warn("tiering: failed to get object metadata",
+				zap.String("bucket", history.Bucket),
+				zap.String("key", history.ObjectKey),
+				zap.Error(err),
+			)
 			continue
 		}
 		objects = append(objects, metadata)

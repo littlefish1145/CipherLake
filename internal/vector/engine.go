@@ -337,10 +337,7 @@ func (vm *VectorManager) Search(ctx context.Context, query Vector, topK int, fil
 		return results, nil
 	}
 
-	vm.mu.RLock()
-	idx := vm.index
-	vm.mu.RUnlock()
-
+	idx := vm.getIndex()
 	if idx == nil {
 		return nil, ErrIndexNotInitialized
 	}
@@ -352,6 +349,12 @@ func (vm *VectorManager) Search(ctx context.Context, query Vector, topK int, fil
 
 	vm.cache.set(cacheKey, results)
 	return results, nil
+}
+
+func (vm *VectorManager) getIndex() VectorIndex {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+	return vm.index
 }
 
 func (vm *VectorManager) generateCacheKey(query Vector, topK int, filters map[string]string) string {
@@ -460,21 +463,14 @@ func (vm *VectorManager) IndexWithEmbedding(ctx context.Context, bucket, objectK
 }
 
 func (vm *VectorManager) SearchByText(ctx context.Context, queryText string, topK int, filters map[string]string) ([]SearchResult, error) {
-	var embedding []float32
-	if vm.embeddingCache != nil {
-		if cached, ok := vm.embeddingCache.get(queryText); ok {
-			embedding = cached
-		}
-	}
-	if embedding == nil {
+	embedding, ok := vm.embeddingCache.get(queryText)
+	if !ok {
 		var err error
 		embedding, err = vm.GenerateEmbedding(ctx, queryText)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate query embedding: %w", err)
 		}
-		if vm.embeddingCache != nil {
-			vm.embeddingCache.set(queryText, embedding)
-		}
+		vm.embeddingCache.set(queryText, embedding)
 	}
 
 	query := Vector{
@@ -488,7 +484,9 @@ func (vm *VectorManager) SearchByText(ctx context.Context, queryText string, top
 func (vm *VectorManager) Close() error {
 	if vm.index != nil {
 		if mb, ok := vm.index.(*MilvusBackend); ok {
-			mb.Close()
+			if err := mb.Close(); err != nil {
+				return fmt.Errorf("milvus backend close failed: %w", err)
+			}
 		}
 	}
 	if vm.embeddingProvider != nil {
