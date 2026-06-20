@@ -7,12 +7,14 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"nexus/internal/s3"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestParseSSECHeaders_NoHeaders(t *testing.T) {
 	req := httptest.NewRequest("PUT", "/bucket/key", nil)
-	key, err := parseSSECHeaders(req)
+	key, err := s3.ParseSSECHeaders(req)
 	assert.NoError(t, err)
 	assert.Nil(t, key)
 }
@@ -30,7 +32,7 @@ func TestParseSSECHeaders_ValidHeaders(t *testing.T) {
 	req.Header.Set("x-amz-server-side-encryption-customer-key", keyB64)
 	req.Header.Set("x-amz-server-side-encryption-customer-key-MD5", keyMD5B64)
 
-	key, err := parseSSECHeaders(req)
+	key, err := s3.ParseSSECHeaders(req)
 	assert.NoError(t, err)
 	assert.Equal(t, clientKey, key)
 }
@@ -48,7 +50,7 @@ func TestParseSSECHeaders_InvalidAlgorithm(t *testing.T) {
 	req.Header.Set("x-amz-server-side-encryption-customer-key", keyB64)
 	req.Header.Set("x-amz-server-side-encryption-customer-key-MD5", keyMD5B64)
 
-	key, err := parseSSECHeaders(req)
+	key, err := s3.ParseSSECHeaders(req)
 	assert.Error(t, err)
 	assert.Nil(t, key)
 	assert.Contains(t, err.Error(), "AES256")
@@ -67,7 +69,7 @@ func TestParseSSECHeaders_InvalidKeySize(t *testing.T) {
 	req.Header.Set("x-amz-server-side-encryption-customer-key", keyB64)
 	req.Header.Set("x-amz-server-side-encryption-customer-key-MD5", keyMD5B64)
 
-	key, err := parseSSECHeaders(req)
+	key, err := s3.ParseSSECHeaders(req)
 	assert.Error(t, err)
 	assert.Nil(t, key)
 	assert.Contains(t, err.Error(), "256-bit")
@@ -79,7 +81,6 @@ func TestParseSSECHeaders_MD5Mismatch(t *testing.T) {
 
 	keyB64 := base64.StdEncoding.EncodeToString(clientKey)
 
-	// Compute MD5 of a different key
 	wrongKey := make([]byte, 32)
 	_, _ = rand.Read(wrongKey)
 	wrongMD5 := md5.Sum(wrongKey)
@@ -90,7 +91,7 @@ func TestParseSSECHeaders_MD5Mismatch(t *testing.T) {
 	req.Header.Set("x-amz-server-side-encryption-customer-key", keyB64)
 	req.Header.Set("x-amz-server-side-encryption-customer-key-MD5", keyMD5B64)
 
-	key, err := parseSSECHeaders(req)
+	key, err := s3.ParseSSECHeaders(req)
 	assert.Error(t, err)
 	assert.Nil(t, key)
 	assert.Contains(t, err.Error(), "MD5 mismatch")
@@ -102,7 +103,7 @@ func TestParseSSECHeaders_InvalidBase64Key(t *testing.T) {
 	req.Header.Set("x-amz-server-side-encryption-customer-key", "not-valid-base64!!!")
 	req.Header.Set("x-amz-server-side-encryption-customer-key-MD5", "AAAA")
 
-	key, err := parseSSECHeaders(req)
+	key, err := s3.ParseSSECHeaders(req)
 	assert.Error(t, err)
 	assert.Nil(t, key)
 	assert.Contains(t, err.Error(), "base64")
@@ -119,7 +120,7 @@ func TestParseSSECHeaders_InvalidBase64MD5(t *testing.T) {
 	req.Header.Set("x-amz-server-side-encryption-customer-key", keyB64)
 	req.Header.Set("x-amz-server-side-encryption-customer-key-MD5", "not-valid-base64!!!")
 
-	key, err := parseSSECHeaders(req)
+	key, err := s3.ParseSSECHeaders(req)
 	assert.Error(t, err)
 	assert.Nil(t, key)
 	assert.Contains(t, err.Error(), "base64")
@@ -134,9 +135,8 @@ func TestParseSSECHeaders_MissingMD5(t *testing.T) {
 	req := httptest.NewRequest("PUT", "/bucket/key", nil)
 	req.Header.Set("x-amz-server-side-encryption-customer-algorithm", "AES256")
 	req.Header.Set("x-amz-server-side-encryption-customer-key", keyB64)
-	// No MD5 header - should be required per S3 spec
 
-	key, err := parseSSECHeaders(req)
+	key, err := s3.ParseSSECHeaders(req)
 	assert.Error(t, err)
 	assert.Nil(t, key)
 	assert.Contains(t, err.Error(), "MD5 is required")
@@ -144,7 +144,7 @@ func TestParseSSECHeaders_MissingMD5(t *testing.T) {
 
 func TestParseSSECHeadersForRead_NoHeaders(t *testing.T) {
 	req := httptest.NewRequest("GET", "/bucket/key", nil)
-	key, err := parseSSECHeadersForRead(req)
+	key, err := s3.ParseSSECHeaders(req)
 	assert.NoError(t, err)
 	assert.Nil(t, key)
 }
@@ -162,7 +162,7 @@ func TestParseSSECHeadersForRead_ValidHeaders(t *testing.T) {
 	req.Header.Set("x-amz-server-side-encryption-customer-key", keyB64)
 	req.Header.Set("x-amz-server-side-encryption-customer-key-MD5", keyMD5B64)
 
-	key, err := parseSSECHeadersForRead(req)
+	key, err := s3.ParseSSECHeaders(req)
 	assert.NoError(t, err)
 	assert.Equal(t, clientKey, key)
 }
@@ -183,7 +183,7 @@ func TestParseSSECHeadersForRead_MD5Mismatch(t *testing.T) {
 	req.Header.Set("x-amz-server-side-encryption-customer-key", keyB64)
 	req.Header.Set("x-amz-server-side-encryption-customer-key-MD5", keyMD5B64)
 
-	key, err := parseSSECHeadersForRead(req)
+	key, err := s3.ParseSSECHeaders(req)
 	assert.Error(t, err)
 	assert.Nil(t, key)
 	assert.Contains(t, err.Error(), "MD5 mismatch")
@@ -196,7 +196,6 @@ func TestSSECKeyNotPersistedInMetadata(t *testing.T) {
 	clientKey := make([]byte, 32)
 	_, _ = rand.Read(clientKey)
 
-	// Simulate what handlePutObject does: compute SHA-256 of key for metadata
 	keyB64 := base64.StdEncoding.EncodeToString(clientKey)
 
 	// The key itself should NOT appear in any metadata field
@@ -227,19 +226,19 @@ func TestSSECHeaders_MissingCustomerKeyOnGET(t *testing.T) {
 	// This is tested at the handler level via handleGetObject,
 	// but we verify the parsing logic returns nil key when no headers present.
 	req := httptest.NewRequest("GET", "/bucket/key", nil)
-	key, err := parseSSECHeadersForRead(req)
+	key, err := s3.ParseSSECHeaders(req)
 	assert.NoError(t, err)
 	assert.Nil(t, key)
 	// The caller (handleGetObject) checks if key is nil for SSE-C objects
 	// and returns 403 AccessDenied
 }
 
-func TestSSECHeaders_AlgorithmOnlyNoKey(t *testing.T) {
+func TestParseSSECHeaders_AlgorithmOnlyNoKey(t *testing.T) {
 	req := httptest.NewRequest("PUT", "/bucket/key", nil)
 	req.Header.Set("x-amz-server-side-encryption-customer-algorithm", "AES256")
 	// No key header provided
 
-	key, err := parseSSECHeaders(req)
+	key, err := s3.ParseSSECHeaders(req)
 	assert.Error(t, err)
 	assert.Nil(t, key)
 	assert.Contains(t, err.Error(), "key is required")

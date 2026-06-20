@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/crypto/hkdf"
 
 	"nexus/internal/services/token_service"
 )
@@ -64,8 +65,54 @@ func NewEncryptionCoordinator(cfg CoordinatorConfig) *EncryptionCoordinator {
 	}
 }
 
-// EncryptOperation performs a complete encryption operation
-// Returns ciphertext reader, keyID, nonce+authTag metadata, ciphertext size, error
+// deriveSessionKey derives a shared session key from an ECDH exchange.
+// The info order matches KeyGenService: serverPub || clientPub.
+func deriveSessionKey(clientECDHPriv *ecdh.PrivateKey, serviceECDHPub *ECDHPublicKey) ([]byte, error) {
+	servicePub, err := ecdh.P256().NewPublicKey(serviceECDHPub.PublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse service ECDH public key: %w", err)
+	}
+	sharedSecret, err := clientECDHPriv.ECDH(servicePub)
+	if err != nil {
+		return nil, fmt.Errorf("failed to derive shared secret: %w", err)
+	}
+	defer clearBytes(sharedSecret)
+
+	info := append(servicePub.Bytes(), clientECDHPriv.PublicKey().Bytes()...)
+	reader := hkdf.New(sha256.New, sharedSecret, nil, info)
+	sessionKey := make([]byte, 32)
+	if _, err := io.ReadFull(reader, sessionKey); err != nil {
+		return nil, fmt.Errorf("failed to derive session key: %w", err)
+	}
+	return sessionKey, nil
+}
+
+// unwrapDEK decrypts the ECDH-encrypted DEK using the session key.
+func unwrapDEK(ecdhEncryptedDEK *ECDHEncryptedDEK, sessionKey []byte) ([]byte, error) {
+	block, err := aes.NewCipher(sessionKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cipher: %w", err)
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GCM: %w", err)
+	}
+	dek, err := gcm.Open(nil, ecdhEncryptedDEK.Nonce, ecdhEncryptedDEK.Ciphertext, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt DEK: %w", err)
+	}
+	return dek, nil
+}
+
+func clearBytes(b []byte) {
+	for i := range b {
+		b[i] = 0
+	}
+}
+
+// EncryptOperation performs a complete encryption operation using chunked,
+// true streaming envelope encryption. It never buffers the entire object in
+// memory. Returns ciphertext reader, keyID, metadata, ciphertext size, error.
 func (c *EncryptionCoordinator) EncryptOperation(ctx context.Context, userID, bucket, objectKey string, plaintext io.Reader, objectSize int64) (io.Reader, string, []byte, int64, error) {
 	// Step 1: Policy decision via OPA
 	if c.opaClient != nil {
@@ -130,34 +177,46 @@ func (c *EncryptionCoordinator) EncryptOperation(ctx context.Context, userID, bu
 		return nil, "", nil, 0, fmt.Errorf("failed to store key: %w", err)
 	}
 
-	// Step 6: Encrypt data with EncryptService
-	plaintextData, err := io.ReadAll(plaintext)
+	// Step 6: Unwrap the DEK locally and stream-encrypt the plaintext.
+	// The actual data encryption is done in chunked AES-256-GCM so the entire
+	// object is never loaded into memory.
+	sessionKey, err := deriveSessionKey(clientECDHPriv, serviceECDHPub)
 	if err != nil {
-		return nil, "", nil, 0, fmt.Errorf("failed to read plaintext: %w", err)
+		return nil, "", nil, 0, fmt.Errorf("failed to derive session key: %w", err)
+	}
+	defer clearBytes(sessionKey)
+
+	dek, err := unwrapDEK(ecdhEncryptedDEK, sessionKey)
+	if err != nil {
+		return nil, "", nil, 0, fmt.Errorf("failed to unwrap DEK: %w", err)
+	}
+	defer clearBytes(dek)
+
+	nonce := make([]byte, ssecNonceSize)
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, "", nil, 0, fmt.Errorf("failed to generate nonce: %w", err)
 	}
 
-	ciphertext, nonce, authTag, err := c.encryptService.Encrypt(
-		clientECDHPriv,
-		serviceECDHPub,
-		ecdhEncryptedDEK,
-		plaintextData,
-		"AES-256-GCM",
-	)
-	if err != nil {
-		return nil, "", nil, 0, fmt.Errorf("failed to encrypt data: %w", err)
+	metadata := make([]byte, 0, 1+ssecNonceSize)
+	metadata = append(metadata, envelopeMetadataVersion)
+	metadata = append(metadata, nonce...)
+
+	encryptReader := newStreamingEncryptReader(plaintext, dek, nonce)
+
+	numChunks := int64(1)
+	if objectSize > 0 {
+		numChunks = (objectSize + ssecChunkSize - 1) / ssecChunkSize
 	}
+	estimatedCiphertextSize := objectSize + numChunks*(ssecCiphertextLenSize+ssecAuthTagSize)
 
 	zap.L().Info("encryption completed",
 		zap.String("key_id", keyID),
 		zap.String("bucket", bucket),
 		zap.String("object_key", objectKey),
-		zap.Int("plaintext_size", len(plaintextData)),
-		zap.Int("ciphertext_size", len(ciphertext)))
+		zap.Int64("plaintext_size", objectSize),
+		zap.Int64("estimated_ciphertext_size", estimatedCiphertextSize))
 
-	// Combine nonce and authTag for storage
-	metadata := append(nonce, authTag...)
-
-	return io.NopCloser(bytes.NewReader(ciphertext)), keyID, metadata, int64(len(ciphertext)), nil
+	return encryptReader, keyID, metadata, estimatedCiphertextSize, nil
 }
 
 // DecryptOperation performs a complete decryption operation
@@ -220,42 +279,33 @@ func (c *EncryptionCoordinator) DecryptOperation(ctx context.Context, userID, bu
 		return nil, fmt.Errorf("failed to unwrap key: %w", err)
 	}
 
-	// Step 6: Decrypt data with DecryptService
-	ciphertextData, err := io.ReadAll(ciphertext)
+	// Step 6: Unwrap the DEK locally and stream-decrypt the ciphertext.
+	sessionKey, err := deriveSessionKey(clientECDHPriv, serviceECDHPub)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read ciphertext: %w", err)
+		return nil, fmt.Errorf("failed to derive session key: %w", err)
 	}
+	defer clearBytes(sessionKey)
 
-	// Parse metadata (nonce + authTag)
-	nonceLen := 12
-	authTagLen := 16
-	if len(metadata) < nonceLen+authTagLen {
-		return nil, fmt.Errorf("invalid metadata: too short")
-	}
-	nonce := metadata[:nonceLen]
-	authTag := metadata[nonceLen : nonceLen+authTagLen]
-
-	plaintext, err := c.decryptService.Decrypt(
-		clientECDHPriv,
-		serviceECDHPub,
-		ecdhEncryptedDEK,
-		ciphertextData,
-		nonce,
-		authTag,
-		"AES-256-GCM",
-	)
+	dek, err := unwrapDEK(ecdhEncryptedDEK, sessionKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt data: %w", err)
+		return nil, fmt.Errorf("failed to unwrap DEK: %w", err)
 	}
+	defer clearBytes(dek)
 
-	zap.L().Info("decryption completed",
+	// Parse metadata: [version(1)][nonce(12)]
+	if len(metadata) < 1+ssecNonceSize || metadata[0] != envelopeMetadataVersion {
+		return nil, fmt.Errorf("invalid envelope metadata")
+	}
+	nonce := metadata[1 : 1+ssecNonceSize]
+
+	decryptReader := newStreamingDecryptReader(ciphertext, dek, nonce)
+
+	zap.L().Info("decryption started",
 		zap.String("key_id", encryptedDEK.KeyID),
 		zap.String("bucket", bucket),
-		zap.String("object_key", objectKey),
-		zap.Int("ciphertext_size", len(ciphertextData)),
-		zap.Int("plaintext_size", len(plaintext)))
+		zap.String("object_key", objectKey))
 
-	return io.NopCloser(bytes.NewReader(plaintext)), nil
+	return decryptReader, nil
 }
 
 // DeleteKey deletes the key for an object
@@ -329,35 +379,39 @@ const (
 //	Output format: [nonce(12 bytes)][chunk1_encrypted][chunk2_encrypted]...
 //	Each chunk: [ciphertext_len(4 bytes, uint32 big-endian, MSB set on last chunk)][ciphertext][authTag(16 bytes)]
 type streamingEncryptReader struct {
-	source    io.Reader
-	clientKey []byte
-	nonce     []byte // base nonce (12 bytes), stored in metadata
-	chunkIdx  uint32
-	buf       []byte        // read buffer for plaintext
-	outBuf    *bytes.Buffer // output buffer for encrypted chunk data
-	done      bool
+	source   io.Reader
+	key      []byte
+	nonce    []byte // base nonce (12 bytes), stored in metadata
+	chunkIdx uint32
+	buf      []byte        // read buffer for plaintext
+	outBuf   *bytes.Buffer // output buffer for encrypted chunk data
+	done     bool
 }
 
-// newStreamingEncryptReader creates a new streaming SSE-C encryptor.
-func newStreamingEncryptReader(source io.Reader, clientKey []byte, nonce []byte) *streamingEncryptReader {
+// newStreamingEncryptReader creates a new streaming encryptor.
+func newStreamingEncryptReader(source io.Reader, key []byte, nonce []byte) *streamingEncryptReader {
 	return &streamingEncryptReader{
-		source:    source,
-		clientKey: clientKey,
-		nonce:     nonce,
-		buf:       make([]byte, ssecChunkSize),
-		outBuf:    new(bytes.Buffer),
+		source: source,
+		key:    key,
+		nonce:  nonce,
+		buf:    make([]byte, ssecChunkSize),
+		outBuf: new(bytes.Buffer),
 	}
 }
 
+// envelopeMetadataVersion is the first byte of envelope encryption metadata.
+// Format: [version(1)][nonce(12)]
+const envelopeMetadataVersion byte = 0x01
+
 // deriveChunkKey derives a per-chunk encryption key using HKDF-SHA256.
 // info = nonce || chunk_index (big-endian uint32)
-func deriveChunkKey(clientKey []byte, nonce []byte, chunkIdx uint32) []byte {
+func deriveChunkKey(key []byte, nonce []byte, chunkIdx uint32) []byte {
 	info := make([]byte, len(nonce)+4)
 	copy(info, nonce)
 	binary.BigEndian.PutUint32(info[len(nonce):], chunkIdx)
 
-	h := hmac.New(sha256.New, clientKey)
-	// HKDF-Extract: PRK = HMAC(clientKey, nonce)
+	h := hmac.New(sha256.New, key)
+	// HKDF-Extract: PRK = HMAC(key, nonce)
 	h.Reset()
 	h.Write(nonce)
 	prk := h.Sum(nil)
@@ -371,8 +425,8 @@ func deriveChunkKey(clientKey []byte, nonce []byte, chunkIdx uint32) []byte {
 
 // encryptChunk encrypts a plaintext chunk with AES-256-GCM using a derived key.
 // Returns: [ciphertext_len(4 bytes)][ciphertext][authTag(16 bytes)]
-func encryptChunk(plaintext []byte, clientKey []byte, nonce []byte, chunkIdx uint32, isLast bool) ([]byte, error) {
-	derivedKey := deriveChunkKey(clientKey, nonce, chunkIdx)
+func encryptChunk(plaintext []byte, key []byte, nonce []byte, chunkIdx uint32, isLast bool) ([]byte, error) {
+	derivedKey := deriveChunkKey(key, nonce, chunkIdx)
 
 	block, err := aes.NewCipher(derivedKey)
 	if err != nil {
@@ -437,7 +491,7 @@ func (r *streamingEncryptReader) Read(p []byte) (int, error) {
 			// If we already wrote the nonce, and there's no data at all (empty plaintext),
 			// we still need to write a last-chunk marker with zero-length ciphertext.
 			if r.chunkIdx == 0 {
-				chunkData, err := encryptChunk(nil, r.clientKey, r.nonce, r.chunkIdx, true)
+				chunkData, err := encryptChunk(nil, r.key, r.nonce, r.chunkIdx, true)
 				if err != nil {
 					return 0, err
 				}
@@ -451,8 +505,8 @@ func (r *streamingEncryptReader) Read(p []byte) (int, error) {
 
 		plaintext := r.buf[:n]
 
-		// Check if this is the last chunk (readErr indicates EOF or unexpected EOF)
-		chunkData, err := encryptChunk(plaintext, r.clientKey, r.nonce, r.chunkIdx, isLast)
+		// Encrypt the chunk.
+		chunkData, err := encryptChunk(plaintext, r.key, r.nonce, r.chunkIdx, isLast)
 		if err != nil {
 			return 0, err
 		}
@@ -466,25 +520,25 @@ func (r *streamingEncryptReader) Read(p []byte) (int, error) {
 	}
 }
 
-// streamingDecryptReader implements io.Reader for streaming SSE-C decryption.
+// streamingDecryptReader implements io.Reader for streaming decryption.
 type streamingDecryptReader struct {
-	source    io.Reader
-	clientKey []byte
-	nonce     []byte
-	chunkIdx  uint32
-	outBuf    *bytes.Buffer
-	done      bool
-	lenBuf    [ssecCiphertextLenSize]byte
-	lenRead   int
+	source  io.Reader
+	key     []byte
+	nonce   []byte
+	chunkIdx uint32
+	outBuf  *bytes.Buffer
+	done    bool
+	lenBuf  [ssecCiphertextLenSize]byte
+	lenRead int
 }
 
-// newStreamingDecryptReader creates a new streaming SSE-C decryptor.
-func newStreamingDecryptReader(source io.Reader, clientKey []byte, nonce []byte) *streamingDecryptReader {
+// newStreamingDecryptReader creates a new streaming decryptor.
+func newStreamingDecryptReader(source io.Reader, key []byte, nonce []byte) *streamingDecryptReader {
 	return &streamingDecryptReader{
-		source:    source,
-		clientKey: clientKey,
-		nonce:     nonce,
-		outBuf:    new(bytes.Buffer),
+		source: source,
+		key:    key,
+		nonce:  nonce,
+		outBuf: new(bytes.Buffer),
 	}
 }
 
@@ -528,7 +582,7 @@ func (r *streamingDecryptReader) Read(p []byte) (int, error) {
 		authTag := chunkData[ctLen:]
 
 		// Derive the key for this chunk
-		derivedKey := deriveChunkKey(r.clientKey, r.nonce, r.chunkIdx)
+		derivedKey := deriveChunkKey(r.key, r.nonce, r.chunkIdx)
 
 		block, err := aes.NewCipher(derivedKey)
 		if err != nil {

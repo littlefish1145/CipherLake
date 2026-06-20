@@ -248,31 +248,59 @@ type CryptoServicesConfig struct {
 }
 
 type VectorConfig struct {
-	Enabled              bool     `mapstructure:"enabled"`
-	HotIndexSize         string   `mapstructure:"hot_index_size"`
-	ModelDir             string   `mapstructure:"model_dir"`
-	Dimension            int      `mapstructure:"dim"`
-	HotIndexBytes        int64    `mapstructure:"-"`
-	IndexType            string   `mapstructure:"index_type"`
-	MetricType           string   `mapstructure:"metric_type"`
-	MaxVectors           int64    `mapstructure:"max_vectors"`
-	EmbeddingProvider    string   `mapstructure:"embedding_provider"`
-	EmbeddingModelPath   string   `mapstructure:"embedding_model_path"`
-	EmbeddingAPIEndpoint string   `mapstructure:"embedding_api_endpoint"`
-	EmbeddingAPIKey      string   `mapstructure:"embedding_api_key"`
-	EmbeddingModelName   string   `mapstructure:"embedding_model_name"`
-	AutoIndex            bool     `mapstructure:"auto_index"`
-	MaxSearchTopK        int      `mapstructure:"max_search_top_k"`
-	MaxQueryLength       int      `mapstructure:"max_query_length"`
-	RequireAuth          bool     `mapstructure:"require_auth"`
-	AllowedContentTypes  []string `mapstructure:"allowed_content_types"`
-	MaxIndexContentSize  int64    `mapstructure:"max_index_content_size"`
-	MMapEnabled          bool     `mapstructure:"mmap_enabled"`
-	QuantizationType     string   `mapstructure:"quantization_type"`
-	PQSubquantizers      int      `mapstructure:"pq_subquantizers"`
-	IndexDataDir         string   `mapstructure:"index_data_dir"`
-	RebuildInterval      string   `mapstructure:"rebuild_interval"`
-	FallbackMinutes      int      `mapstructure:"fallback_minutes"`
+	Enabled              bool          `mapstructure:"enabled"`
+	Dimension            int           `mapstructure:"dim"`
+	IndexType            string       `mapstructure:"index_type"`
+	MetricType           string       `mapstructure:"metric_type"`
+	MaxVectors           int64         `mapstructure:"max_vectors"`
+	EmbeddingProvider    string       `mapstructure:"embedding_provider"`
+	EmbeddingModelPath   string       `mapstructure:"embedding_model_path"`
+	EmbeddingAPIEndpoint string       `mapstructure:"embedding_api_endpoint"`
+	EmbeddingAPIKey      string       `mapstructure:"embedding_api_key"`
+	EmbeddingModelName   string       `mapstructure:"embedding_model_name"`
+	AutoIndex            bool          `mapstructure:"auto_index"`
+	MaxSearchTopK        int           `mapstructure:"max_search_top_k"`
+	MaxQueryLength       int           `mapstructure:"max_query_length"`
+	RequireAuth          bool          `mapstructure:"require_auth"`
+	AllowedContentTypes  []string     `mapstructure:"allowed_content_types"`
+	MaxIndexContentSize  int64         `mapstructure:"max_index_content_size"`
+	// Milvus 后端配置(全面转向 Milvus,自研 HNSW/IVFPQ/MMap 已退役)
+	Milvus               *MilvusConfig `mapstructure:"milvus"`
+}
+
+// MilvusConfig 是 config 层的 Milvus 配置,映射到 vector.MilvusConfig。
+type MilvusConfig struct {
+	Address          string            `mapstructure:"address"`
+	Username         string            `mapstructure:"username"`
+	Password         string            `mapstructure:"password"`
+	DBName           string            `mapstructure:"db_name"`
+	CollectionName   string            `mapstructure:"collection_name"`
+	ShardsNum        int32             `mapstructure:"shards_num"`
+	IndexType        string            `mapstructure:"index_type"`
+	IndexParams      map[string]string `mapstructure:"index_params"`
+	NPROBE           int               `mapstructure:"nprobe"`
+	EF               int               `mapstructure:"ef"`
+	ConsistencyLevel string            `mapstructure:"consistency_level"`
+	ReplicaNumber    int32             `mapstructure:"replica_number"`
+	TieredStorage    *TieredStorageConfig `mapstructure:"tiered_storage"`
+	DiskANN          *DiskANNConfig    `mapstructure:"diskann"`
+}
+
+type TieredStorageConfig struct {
+	Enabled            bool   `mapstructure:"enabled"`
+	HotResourceGroup   string `mapstructure:"hot_resource_group"`
+	ColdResourceGroup  string `mapstructure:"cold_resource_group"`
+	HotNodes           int32  `mapstructure:"hot_nodes"`
+	ColdNodes          int32  `mapstructure:"cold_nodes"`
+	WarmUp             string `mapstructure:"warm_up"`
+}
+
+type DiskANNConfig struct {
+	MaxDegree                int     `mapstructure:"max_degree"`
+	SearchListSize           int     `mapstructure:"search_list_size"`
+	PQCodeBudgetGBRatio      float64 `mapstructure:"pq_code_budget_gb_ratio"`
+	SearchCacheBudgetGBRatio float64 `mapstructure:"search_cache_budget_gb_ratio"`
+	BeamWidthRatio           float64 `mapstructure:"beam_width_ratio"`
 }
 
 type PipelineConfig struct {
@@ -431,13 +459,6 @@ func (c *Config) normalize() error {
 		c.Tiering.HotMaxBytes, err = units.ParseSize(c.Tiering.HotMaxSize)
 		if err != nil {
 			return fmt.Errorf("invalid hot_max_size: %w", err)
-		}
-	}
-
-	if c.Vector.HotIndexSize != "" {
-		c.Vector.HotIndexBytes, err = units.ParseSize(c.Vector.HotIndexSize)
-		if err != nil {
-			return fmt.Errorf("invalid hot_index_size: %w", err)
 		}
 	}
 

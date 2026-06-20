@@ -25,7 +25,10 @@ func NewAdminAPI(service *IAMService, jwtKey []byte) *AdminAPI {
 
 // ServeHTTP routes admin API requests
 func (a *AdminAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// After http.StripPrefix("/iam", ...), paths come in as /users, /groups, etc.
 	path := strings.TrimPrefix(r.URL.Path, "/admin/")
+	// Also handle paths without /admin/ prefix (from StripPrefix("/iam"))
+	path = strings.TrimPrefix(path, "/")
 
 	switch {
 	case r.Method == http.MethodGet && path == "users":

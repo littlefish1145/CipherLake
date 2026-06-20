@@ -114,27 +114,57 @@ func dialHelper(addr string, tlsCfg *tls.Config) (*grpc.ClientConn, error) {
 }
 
 // ===========================================================================
+// Generic gRPC client wrapper
+// ===========================================================================
+
+// GRPCClient holds a gRPC connection and the typed service client generated
+// from a protobuf definition. It centralizes connection lifecycle logic so
+// service-specific wrappers only need to define their business methods.
+type GRPCClient[T any] struct {
+	conn   *grpc.ClientConn
+	Client T
+}
+
+// NewGRPCClient dials addr using the shared TLS/insecure helper, constructs
+// the typed client via newClient, and returns a reusable GRPCClient wrapper.
+func NewGRPCClient[T any](addr string, tlsCfg *tls.Config, serviceName string, newClient func(grpc.ClientConnInterface) T) (*GRPCClient[T], error) {
+	conn, err := dialHelper(addr, tlsCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect %s service: %w", serviceName, err)
+	}
+	return &GRPCClient[T]{
+		conn:   conn,
+		Client: newClient(conn),
+	}, nil
+}
+
+// Close closes the underlying gRPC connection. It is safe to call on a nil
+// receiver or on a wrapper whose connection was never established.
+func (c *GRPCClient[T]) Close() error {
+	if c != nil && c.conn != nil {
+		return c.conn.Close()
+	}
+	return nil
+}
+
+// ===========================================================================
 // GRPCKeyGenerator – implements KeyGenerator
 // ===========================================================================
 
 type GRPCKeyGenerator struct {
-	client pbkeygen.KeyGenServiceClient
-	conn   *grpc.ClientConn
+	*GRPCClient[pbkeygen.KeyGenServiceClient]
 }
 
 func NewGRPCKeyGenerator(addr string, tlsCfg *tls.Config) (*GRPCKeyGenerator, error) {
-	conn, err := dialHelper(addr, tlsCfg)
+	base, err := NewGRPCClient(addr, tlsCfg, "keygen", pbkeygen.NewKeyGenServiceClient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect keygen service: %w", err)
+		return nil, err
 	}
-	return &GRPCKeyGenerator{
-		client: pbkeygen.NewKeyGenServiceClient(conn),
-		conn:   conn,
-	}, nil
+	return &GRPCKeyGenerator{base}, nil
 }
 
 func (g *GRPCKeyGenerator) GenerateDataKey(ctx context.Context, tokenID, userID, bucket, objectKey string, clientECDHPub *ECDHPublicKey) (*EncryptedDEK, *ECDHEncryptedDEK, *ECDHPublicKey, error) {
-	resp, err := g.client.GenerateDataKey(ctx, &pbkeygen.GenerateDataKeyRequest{
+	resp, err := g.Client.GenerateDataKey(ctx, &pbkeygen.GenerateDataKeyRequest{
 		Token: &pbcommon.DelegationToken{
 			TokenId:   tokenID,
 			TokenType: pbcommon.TokenType_TOKEN_TYPE_WRITE,
@@ -157,18 +187,11 @@ func (g *GRPCKeyGenerator) GenerateDataKey(ctx context.Context, tokenID, userID,
 }
 
 func (g *GRPCKeyGenerator) GetPublicKey() ([]byte, string, string) {
-	resp, err := g.client.GetPublicKey(context.Background(), &pbkeygen.GetPublicKeyRequest{})
+	resp, err := g.Client.GetPublicKey(context.Background(), &pbkeygen.GetPublicKeyRequest{})
 	if err != nil {
 		return nil, "", ""
 	}
 	return resp.GetPublicKey(), resp.GetKeyId(), resp.GetAlgorithm()
-}
-
-func (g *GRPCKeyGenerator) Close() error {
-	if g.conn != nil {
-		return g.conn.Close()
-	}
-	return nil
 }
 
 // ===========================================================================
@@ -176,23 +199,19 @@ func (g *GRPCKeyGenerator) Close() error {
 // ===========================================================================
 
 type GRPCKeyUnwrapper struct {
-	client pbkeyunwrap.KeyUnwrapServiceClient
-	conn   *grpc.ClientConn
+	*GRPCClient[pbkeyunwrap.KeyUnwrapServiceClient]
 }
 
 func NewGRPCKeyUnwrapper(addr string, tlsCfg *tls.Config) (*GRPCKeyUnwrapper, error) {
-	conn, err := dialHelper(addr, tlsCfg)
+	base, err := NewGRPCClient(addr, tlsCfg, "keyunwrap", pbkeyunwrap.NewKeyUnwrapServiceClient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect keyunwrap service: %w", err)
+		return nil, err
 	}
-	return &GRPCKeyUnwrapper{
-		client: pbkeyunwrap.NewKeyUnwrapServiceClient(conn),
-		conn:   conn,
-	}, nil
+	return &GRPCKeyUnwrapper{base}, nil
 }
 
 func (u *GRPCKeyUnwrapper) UnwrapKey(ctx context.Context, tokenID, userID, bucket, objectKey string, encryptedDEK *EncryptedDEK, clientECDHPub *ECDHPublicKey) (*ECDHEncryptedDEK, *ECDHPublicKey, error) {
-	resp, err := u.client.UnwrapKey(ctx, &pbkeyunwrap.UnwrapKeyRequest{
+	resp, err := u.Client.UnwrapKey(ctx, &pbkeyunwrap.UnwrapKeyRequest{
 		Token: &pbcommon.DelegationToken{
 			TokenId:   tokenID,
 			TokenType: pbcommon.TokenType_TOKEN_TYPE_READ,
@@ -214,35 +233,24 @@ func (u *GRPCKeyUnwrapper) UnwrapKey(ctx context.Context, tokenID, userID, bucke
 		nil
 }
 
-func (u *GRPCKeyUnwrapper) Close() error {
-	if u.conn != nil {
-		return u.conn.Close()
-	}
-	return nil
-}
-
 // ===========================================================================
 // GRPCDataEncryptor – implements DataEncryptor
 // ===========================================================================
 
 type GRPCDataEncryptor struct {
-	client pbencrypt.EncryptServiceClient
-	conn   *grpc.ClientConn
+	*GRPCClient[pbencrypt.EncryptServiceClient]
 }
 
 func NewGRPCDataEncryptor(addr string, tlsCfg *tls.Config) (*GRPCDataEncryptor, error) {
-	conn, err := dialHelper(addr, tlsCfg)
+	base, err := NewGRPCClient(addr, tlsCfg, "encrypt", pbencrypt.NewEncryptServiceClient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect encrypt service: %w", err)
+		return nil, err
 	}
-	return &GRPCDataEncryptor{
-		client: pbencrypt.NewEncryptServiceClient(conn),
-		conn:   conn,
-	}, nil
+	return &GRPCDataEncryptor{base}, nil
 }
 
 func (e *GRPCDataEncryptor) Encrypt(clientECDHPriv *ecdh.PrivateKey, serviceECDHPub *ECDHPublicKey, ecdhEncryptedDEK *ECDHEncryptedDEK, plaintext []byte, algorithm string) ([]byte, []byte, []byte, error) {
-	resp, err := e.client.EncryptChunk(context.Background(), &pbencrypt.EncryptChunkRequest{
+	resp, err := e.Client.EncryptChunk(context.Background(), &pbencrypt.EncryptChunkRequest{
 		EcdhEncryptedDek:     ecdhEncryptedDEKToProto(ecdhEncryptedDEK),
 		ClientEcdhPrivateKey: clientECDHPriv.Bytes(),
 		ServiceEcdhPub:       ecdhPubToProto(serviceECDHPub),
@@ -258,35 +266,24 @@ func (e *GRPCDataEncryptor) Encrypt(clientECDHPriv *ecdh.PrivateKey, serviceECDH
 	return resp.GetCiphertext(), resp.GetNonce(), resp.GetAuthTag(), nil
 }
 
-func (e *GRPCDataEncryptor) Close() error {
-	if e.conn != nil {
-		return e.conn.Close()
-	}
-	return nil
-}
-
 // ===========================================================================
 // GRPCDataDecryptor – implements DataDecryptor
 // ===========================================================================
 
 type GRPCDataDecryptor struct {
-	client pbdecrypt.DecryptServiceClient
-	conn   *grpc.ClientConn
+	*GRPCClient[pbdecrypt.DecryptServiceClient]
 }
 
 func NewGRPCDataDecryptor(addr string, tlsCfg *tls.Config) (*GRPCDataDecryptor, error) {
-	conn, err := dialHelper(addr, tlsCfg)
+	base, err := NewGRPCClient(addr, tlsCfg, "decrypt", pbdecrypt.NewDecryptServiceClient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect decrypt service: %w", err)
+		return nil, err
 	}
-	return &GRPCDataDecryptor{
-		client: pbdecrypt.NewDecryptServiceClient(conn),
-		conn:   conn,
-	}, nil
+	return &GRPCDataDecryptor{base}, nil
 }
 
 func (d *GRPCDataDecryptor) Decrypt(clientECDHPriv *ecdh.PrivateKey, serviceECDHPub *ECDHPublicKey, ecdhEncryptedDEK *ECDHEncryptedDEK, ciphertext []byte, nonce []byte, authTag []byte, algorithm string) ([]byte, error) {
-	resp, err := d.client.DecryptChunk(context.Background(), &pbdecrypt.DecryptChunkRequest{
+	resp, err := d.Client.DecryptChunk(context.Background(), &pbdecrypt.DecryptChunkRequest{
 		EcdhEncryptedDek:     ecdhEncryptedDEKToProto(ecdhEncryptedDEK),
 		ClientEcdhPrivateKey: clientECDHPriv.Bytes(),
 		ServiceEcdhPub:       ecdhPubToProto(serviceECDHPub),
@@ -304,35 +301,24 @@ func (d *GRPCDataDecryptor) Decrypt(clientECDHPriv *ecdh.PrivateKey, serviceECDH
 	return resp.GetPlaintext(), nil
 }
 
-func (d *GRPCDataDecryptor) Close() error {
-	if d.conn != nil {
-		return d.conn.Close()
-	}
-	return nil
-}
-
 // ===========================================================================
 // GRPCKeyStorer – implements KeyStorer
 // ===========================================================================
 
 type GRPCKeyStorer struct {
-	client pbkeystore.KeyStoreServiceClient
-	conn   *grpc.ClientConn
+	*GRPCClient[pbkeystore.KeyStoreServiceClient]
 }
 
 func NewGRPCKeyStorer(addr string, tlsCfg *tls.Config) (*GRPCKeyStorer, error) {
-	conn, err := dialHelper(addr, tlsCfg)
+	base, err := NewGRPCClient(addr, tlsCfg, "keystore", pbkeystore.NewKeyStoreServiceClient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect keystore service: %w", err)
+		return nil, err
 	}
-	return &GRPCKeyStorer{
-		client: pbkeystore.NewKeyStoreServiceClient(conn),
-		conn:   conn,
-	}, nil
+	return &GRPCKeyStorer{base}, nil
 }
 
 func (s *GRPCKeyStorer) StoreKey(bucket, objectKey string, encryptedDEK *EncryptedDEK, objectSize int64) (string, error) {
-	resp, err := s.client.StoreKey(context.Background(), &pbkeystore.StoreKeyRequest{
+	resp, err := s.Client.StoreKey(context.Background(), &pbkeystore.StoreKeyRequest{
 		Bucket:       bucket,
 		ObjectKey:    objectKey,
 		EncryptedDek: encryptedDEKToProto(encryptedDEK),
@@ -348,7 +334,7 @@ func (s *GRPCKeyStorer) StoreKey(bucket, objectKey string, encryptedDEK *Encrypt
 }
 
 func (s *GRPCKeyStorer) GetKey(bucket, objectKey string) (*EncryptedDEK, error) {
-	resp, err := s.client.GetKey(context.Background(), &pbkeystore.GetKeyRequest{
+	resp, err := s.Client.GetKey(context.Background(), &pbkeystore.GetKeyRequest{
 		Bucket:    bucket,
 		ObjectKey: objectKey,
 	})
@@ -362,7 +348,7 @@ func (s *GRPCKeyStorer) GetKey(bucket, objectKey string) (*EncryptedDEK, error) 
 }
 
 func (s *GRPCKeyStorer) DeleteKey(bucket, objectKey string) error {
-	resp, err := s.client.DeleteKey(context.Background(), &pbkeystore.DeleteKeyRequest{
+	resp, err := s.Client.DeleteKey(context.Background(), &pbkeystore.DeleteKeyRequest{
 		Bucket:    bucket,
 		ObjectKey: objectKey,
 	})
@@ -375,13 +361,6 @@ func (s *GRPCKeyStorer) DeleteKey(bucket, objectKey string) error {
 	return nil
 }
 
-func (s *GRPCKeyStorer) Close() error {
-	if s.conn != nil {
-		return s.conn.Close()
-	}
-	return nil
-}
-
 // ===========================================================================
 // GRPCTokenService – implements TokenIssuer for the coordinator
 // ===========================================================================
@@ -389,23 +368,19 @@ func (s *GRPCKeyStorer) Close() error {
 // GRPCTokenService wraps the remote TokenService via gRPC so that the
 // EncryptionCoordinator can issue tokens in distributed mode.
 type GRPCTokenService struct {
-	client pbtoken.TokenServiceClient
-	conn   *grpc.ClientConn
+	*GRPCClient[pbtoken.TokenServiceClient]
 }
 
 func NewGRPCTokenService(addr string, tlsCfg *tls.Config) (*GRPCTokenService, error) {
-	conn, err := dialHelper(addr, tlsCfg)
+	base, err := NewGRPCClient(addr, tlsCfg, "token", pbtoken.NewTokenServiceClient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect token service: %w", err)
+		return nil, err
 	}
-	return &GRPCTokenService{
-		client: pbtoken.NewTokenServiceClient(conn),
-		conn:   conn,
-	}, nil
+	return &GRPCTokenService{base}, nil
 }
 
 func (t *GRPCTokenService) IssueWriteToken(ctx context.Context, userID, bucket, objectKey string, ttlSeconds int64) (*token_service.DelegationToken, error) {
-	resp, err := t.client.IssueWriteToken(ctx, &pbtoken.IssueWriteTokenRequest{
+	resp, err := t.Client.IssueWriteToken(ctx, &pbtoken.IssueWriteTokenRequest{
 		UserId:     userID,
 		Bucket:     bucket,
 		ObjectKey:  objectKey,
@@ -421,7 +396,7 @@ func (t *GRPCTokenService) IssueWriteToken(ctx context.Context, userID, bucket, 
 }
 
 func (t *GRPCTokenService) IssueReadToken(ctx context.Context, userID, bucket, objectKey, contentHash string, ttlSeconds int64) (*token_service.DelegationToken, error) {
-	resp, err := t.client.IssueReadToken(ctx, &pbtoken.IssueReadTokenRequest{
+	resp, err := t.Client.IssueReadToken(ctx, &pbtoken.IssueReadTokenRequest{
 		UserId:      userID,
 		Bucket:      bucket,
 		ObjectKey:   objectKey,
@@ -438,7 +413,7 @@ func (t *GRPCTokenService) IssueReadToken(ctx context.Context, userID, bucket, o
 }
 
 func (t *GRPCTokenService) IssueDeleteToken(ctx context.Context, userID, bucket, objectKey string, ttlSeconds int64) (*token_service.DelegationToken, error) {
-	resp, err := t.client.IssueDeleteToken(ctx, &pbtoken.IssueDeleteTokenRequest{
+	resp, err := t.Client.IssueDeleteToken(ctx, &pbtoken.IssueDeleteTokenRequest{
 		UserId:     userID,
 		Bucket:     bucket,
 		ObjectKey:  objectKey,
@@ -451,13 +426,6 @@ func (t *GRPCTokenService) IssueDeleteToken(ctx context.Context, userID, bucket,
 		return nil, rerr
 	}
 	return protoToDelegationToken(resp.GetToken()), nil
-}
-
-func (t *GRPCTokenService) Close() error {
-	if t.conn != nil {
-		return t.conn.Close()
-	}
-	return nil
 }
 
 func protoToDelegationToken(tok *pbcommon.DelegationToken) *token_service.DelegationToken {

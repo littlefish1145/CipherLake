@@ -11,13 +11,14 @@ import (
 
 	"nexus/internal/common"
 	"nexus/internal/config"
+	"nexus/internal/metadata"
 )
 
 var (
 	ErrObjectNotFound    = errors.New("object not found")
-	ErrBucketNotFound   = errors.New("bucket not found")
-	ErrInvalidTier      = errors.New("invalid storage tier")
-	ErrTierNotAvailable = errors.New("storage tier not available")
+	ErrBucketNotFound    = errors.New("bucket not found")
+	ErrInvalidTier       = errors.New("invalid storage tier")
+	ErrTierNotAvailable  = errors.New("storage tier not available")
 	ErrInvalidObjectKey  = errors.New("invalid object key")
 	ErrInvalidBucketName = errors.New("invalid bucket name")
 )
@@ -304,17 +305,17 @@ type TieredObjectStore struct {
 	tiers       map[common.StorageTier]BackendStorage
 	currentSize map[common.StorageTier]int64
 	maxSize     map[common.StorageTier]int64
-	objectIndex map[string]*common.ObjectMetadata
+	metadata    metadata.MetadataStore
 	objLocks    sync.Map
 	locksMu     sync.Mutex
 }
 
-func NewTieredObjectStore() *TieredObjectStore {
+func NewTieredObjectStore(meta metadata.MetadataStore) *TieredObjectStore {
 	return &TieredObjectStore{
 		tiers:       make(map[common.StorageTier]BackendStorage),
 		currentSize: make(map[common.StorageTier]int64),
 		maxSize:     make(map[common.StorageTier]int64),
-		objectIndex: make(map[string]*common.ObjectMetadata),
+		metadata:    meta,
 	}
 }
 
@@ -363,17 +364,6 @@ func (s *TieredObjectStore) Put(ctx context.Context, bucket, key string, data io
 
 	s.mu.Lock()
 	s.currentSize[tier] += size
-
-	objKey := bucket + "/" + key
-	if metadata == nil {
-		metadata = &common.ObjectMetadata{}
-	}
-	metadata.Key = key
-	metadata.Bucket = bucket
-	metadata.Size = size
-	metadata.StorageTier = tier
-
-	s.objectIndex[objKey] = metadata
 	s.mu.Unlock()
 
 	return nil
@@ -381,35 +371,20 @@ func (s *TieredObjectStore) Put(ctx context.Context, bucket, key string, data io
 
 func (s *TieredObjectStore) Get(ctx context.Context, bucket, key string, tier common.StorageTier) (io.ReadCloser, *common.ObjectMetadata, error) {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	objKey := bucket + "/" + key
-	metadata, ok := s.objectIndex[objKey]
-
 	path := s.makePath(bucket, key)
 	backend, ok := s.tiers[tier]
+	s.mu.RUnlock()
+
 	if !ok {
 		return nil, nil, ErrTierNotAvailable
 	}
 
 	reader, err := backend.Get(ctx, path)
 	if err != nil {
-		if metadata == nil {
-			return nil, nil, ErrObjectNotFound
-		}
 		return nil, nil, fmt.Errorf("failed to get object: %w", err)
 	}
 
-	if metadata == nil {
-		metadata = &common.ObjectMetadata{
-			Key:         key,
-			Bucket:      bucket,
-			StorageTier: tier,
-		}
-		s.objectIndex[objKey] = metadata
-	}
-
-	return reader, metadata, nil
+	return reader, nil, nil
 }
 
 func (s *TieredObjectStore) Delete(ctx context.Context, bucket, key string, tier common.StorageTier) error {
@@ -425,54 +400,56 @@ func (s *TieredObjectStore) Delete(ctx context.Context, bucket, key string, tier
 		return ErrTierNotAvailable
 	}
 
+	size, _ := backend.Size(ctx, path)
+
 	if err := backend.Delete(ctx, path); err != nil {
 		return fmt.Errorf("failed to delete object: %w", err)
 	}
 
 	s.mu.Lock()
-	objKey := bucket + "/" + key
-	if metadata, ok := s.objectIndex[objKey]; ok {
-		s.currentSize[tier] -= metadata.Size
-		delete(s.objectIndex, objKey)
-	}
+	s.currentSize[tier] -= size
 	s.mu.Unlock()
 
 	return nil
 }
 
 func (s *TieredObjectStore) Head(ctx context.Context, bucket, key string) (*common.ObjectMetadata, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	objKey := bucket + "/" + key
-	metadata, ok := s.objectIndex[objKey]
-	if !ok {
+	if s.metadata == nil {
 		return nil, ErrObjectNotFound
 	}
 
-	return metadata, nil
+	meta, err := s.metadata.GetObject(ctx, bucket, key)
+	if err != nil {
+		return nil, ErrObjectNotFound
+	}
+
+	return metadataToCommon(meta), nil
 }
 
 func (s *TieredObjectStore) Migrate(ctx context.Context, bucket, key string, fromTier, toTier common.StorageTier) error {
 	s.lockObject(bucket, key)
 	defer s.unlockObject(bucket, key)
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	objKey := bucket + "/" + key
-	metadata, ok := s.objectIndex[objKey]
-	if !ok {
+	if s.metadata == nil {
 		return ErrObjectNotFound
 	}
 
-	if metadata.StorageTier != fromTier {
+	meta, err := s.metadata.GetObject(ctx, bucket, key)
+	if err != nil {
+		return ErrObjectNotFound
+	}
+
+	if common.StorageTier(meta.StorageTier) != fromTier {
 		return fmt.Errorf("object is not in source tier")
 	}
 
+	s.mu.RLock()
 	srcPath := s.makePath(bucket, key)
 	srcBackend, ok := s.tiers[fromTier]
-	if !ok {
+	dstBackend, ok2 := s.tiers[toTier]
+	s.mu.RUnlock()
+
+	if !ok || !ok2 {
 		return ErrTierNotAvailable
 	}
 
@@ -482,21 +459,21 @@ func (s *TieredObjectStore) Migrate(ctx context.Context, bucket, key string, fro
 	}
 	defer reader.Close()
 
-	dstPath := s.makePath(bucket, key)
-	dstBackend, ok := s.tiers[toTier]
-	if !ok {
-		return ErrTierNotAvailable
-	}
-
-	if err := dstBackend.Put(ctx, dstPath, reader, metadata.Size); err != nil {
+	if err := dstBackend.Put(ctx, srcPath, reader, meta.Size); err != nil {
 		return fmt.Errorf("failed to write to destination: %w", err)
 	}
 
 	_ = srcBackend.Delete(ctx, srcPath)
 
-	s.currentSize[fromTier] -= metadata.Size
-	s.currentSize[toTier] += metadata.Size
-	metadata.StorageTier = toTier
+	s.mu.Lock()
+	s.currentSize[fromTier] -= meta.Size
+	s.currentSize[toTier] += meta.Size
+	s.mu.Unlock()
+
+	meta.StorageTier = int(toTier)
+	if err := s.metadata.PutObject(ctx, bucket, key, meta); err != nil {
+		return fmt.Errorf("failed to update metadata after migration: %w", err)
+	}
 
 	return nil
 }
@@ -544,4 +521,29 @@ func (s *TieredObjectStore) unlockObject(bucket, key string) {
 
 func (s *TieredObjectStore) makePath(bucket, key string) string {
 	return bucket + "/" + key
+}
+
+// metadataToCommon converts a metadata.ObjectMetadata into the common
+// ObjectMetadata shape used by the storage layer and tiering manager.
+func metadataToCommon(m *metadata.ObjectMetadata) *common.ObjectMetadata {
+	if m == nil {
+		return nil
+	}
+	return &common.ObjectMetadata{
+		Key:             m.Key,
+		Bucket:          m.Bucket,
+		Size:            m.Size,
+		ContentType:     m.ContentType,
+		ContentEncoding: m.ContentEncoding,
+		ETag:            m.ETag,
+		UserMetadata:    m.UserMetadata,
+		StorageTier:     common.StorageTier(m.StorageTier),
+		CreatedAt:       m.CreatedAt,
+		ModifiedAt:      m.ModifiedAt,
+		AccessCount:     m.AccessCount,
+		LastAccessedAt:  m.LastAccessedAt,
+		Encrypted:       m.Encrypted,
+		Vectorized:      m.Vectorized,
+		VersionID:       m.VersionID,
+	}
 }

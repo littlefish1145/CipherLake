@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -20,6 +22,19 @@ const (
 	testSecretKey = "nexus-test-secret"
 	testRegion    = "us-east-1"
 )
+
+func TestMain(m *testing.M) {
+	// Conformance tests require a running Nexus S3 gateway at localhost:9000.
+	// Skip the suite gracefully when the endpoint is not reachable.
+	if os.Getenv("NEXUS_FORCE_CONFORMANCE") == "" {
+		client := &http.Client{Timeout: 2 * time.Second}
+		if _, err := client.Get(testEndpoint); err != nil {
+			fmt.Fprintf(os.Stderr, "SKIP: conformance endpoint %s unreachable (%v); set NEXUS_FORCE_CONFORMANCE=1 to fail\n", testEndpoint, err)
+			os.Exit(0)
+		}
+	}
+	os.Exit(m.Run())
+}
 
 func newTestClient(t *testing.T) *s3sdk.Client {
 	t.Helper()

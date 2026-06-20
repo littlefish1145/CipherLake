@@ -15,6 +15,7 @@ search, full-text search, server-side encryption, and multi-tier storage.
 - **Multi-Tier Storage**: Automatic tiering between hot, warm, and cold storage
 - **IAM & ABAC**: Fine-grained access control with attribute-based policies
 - **Raft Consensus**: Strong consistency for metadata with HashiCorp Raft
+- **Background Task Queue**: Persistent task scheduling with retries and dead-letter queue for vector/FTS indexing and pipelines
 - **Observability**: Built-in Prometheus metrics, OpenTelemetry tracing, and structured logging
 
 ## Quick Links

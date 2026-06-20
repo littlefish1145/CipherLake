@@ -48,11 +48,18 @@ func newTestVectorManager(t *testing.T) *vector.VectorManager {
 	vm, err := vector.NewVectorManager(&vector.VectorConfig{
 		Enabled:           true,
 		Dimension:         8,
-		IndexType:         "hnsw",
+		IndexType:         "milvus",
 		MetricType:        "cosine",
 		EmbeddingProvider: "mock",
+		Milvus: &vector.MilvusConfig{
+			Address:        "localhost:19530",
+			CollectionName: "nexus_test_vectors",
+			IndexType:      "HNSW",
+		},
 	})
-	require.NoError(t, err)
+	if err != nil {
+		t.Skipf("skipping test: Milvus not available: %v", err)
+	}
 	return vm
 }
 
@@ -134,7 +141,7 @@ func TestStorageComputePipeline_VectorIndexing(t *testing.T) {
 	assert.True(t, found)
 
 	stats := vm.GetStats()
-	assert.Equal(t, int64(2), stats["hot"].TotalVectors)
+	assert.Equal(t, int64(2), stats["index"].TotalVectors)
 }
 
 func TestStorageComputePipeline_EndToEnd(t *testing.T) {
@@ -366,7 +373,7 @@ func TestStorageComputePipeline_VectorSearchAfterIndex(t *testing.T) {
 	}
 
 	stats := vm.GetStats()
-	assert.Equal(t, int64(5), stats["hot"].TotalVectors)
+	assert.Equal(t, int64(5), stats["index"].TotalVectors)
 
 	queryVec := vector.GenerateEmbedding("machine learning algorithms", 8)
 	directResults, err := vm.Search(ctx, vector.Vector{Values: queryVec, Dimension: 8}, 2, nil)

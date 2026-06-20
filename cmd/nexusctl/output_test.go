@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -407,6 +408,10 @@ func TestConfigEncryptionEmpty(t *testing.T) {
 }
 
 func TestConfigFilePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix file permissions are not enforced on Windows")
+	}
+
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, ".nexusctl.yaml")
 

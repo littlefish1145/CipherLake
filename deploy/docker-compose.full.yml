@@ -1,0 +1,310 @@
+# Nexus + Milvus 全栈编排
+#
+# 一键启动:Nexus 对象存储(分布式加密微服务)+ Milvus 向量数据库
+# 密钥自动生成:keygen-service / token-service 首次启动时自动生成 ECDSA / Ed25519 密钥
+#
+# 用法:
+#   cd deploy
+#   docker compose -f docker-compose.full.yml up -d
+#
+# 验证:
+#   curl http://localhost:8080/healthz        # Nexus 健康检查
+#   curl http://localhost:9091/healthz        # Milvus 健康检查
+#
+# 停止:
+#   docker compose -f docker-compose.full.yml down
+#
+# 清除数据(含密钥,需重新生成):
+#   docker compose -f docker-compose.full.yml down -v
+
+services:
+# ============================================================================
+# Milvus 依赖:etcd + minio + milvus
+# ============================================================================
+
+  # --- Milvus 元数据存储 ---
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    environment:
+      ETCD_AUTO_COMPACTION_MODE: revision
+      ETCD_AUTO_COMPACTION_RETENTION: "1000"
+      ETCD_QUOTA_BACKEND_BYTES: "4294967296"
+      ETCD_SNAPSHOT_COUNT: "50000"
+    volumes:
+      - milvus-etcd:/etcd
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - nexus-net
+
+  # --- Milvus 对象存储 ---
+  milvus-minio:
+    image: minio/minio:RELEASE.2024-09-13T20-26-02Z
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    volumes:
+      - milvus-minio:/minio_data
+    command: minio server /minio_data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - nexus-net
+
+  # --- Milvus 向量数据库 ---
+  milvus:
+    image: milvusdb/milvus:v2.4.10
+    command: ["milvus", "run", "standalone"]
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: milvus-minio:9000
+      MINIO_ACCESS_KEY_ID: minioadmin
+      MINIO_SECRET_ACCESS_KEY: minioadmin
+      MINIO_USE_SSL: "false"
+    volumes:
+      - milvus-data:/var/lib/milvus
+    ports:
+      - "19530:19530"   # gRPC
+      - "9091:9091"     # 健康检查 / metrics
+    depends_on:
+      etcd:
+        condition: service_healthy
+      milvus-minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - nexus-net
+
+# ============================================================================
+# Nexus 加密微服务(分布式模式)
+# 密钥自动生成:首次启动时自动生成,持久化到 nexus-keys 卷
+# ============================================================================
+
+  # --- token-service:Ed25519 令牌签发与验证 ---
+  token-service:
+    image: nexus:latest
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: ["/usr/local/bin/token-service", "-port", "50051", "-key-path", "/var/lib/nexus/keys/token"]
+    environment:
+      GOLANG_PROTOBUF_REGISTRATION_CONFLICT: "warn"
+      NEXUS_OBSERVABILITY_LOGGING_LEVEL: "${NEXUS_LOG_LEVEL:-info}"
+    volumes:
+      - nexus-keys:/var/lib/nexus/keys
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50051"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - nexus-net
+
+  # --- keygen-service:ECDSA P-256 密钥生成(公钥加密端) ---
+  # 首次启动自动生成 ECDSA 密钥对,保存到 /var/lib/nexus/keys/keygen
+  keygen-service:
+    image: nexus:latest
+    command: ["/usr/local/bin/keygen-service", "-port", "50052", "-key-path", "/var/lib/nexus/keys/keygen"]
+    environment:
+      GOLANG_PROTOBUF_REGISTRATION_CONFLICT: "warn"
+      NEXUS_OBSERVABILITY_LOGGING_LEVEL: "${NEXUS_LOG_LEVEL:-info}"
+    volumes:
+      - nexus-keys:/var/lib/nexus/keys
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50052"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - nexus-net
+
+  # --- keyunwrap-service:ECDSA 私钥解包(读取 keygen 生成的私钥) ---
+  # 共享 nexus-keys 卷,读取 keygen-service 生成的 .priv 文件
+  keyunwrap-service:
+    image: nexus:latest
+    command: ["/usr/local/bin/keyunwrap-service", "-port", "50053", "-key-path", "/var/lib/nexus/keys/keygen"]
+    environment:
+      GOLANG_PROTOBUF_REGISTRATION_CONFLICT: "warn"
+      NEXUS_OBSERVABILITY_LOGGING_LEVEL: "${NEXUS_LOG_LEVEL:-info}"
+    volumes:
+      - nexus-keys:/var/lib/nexus/keys
+    depends_on:
+      keygen-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50053"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - nexus-net
+
+  # --- encrypt-service:AES-256-GCM 数据加密(无状态) ---
+  encrypt-service:
+    image: nexus:latest
+    command: ["/usr/local/bin/encrypt-service", "-port", "50054"]
+    environment:
+      GOLANG_PROTOBUF_REGISTRATION_CONFLICT: "warn"
+      NEXUS_OBSERVABILITY_LOGGING_LEVEL: "${NEXUS_LOG_LEVEL:-info}"
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50054"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - nexus-net
+
+  # --- decrypt-service:AES-256-GCM 数据解密(无状态) ---
+  decrypt-service:
+    image: nexus:latest
+    command: ["/usr/local/bin/decrypt-service", "-port", "50055"]
+    environment:
+      GOLANG_PROTOBUF_REGISTRATION_CONFLICT: "warn"
+      NEXUS_OBSERVABILITY_LOGGING_LEVEL: "${NEXUS_LOG_LEVEL:-info}"
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50055"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - nexus-net
+
+  # --- keystore-service:DEK 密钥持久化存储(BoltDB) ---
+  keystore-service:
+    image: nexus:latest
+    command: ["/usr/local/bin/keystore-service", "-port", "50056", "-data-path", "/var/lib/nexus/keystore"]
+    environment:
+      GOLANG_PROTOBUF_REGISTRATION_CONFLICT: "warn"
+      NEXUS_OBSERVABILITY_LOGGING_LEVEL: "${NEXUS_LOG_LEVEL:-info}"
+    volumes:
+      - nexus-keystore:/var/lib/nexus/keystore
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50056"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - nexus-net
+
+  # --- sts-service:STS 临时安全令牌(AssumeRole) ---
+  sts-service:
+    image: nexus:latest
+    command: ["/usr/local/bin/sts-service", "-port", "50057"]
+    environment:
+      GOLANG_PROTOBUF_REGISTRATION_CONFLICT: "warn"
+      NEXUS_OBSERVABILITY_LOGGING_LEVEL: "${NEXUS_LOG_LEVEL:-info}"
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50057"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - nexus-net
+
+# ============================================================================
+# Nexus 主服务
+# ============================================================================
+
+  nexus:
+    image: nexus:latest
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    ports:
+      - "${NEXUS_PORT:-8080}:8080"       # S3 API
+      - "${NEXUS_ADMIN_PORT:-8081}:8081"  # Admin API
+    environment:
+      # 解决 Milvus SDK 与项目 proto 的 common.proto 注册冲突
+      GOLANG_PROTOBUF_REGISTRATION_CONFLICT: "warn"
+      NEXUS_OBSERVABILITY_LOGGING_LEVEL: "${NEXUS_LOG_LEVEL:-info}"
+    volumes:
+      - nexus-data:/var/lib/nexus/data
+      - nexus-iam:/var/lib/nexus/iam
+      - nexus-keys:/var/lib/nexus/keys:ro    # 只读挂载密钥(主服务只需读取)
+      - ./config.docker.yaml:/etc/nexus/config.yaml:ro
+      - ../pipelines.yaml:/etc/nexus/pipelines.yaml:ro
+    depends_on:
+      token-service:
+        condition: service_healthy
+      keygen-service:
+        condition: service_healthy
+      keyunwrap-service:
+        condition: service_healthy
+      encrypt-service:
+        condition: service_healthy
+      decrypt-service:
+        condition: service_healthy
+      keystore-service:
+        condition: service_healthy
+      sts-service:
+        condition: service_healthy
+      milvus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - nexus-net
+
+# ============================================================================
+# 卷
+# ============================================================================
+volumes:
+  # Nexus 数据
+  nexus-data:       # 对象数据
+    driver: local
+  nexus-iam:        # IAM 数据库
+    driver: local
+  nexus-keys:        # 加密密钥(ECDSA + Ed25519,首次启动自动生成)
+    driver: local
+  nexus-keystore:   # DEK 密钥存储(BoltDB)
+    driver: local
+  # Milvus 数据
+  milvus-etcd:      # Milvus 元数据
+    driver: local
+  milvus-minio:     # Milvus 对象存储
+    driver: local
+  milvus-data:      # Milvus 运行时数据
+    driver: local
+
+# ============================================================================
+# 网络
+# ============================================================================
+networks:
+  nexus-net:
+    driver: bridge

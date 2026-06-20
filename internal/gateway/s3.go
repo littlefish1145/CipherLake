@@ -285,6 +285,10 @@ func (g *S3Gateway) initializeComponents(cfg *config.Config) error {
 			EmbeddingAPIKey:      cfg.Vector.EmbeddingAPIKey,
 			EmbeddingModelName:   cfg.Vector.EmbeddingModelName,
 		}
+		// 全面转向 Milvus:传递 Milvus 配置
+		if cfg.Vector.Milvus != nil {
+			vectorConfig.Milvus = convertMilvusConfig(cfg.Vector.Milvus)
+		}
 		vectorManager, err := vector.NewVectorManager(vectorConfig)
 		if err != nil {
 			return fmt.Errorf("failed to create vector manager: %w", err)
@@ -418,16 +422,17 @@ func (g *S3Gateway) initializeComponents(cfg *config.Config) error {
 		g.resumableCleanup.Start()
 	}
 
-	// Initialize background task queue.
-	if err := g.initializeTaskQueue(cfg); err != nil {
-		return fmt.Errorf("failed to initialize task queue: %w", err)
-	}
-
-	// Initialize domain services
+	// Initialize domain services (must be done before task queue,
+	// because task queue handlers reference these services).
 	g.bucketSvc = NewBucketService(g)
 	g.objectSvc = NewObjectService(g)
 	g.searchSvc = NewSearchService(g)
 	g.multipartSvc = NewMultipartService(g)
+
+	// Initialize background task queue.
+	if err := g.initializeTaskQueue(cfg); err != nil {
+		return fmt.Errorf("failed to initialize task queue: %w", err)
+	}
 
 	return nil
 }
@@ -480,6 +485,47 @@ func parseDuration(s string, fallback time.Duration) time.Duration {
 		return d
 	}
 	return fallback
+}
+
+// convertMilvusConfig 将 config 层的 MilvusConfig 转换为 vector 层的 MilvusConfig。
+func convertMilvusConfig(cfg *config.MilvusConfig) *vector.MilvusConfig {
+	if cfg == nil {
+		return nil
+	}
+	mc := &vector.MilvusConfig{
+		Address:          cfg.Address,
+		Username:         cfg.Username,
+		Password:         cfg.Password,
+		DBName:           cfg.DBName,
+		CollectionName:   cfg.CollectionName,
+		ShardsNum:        cfg.ShardsNum,
+		IndexType:        cfg.IndexType,
+		IndexParams:      cfg.IndexParams,
+		NPROBE:           cfg.NPROBE,
+		EF:               cfg.EF,
+		ConsistencyLevel: cfg.ConsistencyLevel,
+		ReplicaNumber:    cfg.ReplicaNumber,
+	}
+	if cfg.TieredStorage != nil {
+		mc.TieredStorage = &vector.TieredStorageConfig{
+			Enabled:           cfg.TieredStorage.Enabled,
+			HotResourceGroup:  cfg.TieredStorage.HotResourceGroup,
+			ColdResourceGroup: cfg.TieredStorage.ColdResourceGroup,
+			HotNodes:          cfg.TieredStorage.HotNodes,
+			ColdNodes:         cfg.TieredStorage.ColdNodes,
+			WarmUp:            cfg.TieredStorage.WarmUp,
+		}
+	}
+	if cfg.DiskANN != nil {
+		mc.DiskANN = &vector.DiskANNConfig{
+			MaxDegree:                cfg.DiskANN.MaxDegree,
+			SearchListSize:           cfg.DiskANN.SearchListSize,
+			PQCodeBudgetGBRatio:      cfg.DiskANN.PQCodeBudgetGBRatio,
+			SearchCacheBudgetGBRatio: cfg.DiskANN.SearchCacheBudgetGBRatio,
+			BeamWidthRatio:           cfg.DiskANN.BeamWidthRatio,
+		}
+	}
+	return mc
 }
 
 func (g *S3Gateway) Handler() http.Handler {
@@ -1252,7 +1298,15 @@ func (g *S3Gateway) GetEventBus() *events.EventBus {
 }
 
 func (g *S3Gateway) auditLog(r *http.Request, action, bucket, key, userID, result string, details map[string]interface{}) {
-	requestID := common.GetRequestID(r.Context())
+	ctx := context.Background()
+	clientIP := ""
+	userAgent := ""
+	if r != nil {
+		ctx = r.Context()
+		clientIP = r.RemoteAddr
+		userAgent = r.UserAgent()
+	}
+	requestID := common.GetRequestID(ctx)
 
 	entry := map[string]interface{}{
 		"timestamp":  time.Now().UTC().Format(time.RFC3339),
@@ -1262,8 +1316,8 @@ func (g *S3Gateway) auditLog(r *http.Request, action, bucket, key, userID, resul
 		"key":        key,
 		"user":       userID,
 		"result":     result,
-		"client_ip":  r.RemoteAddr,
-		"user_agent": r.UserAgent(),
+		"client_ip":  clientIP,
+		"user_agent": userAgent,
 	}
 
 	for k, v := range details {

@@ -17,16 +17,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"nexus/internal/auth"
 	"nexus/internal/common"
 	"nexus/internal/events"
 	"nexus/internal/metadata"
+	"nexus/internal/taskqueue"
 )
 
 type MultipartUploadHandler struct {
-	gateway      *S3Gateway
-	uploadsDir   string
-	mu           sync.RWMutex
-	partWriters  map[string]int
+	gateway     *S3Gateway
+	uploadsDir  string
+	mu          sync.RWMutex
+	partWriters map[string]int
 }
 
 func NewMultipartUploadHandler(gw *S3Gateway) *MultipartUploadHandler {
@@ -49,37 +51,37 @@ func (h *MultipartUploadHandler) getPartPath(uploadID string, partNumber int) st
 }
 
 type CreateMultipartUploadOutput struct {
-	XMLName xml.Name `xml:"CreateMultipartUploadResult"`
-	Bucket  string   `xml:"Bucket"`
-	Key     string   `xml:"Key"`
-	UploadID string  `xml:"UploadId"`
+	XMLName  xml.Name `xml:"CreateMultipartUploadResult"`
+	Bucket   string   `xml:"Bucket"`
+	Key      string   `xml:"Key"`
+	UploadID string   `xml:"UploadId"`
 }
 
 type UploadPartOutput struct {
-	ETag         string `xml:"ETag"`
-	PartNumber   int    `xml:"PartNumber"`
+	ETag       string `xml:"ETag"`
+	PartNumber int    `xml:"PartNumber"`
 }
 
 type CompleteMultipartUploadOutput struct {
-	XMLName      xml.Name `xml:"CompleteMultipartUploadResult"`
-	Location     string  `xml:"Location"`
-	Bucket      string  `xml:"Bucket"`
-	Key         string  `xml:"Key"`
-	ETag        string  `xml:"ETag"`
-	Checksum    string  `xml:"Checksum,omitempty"`
+	XMLName  xml.Name `xml:"CompleteMultipartUploadResult"`
+	Location string   `xml:"Location"`
+	Bucket   string   `xml:"Bucket"`
+	Key      string   `xml:"Key"`
+	ETag     string   `xml:"ETag"`
+	Checksum string   `xml:"Checksum,omitempty"`
 }
 
 type ListPartsOutput struct {
-	XMLName           xml.Name `xml:"ListPartsResult"`
-	Bucket           string   `xml:"Bucket"`
-	Key              string   `xml:"Key"`
-	UploadID         string   `xml:"UploadId"`
-	StorageClass     string   `xml:"StorageClass"`
-	MaxParts         int      `xml:"MaxParts"`
-	IsTruncated      bool     `xml:"IsTruncated"`
-	NextPartNumberMarker int   `xml:"NextPartNumberMarker,omitempty"`
-	PartNumberMarker int      `xml:"PartNumberMarker,omitempty"`
-	Parts            []Part  `xml:"Parts"`
+	XMLName              xml.Name `xml:"ListPartsResult"`
+	Bucket               string   `xml:"Bucket"`
+	Key                  string   `xml:"Key"`
+	UploadID             string   `xml:"UploadId"`
+	StorageClass         string   `xml:"StorageClass"`
+	MaxParts             int      `xml:"MaxParts"`
+	IsTruncated          bool     `xml:"IsTruncated"`
+	NextPartNumberMarker int      `xml:"NextPartNumberMarker,omitempty"`
+	PartNumberMarker     int      `xml:"PartNumberMarker,omitempty"`
+	Parts                []Part   `xml:"Parts"`
 }
 
 type Part struct {
@@ -91,15 +93,15 @@ type Part struct {
 }
 
 type ListUploadsOutput struct {
-	XMLName      xml.Name `xml:"ListUploadsResult"`
-	Bucket      string   `xml:"Bucket"`
-	KeyMarker   string   `xml:"KeyMarker,omitempty"`
-	UploadIDMarker string `xml:"UploadIDMarker,omitempty"`
-	NextKeyMarker string  `xml:"NextKeyMarker,omitempty"`
-	NextUploadIDMarker string `xml:"NextUploadIDMarker,omitempty"`
-	MaxUploads  int       `xml:"MaxUploads"`
-	IsTruncated bool      `xml:"IsTruncated"`
-	Uploads     []Upload `xml:"Upload"`
+	XMLName            xml.Name `xml:"ListUploadsResult"`
+	Bucket             string   `xml:"Bucket"`
+	KeyMarker          string   `xml:"KeyMarker,omitempty"`
+	UploadIDMarker     string   `xml:"UploadIDMarker,omitempty"`
+	NextKeyMarker      string   `xml:"NextKeyMarker,omitempty"`
+	NextUploadIDMarker string   `xml:"NextUploadIDMarker,omitempty"`
+	MaxUploads         int      `xml:"MaxUploads"`
+	IsTruncated        bool     `xml:"IsTruncated"`
+	Uploads            []Upload `xml:"Upload"`
 }
 
 type Upload struct {
@@ -113,11 +115,11 @@ func (h *MultipartUploadHandler) HandleCreateMultipartUpload(w http.ResponseWrit
 		return fmt.Errorf("method not allowed")
 	}
 
-	if _, err := h.gateway.auth.RequireAuth(r, "write"); err != nil {
+	if _, err := h.gateway.requireIdentity(r, auth.ActionWrite, bucket, key); err != nil {
 		return fmt.Errorf("access denied: %w", err)
 	}
 
-	userID := h.gateway.auth.GetUserID(r)
+	userID := h.gateway.getUserID(r)
 	if userID == "" {
 		userID = "anonymous"
 	}
@@ -140,9 +142,9 @@ func (h *MultipartUploadHandler) HandleCreateMultipartUpload(w http.ResponseWrit
 		Key:         key,
 		UserID:      userID,
 		ContentType: contentType,
-		Metadata:   metadataMap,
-		Initiated:  time.Now(),
-		ExpiresAt:  time.Now().Add(24 * time.Hour),
+		Metadata:    metadataMap,
+		Initiated:   time.Now(),
+		ExpiresAt:   time.Now().Add(24 * time.Hour),
 	}
 
 	if err := h.gateway.metadata.PutUpload(r.Context(), upload); err != nil {
@@ -170,7 +172,7 @@ func (h *MultipartUploadHandler) HandleUploadPart(w http.ResponseWriter, r *http
 		return fmt.Errorf("method not allowed")
 	}
 
-	if _, err := h.gateway.auth.RequireAuth(r, "write"); err != nil {
+	if _, err := h.gateway.requireIdentity(r, auth.ActionWrite, bucket, key); err != nil {
 		return fmt.Errorf("access denied: %w", err)
 	}
 
@@ -238,10 +240,10 @@ func (h *MultipartUploadHandler) HandleUploadPart(w http.ResponseWriter, r *http
 
 	part := &metadata.UploadPart{
 		PartNumber: partNumber,
-		ETag:      etag,
-		Size:      written,
+		ETag:       etag,
+		Size:       written,
 		UploadedAt: time.Now(),
-		Checksum:  checksum,
+		Checksum:   checksum,
 	}
 
 	if err := h.gateway.metadata.AddPart(r.Context(), uploadID, part); err != nil {
@@ -261,7 +263,7 @@ func (h *MultipartUploadHandler) HandleCompleteMultipartUpload(w http.ResponseWr
 		return fmt.Errorf("method not allowed")
 	}
 
-	if _, err := h.gateway.auth.RequireAuth(r, "write"); err != nil {
+	if _, err := h.gateway.requireIdentity(r, auth.ActionWrite, bucket, key); err != nil {
 		return fmt.Errorf("access denied: %w", err)
 	}
 
@@ -348,18 +350,18 @@ func (h *MultipartUploadHandler) HandleCompleteMultipartUpload(w http.ResponseWr
 	}()
 
 	commonMeta := &common.ObjectMetadata{
-		Key:            objMetadata.Key,
-		Bucket:         objMetadata.Bucket,
-		Size:           objMetadata.Size,
-		ContentType:    objMetadata.ContentType,
-		ETag:           objMetadata.ETag,
-		UserMetadata:   objMetadata.UserMetadata,
-		StorageTier:    common.StorageTier(objMetadata.StorageTier),
-		CreatedAt:      objMetadata.CreatedAt,
-		ModifiedAt:     objMetadata.ModifiedAt,
-		Encrypted:      objMetadata.Encrypted,
-		Vectorized:     objMetadata.Vectorized,
-		VersionID:      objMetadata.VersionID,
+		Key:          objMetadata.Key,
+		Bucket:       objMetadata.Bucket,
+		Size:         objMetadata.Size,
+		ContentType:  objMetadata.ContentType,
+		ETag:         objMetadata.ETag,
+		UserMetadata: objMetadata.UserMetadata,
+		StorageTier:  common.StorageTier(objMetadata.StorageTier),
+		CreatedAt:    objMetadata.CreatedAt,
+		ModifiedAt:   objMetadata.ModifiedAt,
+		Encrypted:    objMetadata.Encrypted,
+		Vectorized:   objMetadata.Vectorized,
+		VersionID:    objMetadata.VersionID,
 	}
 
 	storageTier := common.StorageTier(objMetadata.StorageTier)
@@ -377,11 +379,35 @@ func (h *MultipartUploadHandler) HandleCompleteMultipartUpload(w http.ResponseWr
 	}
 
 	if h.gateway.vector != nil && h.gateway.config.Vector.Enabled {
-		go h.gateway.vectorizeObject(r.Context(), bucket, key, upload.ContentType, upload.Metadata, upload.UserID)
+		if r.Header.Get("X-Vectorize") != "false" {
+			h.gateway.submitBackgroundTask(r.Context(), taskqueue.KindVectorize, taskqueue.VectorizePayload{
+				Bucket:      bucket,
+				Key:         key,
+				ContentType: upload.ContentType,
+				Metadata:    upload.Metadata,
+				UserID:      upload.UserID,
+			})
+		}
+	}
+
+	if h.gateway.ftsIndex != nil && h.gateway.config.FTS.Enabled {
+		if r.Header.Get("X-FTS-Index") != "false" {
+			h.gateway.submitBackgroundTask(r.Context(), taskqueue.KindFTS, taskqueue.FTSPayload{
+				Bucket:      bucket,
+				Key:         key,
+				ContentType: upload.ContentType,
+				VersionID:   objMetadata.VersionID,
+			})
+		}
 	}
 
 	if h.gateway.pipeline != nil {
-		go h.gateway.triggerPipelines(r.Context(), bucket, key, upload.ContentType, upload.Metadata)
+		h.gateway.submitBackgroundTask(r.Context(), taskqueue.KindPipeline, taskqueue.PipelinePayload{
+			Bucket:      bucket,
+			Key:         key,
+			ContentType: upload.ContentType,
+			Metadata:    upload.Metadata,
+		})
 	}
 
 	if h.gateway.eventBus != nil {
@@ -399,7 +425,7 @@ func (h *MultipartUploadHandler) HandleCompleteMultipartUpload(w http.ResponseWr
 	w.Header().Set("ETag", `"`+etag+`"`)
 
 	output := CompleteMultipartUploadOutput{
-		Location:  "/" + bucket + "/" + key,
+		Location: "/" + bucket + "/" + key,
 		Bucket:   bucket,
 		Key:      key,
 		ETag:     etag,
@@ -427,7 +453,7 @@ func (h *MultipartUploadHandler) HandleAbortMultipartUpload(w http.ResponseWrite
 		return fmt.Errorf("method not allowed")
 	}
 
-	if _, err := h.gateway.auth.RequireAuth(r, "write"); err != nil {
+	if _, err := h.gateway.requireIdentity(r, auth.ActionWrite, bucket, key); err != nil {
 		return fmt.Errorf("access denied: %w", err)
 	}
 
@@ -478,11 +504,11 @@ func (h *MultipartUploadHandler) HandleListParts(w http.ResponseWriter, r *http.
 	}
 
 	output := ListPartsOutput{
-		Bucket:     bucket,
-		Key:        key,
-		UploadID:   uploadID,
+		Bucket:       bucket,
+		Key:          key,
+		UploadID:     uploadID,
 		StorageClass: "STANDARD",
-		MaxParts:   maxParts,
+		MaxParts:     maxParts,
 	}
 
 	for _, part := range parts {
@@ -497,8 +523,8 @@ func (h *MultipartUploadHandler) HandleListParts(w http.ResponseWriter, r *http.
 			PartNumber:   part.PartNumber,
 			ETag:         `"` + part.ETag + `"`,
 			LastModified: part.UploadedAt,
-			Size:        part.Size,
-			Checksum:    part.Checksum,
+			Size:         part.Size,
+			Checksum:     part.Checksum,
 		})
 	}
 
@@ -534,8 +560,8 @@ func (h *MultipartUploadHandler) HandleListUploads(w http.ResponseWriter, r *htt
 			break
 		}
 		output.Uploads = append(output.Uploads, Upload{
-			Key:      upload.Key,
-			UploadID: upload.UploadID,
+			Key:       upload.Key,
+			UploadID:  upload.UploadID,
 			Initiated: upload.Initiated,
 		})
 	}

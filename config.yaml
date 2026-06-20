@@ -26,6 +26,15 @@ encryption:
   enable_dedup: true
   master_key_path: "./data/master.key"
 
+task_queue:
+  enabled: true
+  store_path: "tasks.db"
+  workers: 4
+  poll_interval: "500ms"
+  retry_base: "1s"
+  max_retry_delay: "5m"
+  default_retry: 3
+
 crypto_services:
   enabled: true
   distributed_mode: false
@@ -47,24 +56,54 @@ crypto_services:
   mtls_ca_file: ""
 
 vector:
-  enabled: false
-  hot_index_size: "10GB"
-  model_dir: "/models"
-  dim: 768
-  index_type: "hnsw"
+  enabled: true
+  dim: 1024
+  index_type: "milvus"
   metric_type: "cosine"
-  max_vectors: 1000000
-  embedding_provider: "mock"
+  max_vectors: 10000000
+  embedding_provider: "api"
   embedding_model_path: ""
-  embedding_api_endpoint: ""
+  embedding_api_endpoint: "http://localhost:1234/v1/embeddings"
   embedding_api_key: ""
-  embedding_model_name: ""
+  embedding_model_name: "text-embedding-qwen3-embedding-0.6b"
   # Security settings
   auto_index: true              # Auto-index text files on upload when vector is enabled
   max_search_top_k: 100         # Maximum topK allowed in search queries
   max_query_length: 10000       # Maximum search query length in characters
-  require_auth: true            # Require authentication for vector search API
+  require_auth: false
   max_index_content_size: 1048576  # Maximum content size to index (1MB)
+  # Milvus 后端配置(全面转向 Milvus,自研 HNSW/MMap/BucketIndex 已退役)
+  milvus:
+    address: "localhost:19530"
+    username: ""
+    password: ""
+    db_name: "default"
+    collection_name: "nexus_vectors"
+    shards_num: 2               # 分片数,水平扩展能力
+    replica_number: 1           # 副本数,高可用场景设为 2+
+    index_type: "HNSW"          # FLAT | HNSW | IVF_FLAT | IVF_SQ8 | DISKANN
+    index_params:               # 索引参数
+      M: "16"
+      efConstruction: "200"
+    nprobe: 16                  # IVF 系列查询探查聚类数
+    ef: 64                      # HNSW 查询 ef
+    consistency_level: "Bounded" # Strong | Bounded | Session | Eventually
+    # Tiered Storage(分层存储)— 通过 ResourceGroup 实现 hot/cold 分离
+    # Milvus 2.6+ 的 Tiered Storage 是服务端透明功能,SDK 无需改动
+    tiered_storage:
+      enabled: false            # 是否启用分层存储
+      hot_resource_group: "hot"  # 热数据资源组名
+      cold_resource_group: "cold" # 冷数据资源组名
+      hot_nodes: 2              # 热资源组节点数(全内存,低延迟)
+      cold_nodes: 1             # 冷资源组节点数(DISKANN,低成本)
+      warm_up: "async"          # sync | async | disable (Milvus 2.6+ 服务端配置)
+    # DISKANN 专用参数(当 index_type: "DISKANN" 时生效)
+    diskann:
+      max_degree: 56            # Vamana 图最大度数
+      search_list_size: 100     # 候选列表大小
+      pq_code_budget_gb_ratio: 0.125  # PQ 码本内存比例
+      search_cache_budget_gb_ratio: 0.10 # 缓存节点数据比例(温层)
+      beam_width_ratio: 4.0     # 每次搜索迭代最大 IO 请求数与 CPU 数的比值
 
 pipelines:
   config_file: "./pipelines.yaml"

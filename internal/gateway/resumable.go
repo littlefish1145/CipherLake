@@ -15,10 +15,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"nexus/internal/auth"
 	"nexus/internal/common"
 	"nexus/internal/events"
 	"nexus/internal/metadata"
 	"nexus/internal/observability"
+	"nexus/internal/taskqueue"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -83,7 +85,7 @@ func (h *ResumableUploadHandler) getTempFilePath(uploadID string) string {
 // HandleCreateSession creates a new resumable upload session.
 // POST /{bucket}/{key}?resumable
 func (h *ResumableUploadHandler) HandleCreateSession(w http.ResponseWriter, r *http.Request, bucket, key string) error {
-	if _, err := h.gateway.auth.RequireAuthForBucket(r, bucket, "write"); err != nil {
+	if _, err := h.gateway.requireIdentity(r, auth.ActionWrite, bucket, key); err != nil {
 		h.gateway.writeError(w, http.StatusUnauthorized, "AccessDenied", err.Error())
 		return nil
 	}
@@ -163,7 +165,7 @@ func (h *ResumableUploadHandler) HandleCreateSession(w http.ResponseWriter, r *h
 // HandlePatch appends data to an existing resumable upload session.
 // PATCH /{bucket}/{key}?uploadId=...
 func (h *ResumableUploadHandler) HandlePatch(w http.ResponseWriter, r *http.Request, bucket, key string) error {
-	if _, err := h.gateway.auth.RequireAuthForBucket(r, bucket, "write"); err != nil {
+	if _, err := h.gateway.requireIdentity(r, auth.ActionWrite, bucket, key); err != nil {
 		h.gateway.writeError(w, http.StatusUnauthorized, "AccessDenied", err.Error())
 		return nil
 	}
@@ -294,7 +296,7 @@ func (h *ResumableUploadHandler) HandlePatch(w http.ResponseWriter, r *http.Requ
 // HandleHead returns the current state of a resumable upload session.
 // HEAD /{bucket}/{key}?uploadId=...
 func (h *ResumableUploadHandler) HandleHead(w http.ResponseWriter, r *http.Request, bucket, key string) error {
-	if _, err := h.gateway.auth.RequireAuthForBucket(r, bucket, "read"); err != nil {
+	if _, err := h.gateway.requireIdentity(r, auth.ActionRead, bucket, key); err != nil {
 		h.gateway.writeError(w, http.StatusUnauthorized, "AccessDenied", err.Error())
 		return nil
 	}
@@ -338,7 +340,7 @@ func (h *ResumableUploadHandler) HandleHead(w http.ResponseWriter, r *http.Reque
 // Triggered by X-Nexus-Finalize: 1 header on a PATCH request,
 // or by a separate POST with ?uploadId=...&finalize=1
 func (h *ResumableUploadHandler) HandleFinalize(w http.ResponseWriter, r *http.Request, bucket, key string) error {
-	if _, err := h.gateway.auth.RequireAuthForBucket(r, bucket, "write"); err != nil {
+	if _, err := h.gateway.requireIdentity(r, auth.ActionWrite, bucket, key); err != nil {
 		h.gateway.writeError(w, http.StatusUnauthorized, "AccessDenied", err.Error())
 		return nil
 	}
@@ -390,7 +392,7 @@ func (h *ResumableUploadHandler) HandleFinalize(w http.ResponseWriter, r *http.R
 	var encrypted bool
 	var actualStorageSize int64 = contentLength
 
-	userID := h.gateway.auth.GetUserID(r)
+	userID := h.gateway.getUserID(r)
 	if userID == "" {
 		userID = "anonymous"
 	}
@@ -474,6 +476,11 @@ func (h *ResumableUploadHandler) HandleFinalize(w http.ResponseWriter, r *http.R
 	session.Finalized = true
 	h.gateway.metadata.PutResumableSession(r.Context(), session)
 
+	// Close temp file explicitly before cleanup so Windows can delete it.
+	if err := tempFile.Close(); err != nil {
+		return fmt.Errorf("failed to close temp file: %w", err)
+	}
+
 	// Clean up session and temp file
 	h.cleanupSession(r.Context(), uploadID, tempFilePath)
 
@@ -485,13 +492,36 @@ func (h *ResumableUploadHandler) HandleFinalize(w http.ResponseWriter, r *http.R
 	// Trigger vector indexing
 	if h.gateway.vector != nil && h.gateway.config.Vector.Enabled {
 		if r.Header.Get("X-Vectorize") != "false" {
-			go h.gateway.vectorizeObject(r.Context(), bucket, key, session.ContentType, session.Metadata, userID)
+			h.gateway.submitBackgroundTask(r.Context(), taskqueue.KindVectorize, taskqueue.VectorizePayload{
+				Bucket:      bucket,
+				Key:         key,
+				ContentType: session.ContentType,
+				Metadata:    session.Metadata,
+				UserID:      userID,
+			})
+		}
+	}
+
+	// Trigger FTS indexing
+	if h.gateway.ftsIndex != nil && h.gateway.config.FTS.Enabled {
+		if r.Header.Get("X-FTS-Index") != "false" {
+			h.gateway.submitBackgroundTask(r.Context(), taskqueue.KindFTS, taskqueue.FTSPayload{
+				Bucket:      bucket,
+				Key:         key,
+				ContentType: session.ContentType,
+				VersionID:   versionID,
+			})
 		}
 	}
 
 	// Trigger pipeline processing
 	if h.gateway.pipeline != nil {
-		go h.gateway.triggerPipelines(r.Context(), bucket, key, session.ContentType, session.Metadata)
+		h.gateway.submitBackgroundTask(r.Context(), taskqueue.KindPipeline, taskqueue.PipelinePayload{
+			Bucket:      bucket,
+			Key:         key,
+			ContentType: session.ContentType,
+			Metadata:    session.Metadata,
+		})
 	}
 
 	// Publish event

@@ -1,10 +1,16 @@
 # Binaries
 /nexus
 /nexus.exe
+/nexus-linux
+/nexus-linux-amd64
+/nexus-linux-arm64
 /nexus-darwin-amd64
 /nexus-darwin-arm64
 /nexusctl
 /nexusctl.exe
+/nexusctl-linux
+/nexusctl-linux-amd64
+/nexusctl-linux-arm64
 /nexusctl-darwin-amd64
 /nexusctl-darwin-arm64
 

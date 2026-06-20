@@ -1,12 +1,17 @@
 # Stage 1: Build
 FROM golang:1.25-alpine AS builder
 
+# 使用国内 Go 模块代理(解决 proxy.golang.org 不可达问题)
+ENV GOPROXY=https://goproxy.cn,direct
+ENV GOSUMDB=off
+
 RUN apk add --no-cache git ca-certificates
 
 WORKDIR /src
 
 # Cache dependency downloads
 COPY go.mod go.sum ./
+COPY sdk/ ./sdk/
 RUN go mod download
 
 # Copy source code
@@ -24,7 +29,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /out/toke
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /out/sts-service ./cmd/sts-service
 
 # Install grpc_health_probe for health checks
-RUN GRPC_HEALTH_PROBE_VERSION=v0.4.31 && \
+RUN GRPC_HEALTH_PROBE_VERSION=v0.4.52 && \
     wget -qO /out/grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-amd64 && \
     chmod +x /out/grpc_health_probe
 

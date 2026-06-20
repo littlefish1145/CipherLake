@@ -82,6 +82,10 @@ func runServer() {
 	viper.SetDefault("tls.enabled", false)
 	viper.SetDefault("tls.min_version", "1.2")
 	viper.SetDefault("ratelimit.enabled", false)
+	viper.SetDefault("iam.enabled", false)
+	viper.SetDefault("iam.db_path", "./data/iam.db")
+	viper.SetDefault("iam.master_key_path", "./data/master.key")
+	viper.SetDefault("iam.sts_service_addr", "")
 	viper.SetDefault("ratelimit.global_rps", 1000)
 	viper.SetDefault("ratelimit.global_burst", 100)
 	viper.SetDefault("ratelimit.ip_rps", 100)
@@ -146,42 +150,64 @@ func runServer() {
 
 	// Initialize IAM system if enabled
 	if cfg.IAM.Enabled {
-		masterKey, err := iam.NewMasterKey(cfg.IAM.MasterKeyPath)
-		if err != nil {
-			logger.Fatal("Failed to initialize IAM master key", zap.Error(err))
-		}
+		var iamProvider iam.IAMServiceProvider
 
-		iamStore, err := iam.NewIAMStore(cfg.IAM.DBPath)
-		if err != nil {
-			logger.Fatal("Failed to initialize IAM store", zap.Error(err))
-		}
+		if cfg.IAM.STSServiceAddr != "" {
+			// Distributed mode: use gRPC to sts-service for IAM lookups
+			// This avoids opening the BoltDB database which is already
+			// held by sts-service (BoltDB only allows one writer at a time)
+			logger.Info("Using remote IAM service via gRPC", zap.String("addr", cfg.IAM.STSServiceAddr))
 
-		iamService := iam.NewIAMService(iamStore, masterKey)
+			remoteIAM, err := iam.NewRemoteIAMService(cfg.IAM.STSServiceAddr)
+			if err != nil {
+				logger.Fatal("Failed to connect to remote IAM service", zap.Error(err))
+			}
+			defer remoteIAM.Close()
+			iamProvider = remoteIAM
 
-		// Initialize admin user (first run only)
-		adminKey, err := iamService.InitializeAdmin()
-		if err != nil {
-			logger.Error("Failed to initialize admin user", zap.Error(err))
-		}
-		if adminKey != nil {
-			fmt.Println("==============================================")
-			fmt.Println("  NEXUS ADMIN ACCESS KEY (SHOW ONCE)")
-			fmt.Printf("  Access Key ID:     %s\n", adminKey.AccessKeyID)
-			fmt.Printf("  Secret Access Key: %s\n", adminKey.SecretAccessKey)
-			fmt.Println("  WARNING: This will NOT be shown again!")
-			fmt.Println("  Store these credentials securely.")
-			fmt.Println("==============================================")
+			// Mount IAM Admin API via gRPC proxy to sts-service
+			remoteAdminAPI := iam.NewRemoteAdminAPI(remoteIAM.Client(), []byte("nexus-iam-jwt-key"))
+			mux.Handle("/iam/", http.StripPrefix("/iam", remoteAdminAPI))
+		} else {
+			// Standalone mode: open the IAM database directly
+			masterKey, err := iam.NewMasterKey(cfg.IAM.MasterKeyPath)
+			if err != nil {
+				logger.Fatal("Failed to initialize IAM master key", zap.Error(err))
+			}
+
+			iamStore, err := iam.NewIAMStore(cfg.IAM.DBPath)
+			if err != nil {
+				logger.Fatal("Failed to initialize IAM store", zap.Error(err))
+			}
+
+			iamService := iam.NewIAMService(iamStore, masterKey)
+
+			// Initialize admin user (first run only)
+			adminKey, err := iamService.InitializeAdmin()
+			if err != nil {
+				logger.Error("Failed to initialize admin user", zap.Error(err))
+			}
+			if adminKey != nil {
+				fmt.Println("==============================================")
+				fmt.Println("  NEXUS ADMIN ACCESS KEY (SHOW ONCE)")
+				fmt.Printf("  Access Key ID:     %s\n", adminKey.AccessKeyID)
+				fmt.Printf("  Secret Access Key: %s\n", adminKey.SecretAccessKey)
+				fmt.Println("  WARNING: This will NOT be shown again!")
+				fmt.Println("  Store these credentials securely.")
+				fmt.Println("==============================================")
+			}
+
+			iamProvider = iamService
+
+			// Mount IAM Admin API (only available in standalone mode)
+			iamAdminAPI := iam.NewAdminAPI(iamService, []byte("nexus-iam-jwt-key"))
+			mux.Handle("/iam/", http.StripPrefix("/iam", iamAdminAPI))
 		}
 
 		// Create IAM bridge
-		iamBridge := gateway.NewIAMAuthBridge(iamService, gw.GetAuth())
+		iamBridge := gateway.NewIAMAuthBridge(iamProvider, gw.GetAuth())
 		gw.GetAuth().SetIAMBridge(iamBridge)
 		gw.SetIAMBridge(iamBridge)
-
-		// Mount IAM Admin API
-		iamAdminAPI := iam.NewAdminAPI(iamService, []byte("nexus-iam-jwt-key"))
-
-		mux.Handle("/iam/", http.StripPrefix("/iam", iamAdminAPI))
 	}
 
 	adminAPI := gateway.NewAdminAPI(gw, gw.GetAuth())

@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"strings"
+
+	"nexus/internal/units"
 )
 
 // ValidationError represents a single validation failure or warning.
@@ -59,7 +61,7 @@ func Validate(cfg *Config) []ValidationError {
 
 	// 4. tiering.hot_max_size
 	if cfg.Tiering.HotMaxSize != "" {
-		if _, err := parseSize(cfg.Tiering.HotMaxSize); err != nil {
+		if _, err := units.ParseSize(cfg.Tiering.HotMaxSize); err != nil {
 			errs = append(errs, ValidationError{
 				Field:    "tiering.hot_max_size",
 				Message:  fmt.Sprintf("cannot parse size %q", cfg.Tiering.HotMaxSize),
@@ -122,7 +124,7 @@ func Validate(cfg *Config) []ValidationError {
 
 	// 10. performance.max_upload_size
 	if cfg.Performance.MaxUploadSize != "" {
-		if _, err := parseSize(cfg.Performance.MaxUploadSize); err != nil {
+		if _, err := units.ParseSize(cfg.Performance.MaxUploadSize); err != nil {
 			errs = append(errs, ValidationError{
 				Field:    "performance.max_upload_size",
 				Message:  fmt.Sprintf("cannot parse size %q", cfg.Performance.MaxUploadSize),
