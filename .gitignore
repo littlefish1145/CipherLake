@@ -42,6 +42,12 @@ Thumbs.db
 *.so
 *.dylib
 
+# CUDA build artifacts
+*.ptx
+*.obj
+*.cubin
+*.fatbin
+
 # Test
 *.test
 *.out
@@ -64,3 +70,5 @@ venv/
 # Logs
 stdout.log
 stderr.log
+
+data/
