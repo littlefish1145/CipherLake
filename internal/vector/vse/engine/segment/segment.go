@@ -8,7 +8,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -190,8 +189,8 @@ func (s *Segment) Search(query []float32, topK int) ([]vse.SearchResult, error) 
 		sr := make([]vse.SearchResult, 0, len(results))
 		for _, r := range results {
 			sr = append(sr, vse.SearchResult{
-				ID:    vse.VectorID(r.ID),
-				Score: r.Score,
+				ID:        vse.VectorID(r.ID),
+				Score:     r.Score,
 				SegmentID: s.Meta.ID,
 			})
 		}
@@ -224,8 +223,8 @@ func (s *Segment) Search(query []float32, topK int) ([]vse.SearchResult, error) 
 		results := make([]vse.SearchResult, 0, len(pqResults))
 		for _, r := range pqResults {
 			results = append(results, vse.SearchResult{
-				ID:    vse.VectorID(r.GlobalID),
-				Score: r.FullDist,
+				ID:        vse.VectorID(r.GlobalID),
+				Score:     r.FullDist,
 				SegmentID: s.Meta.ID,
 			})
 		}
@@ -260,34 +259,29 @@ func (s *Segment) Search(query []float32, topK int) ([]vse.SearchResult, error) 
 }
 
 func (s *Segment) flatSearch(query []float32, topK int) ([]vse.SearchResult, error) {
-	type scoredIdx struct {
-		idx  int
-		dist float32
+	if topK <= 0 {
+		return nil, nil
+	}
+	dim := s.Meta.Dimension
+	if dim <= 0 {
+		return nil, nil
+	}
+	rowSize := 8 + dim*4
+	if len(s.vectorsData) < 8+dim*4 {
+		return nil, nil
 	}
 
-	results := make([]scoredIdx, 0, s.Meta.NumVectors)
-	for i := 0; i < s.Meta.NumVectors; i++ {
-		vec := s.GetVector(i)
-		if vec == nil {
-			continue
-		}
-		// SIMD 加速的 L2 平方距离
-		d := simd.L2Sq(vec, query)
-		results = append(results, scoredIdx{idx: i, dist: d})
-	}
+	var sel simd.TopKSelector
+	sel.Init(topK)
+	base := unsafe.Pointer(&s.vectorsData[16])
+	simd.ScanL2TopKStride(query, base, dim, s.Meta.NumVectors, rowSize, &sel)
 
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].dist < results[j].dist
-	})
-	if len(results) > topK {
-		results = results[:topK]
-	}
-
-	sr := make([]vse.SearchResult, 0, len(results))
-	for _, r := range results {
+	scores, idxs := sel.Result()
+	sr := make([]vse.SearchResult, 0, len(idxs))
+	for i, idx := range idxs {
 		sr = append(sr, vse.SearchResult{
-			ID:    vse.VectorID(s.globalIDs[r.idx]),
-			Score: r.dist,
+			ID:        vse.VectorID(s.globalIDs[idx]),
+			Score:     scores[i],
 			SegmentID: s.Meta.ID,
 		})
 	}
@@ -295,28 +289,33 @@ func (s *Segment) flatSearch(query []float32, topK int) ([]vse.SearchResult, err
 }
 
 func (s *Segment) rerankDiskANNCands(query []float32, candIDs []int32, topK int) ([]vse.SearchResult, error) {
-	type scored struct {
-		id    uint64
-		score float32
+	if topK <= 0 || len(candIDs) == 0 {
+		return nil, nil
 	}
-	cands := make([]scored, 0, len(candIDs))
 	g := s.diskannIdx.Graph.Graph()
-	for _, nid := range candIDs {
-		if int(nid) >= g.Len() {
-			continue
+	base := g.VectorsBase()
+	if base == nil {
+		return nil, nil
+	}
+	var sel simd.TopKSelector
+	sel.Init(topK)
+	if len(candIDs) > 0 {
+		filtered := candIDs[:0]
+		for _, nid := range candIDs {
+			if nid >= 0 && int(nid) < g.Len() {
+				filtered = append(filtered, nid)
+			}
 		}
-		gid := g.ID(nid)
-		vec := g.NodeVector(nid)
-		d := vse.L2DistanceSIMD(vec, query)
-		cands = append(cands, scored{id: gid, score: d})
+		simd.ScanL2TopKByIndices(query, base, g.Dim(), filtered, &sel)
 	}
-	sort.Slice(cands, func(i, j int) bool { return cands[i].score < cands[j].score })
-	if len(cands) > topK {
-		cands = cands[:topK]
-	}
-	sr := make([]vse.SearchResult, len(cands))
-	for i, c := range cands {
-		sr[i] = vse.SearchResult{ID: vse.VectorID(c.id), Score: c.score, SegmentID: s.Meta.ID}
+	scores, idxs := sel.Result()
+	sr := make([]vse.SearchResult, len(idxs))
+	for i, nid := range idxs {
+		sr[i] = vse.SearchResult{
+			ID:        vse.VectorID(g.ID(nid)),
+			Score:     scores[i],
+			SegmentID: s.Meta.ID,
+		}
 	}
 	return sr, nil
 }
@@ -355,7 +354,7 @@ type SegmentManager struct {
 	// Cold→Hot 自动提升：访问频率追踪
 	coldAccessCount  map[vse.SegmentID]*atomic.Int64
 	promoteThreshold atomic.Int64 // 访问次数阈值，超过则触发提升
-	promoteMu        sync.Mutex  // 提升操作串行化
+	promoteMu        sync.Mutex   // 提升操作串行化
 }
 
 func NewSegmentManager(baseDir string, distFunc func(a, b []float32) float32, gpuMgr *gpu.Manager) *SegmentManager {

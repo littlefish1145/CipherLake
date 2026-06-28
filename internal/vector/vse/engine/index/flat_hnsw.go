@@ -8,6 +8,7 @@ import (
 	"os"
 	"sort"
 	"sync"
+	"time"
 	"unsafe"
 
 	"nexus/internal/vector/vse/simd"
@@ -20,7 +21,10 @@ type searchScratch struct {
 	visited   []int32
 	visitGen  int32
 	queryNorm float32
+	queryPtr  unsafe.Pointer
 	resultBuf []HNSWSearchResult
+	withStats bool
+	stats     HNSWSearchStats
 }
 
 // ---------------------------------------------------------------------------
@@ -167,13 +171,16 @@ func distSIMDDotProduct(a, b []float32) float32 {
 // ---------------------------------------------------------------------------
 
 type FlatHNSW struct {
-	dim      int
-	M        int
-	Mmax     int
-	Mmax0    int
-	Ml       float64
-	EfSearch int
-	metric   MetricType
+	dim           int
+	M             int
+	Mmax          int
+	Mmax0         int
+	Ml            float64
+	EfSearch      int
+	EfConstruction int
+	metric        MetricType
+	CheckRelativeDistance bool
+	PruneHeadroom         float32
 	rng      *rand.Rand
 
 	count    int
@@ -184,7 +191,7 @@ type FlatHNSW struct {
 
 	neighbors [][]int32
 
-	norms      []float32
+	norms       []float32
 	neighborBuf []int32
 	distsBuf    []float32
 	idxBuf      []int
@@ -229,27 +236,30 @@ func NewFlatHNSW(dim int, m int, efSearch int, ml float64, mt MetricType) *FlatH
 		bufSize = 64
 	}
 	simd.Init()
+	efCon := efSearch
+	if efCon < 40 {
+		efCon = 40
+	}
 	h := &FlatHNSW{
-		dim:        dim,
-		M:          m,
-		Mmax:       m,
-		Mmax0:      m * 2,
-		Ml:         ml,
-		EfSearch:   efSearch,
-		metric:     mt,
-		rng:        rand.New(rand.NewSource(42)),
-		ep:         -1,
-		capacity:   initCap,
-		levels:     make([]int32, initCap),
-		vectors:    make([]float32, initCap*dim),
-		ids:        make([]uint64, initCap),
-		neighbors:  make([][]int32, initCap),
-		norms:      make([]float32, initCap),
-		neighborBuf: make([]int32, 0, m),
-		distsBuf:    make([]float32, 0, m*2),
-		idxBuf:      make([]int, 0, m*2),
-		candHeap:    minHeap{data: make([]searchCandidate, 0, bufSize)},
-		resultMax:   maxHeap{data: make([]searchCandidate, 0, bufSize)},
+		dim:             dim,
+		M:               m,
+		Mmax:                  m * 2,
+		Mmax0:                 m * 2,
+		Ml:                    ml,
+		EfSearch:              efSearch,
+		EfConstruction:        efCon,
+		metric:                mt,
+		CheckRelativeDistance: false,
+		PruneHeadroom:         0.0,
+		rng:             rand.New(rand.NewSource(time.Now().UnixNano())),
+		count:           0,
+		capacity:        initCap,
+		levels:          make([]int32, initCap),
+		vectors:         make([]float32, initCap*dim),
+		ids:             make([]uint64, initCap),
+		neighbors:       make([][]int32, initCap),
+		norms:           make([]float32, initCap),
+		neighborBuf:     make([]int32, 0, m),
 	}
 	h.initScratchPool(bufSize)
 	return h
@@ -272,11 +282,13 @@ func MmapFlatHNSW(path string, mt MetricType) (*FlatHNSW, error) {
 
 	off := 0
 	read32 := func() uint32 {
-		v := binary.LittleEndian.Uint32(data[off:]); off += 4
+		v := binary.LittleEndian.Uint32(data[off:])
+		off += 4
 		return v
 	}
 	read64 := func() uint64 {
-		v := binary.LittleEndian.Uint64(data[off:]); off += 8
+		v := binary.LittleEndian.Uint64(data[off:])
+		off += 8
 		return v
 	}
 
@@ -287,9 +299,12 @@ func MmapFlatHNSW(path string, mt MetricType) (*FlatHNSW, error) {
 	efSearch := int(read32())
 	ep := int32(read32())
 
-	levels := unsafe.Slice((*int32)(unsafe.Pointer(&data[off])), count); off += count * 4
-	ids := unsafe.Slice((*uint64)(unsafe.Pointer(&data[off])), count); off += count * 8
-	vectors := unsafe.Slice((*float32)(unsafe.Pointer(&data[off])), count*dim); off += count * dim * 4
+	levels := unsafe.Slice((*int32)(unsafe.Pointer(&data[off])), count)
+	off += count * 4
+	ids := unsafe.Slice((*uint64)(unsafe.Pointer(&data[off])), count)
+	off += count * 8
+	vectors := unsafe.Slice((*float32)(unsafe.Pointer(&data[off])), count*dim)
+	off += count * dim * 4
 
 	mmapOffsets := unsafe.Slice((*uint32)(unsafe.Pointer(&data[off])), count+1)
 	off += (count + 1) * 4
@@ -309,27 +324,28 @@ func MmapFlatHNSW(path string, mt MetricType) (*FlatHNSW, error) {
 		bufSize = 64
 	}
 	h := &FlatHNSW{
-		dim:        dim,
-		M:          m,
-		Mmax:       m,
-		Mmax0:      m * 2,
-		Ml:         ml,
-		EfSearch:   efSearch,
-		metric:     mt,
-		ep:         ep,
-		count:      count,
-		capacity:   count,
-		levels:     levels,
-		vectors:    vectors,
-		ids:        ids,
-		neighbors:  neighbors,
-		mmapReader: r,
-		candHeap:   minHeap{data: make([]searchCandidate, 0, bufSize)},
-		resultMax:  maxHeap{data: make([]searchCandidate, 0, bufSize)},
-		visited:    make([]int32, count),
-		neighborBuf: make([]int32, 0, m),
-		distsBuf:    make([]float32, 0, m*2),
-		idxBuf:      make([]int, 0, m*2),
+		dim:             dim,
+		M:               m,
+		Mmax:            m,
+		Mmax0:           m * 2,
+		Ml:              ml,
+		EfSearch:        efSearch,
+		EfConstruction:  efSearch,
+		metric:          mt,
+		ep:              ep,
+		count:           count,
+		capacity:        count,
+		levels:          levels,
+		vectors:         vectors,
+		ids:             ids,
+		neighbors:       neighbors,
+		mmapReader:      r,
+		candHeap:        minHeap{data: make([]searchCandidate, 0, bufSize)},
+		resultMax:       maxHeap{data: make([]searchCandidate, 0, bufSize)},
+		visited:         make([]int32, count),
+		neighborBuf:     make([]int32, 0, m),
+		distsBuf:        make([]float32, 0, m*2),
+		idxBuf:          make([]int, 0, m*2),
 	}
 	h.initScratchPool(bufSize)
 	initMmapNorms(h)
@@ -437,18 +453,47 @@ func (h *FlatHNSW) distanceFromStored(storedNodeID int32, storedVec, queryVec []
 }
 
 func (h *FlatHNSW) distanceFromStoredScratch(storedNodeID int32, storedVec, queryVec []float32, s *searchScratch) float32 {
+	s.stats.DistanceCalls++
 	switch h.metric {
 	case MetricEuclidean:
-		return simd.L2Sq(storedVec, queryVec)
+		return simd.L2SqRaw(h.nodePtr(storedNodeID), s.queryPtr, h.dim)
 	case MetricDotProduct:
-		return 1.0 - simd.Dot(storedVec, queryVec)
+		return 1.0 - simd.DotRaw(h.nodePtr(storedNodeID), s.queryPtr, h.dim)
 	default:
-		dot := simd.Dot(storedVec, queryVec)
+		dot := simd.DotRaw(h.nodePtr(storedNodeID), s.queryPtr, h.dim)
 		if dot == 0 {
 			return 1.0
 		}
 		return 1.0 - dot/(h.norms[storedNodeID]*s.queryNorm)
 	}
+}
+
+// distanceFromPtr 是 searchLayer / greedyDescend 所用的 raw-pointer 距离函数，
+// 避免 nodeVector 创建 slice header。对 Euclidean 热路径跳过 switch。
+func (h *FlatHNSW) distanceFromPtr(nodeID int32, queryPtr unsafe.Pointer, queryNorm float32) float32 {
+	if h.metric == MetricEuclidean {
+		return simd.L2SqRaw(h.nodePtr(nodeID), queryPtr, h.dim)
+	}
+	switch h.metric {
+	case MetricDotProduct:
+		return 1.0 - simd.DotRaw(h.nodePtr(nodeID), queryPtr, h.dim)
+	default:
+		dot := simd.DotRaw(h.nodePtr(nodeID), queryPtr, h.dim)
+		if dot == 0 {
+			return 1.0
+		}
+		return 1.0 - dot/(h.norms[nodeID]*queryNorm)
+	}
+}
+
+// distanceRaw 是 searchLayerScratch / greedyDescendScratch 热路径专用内联距离。
+// 它跳过 distanceFromStoredScratch 的函数调用/switch 开销，直接使用 raw kernel。
+// 仅在 metric == MetricEuclidean 时可安全跳过 switch；其它 metric 回退到完整分发。
+func (h *FlatHNSW) distanceRaw(nodeID int32, s *searchScratch) float32 {
+	if h.metric == MetricEuclidean {
+		return simd.L2SqRaw(h.nodePtr(nodeID), s.queryPtr, h.dim)
+	}
+	return h.distanceFromStoredScratch(nodeID, nil, nil, s)
 }
 
 // ---------------------------------------------------------------------------
@@ -498,6 +543,10 @@ func (h *FlatHNSW) nodeVector(idx int32) []float32 {
 	return h.vectors[int(idx)*h.dim : (int(idx)+1)*h.dim]
 }
 
+func (h *FlatHNSW) nodePtr(idx int32) unsafe.Pointer {
+	return unsafe.Pointer(&h.vectors[int(idx)*h.dim])
+}
+
 // ---------------------------------------------------------------------------
 // visited — OPT 1: generation counter
 // ---------------------------------------------------------------------------
@@ -526,6 +575,18 @@ func (h *FlatHNSW) visitScratch(s *searchScratch, n int32) {
 
 func (h *FlatHNSW) isVisitedScratch(s *searchScratch, n int32) bool {
 	return int(n) < len(s.visited) && s.visited[n] == s.visitGen
+}
+
+func (h *FlatHNSW) advanceScratchVisitGen(s *searchScratch) {
+	if s.visitGen == math.MaxInt32 {
+		clear(s.visited)
+		s.visitGen = 1
+		if s.withStats {
+			s.stats.VisitedResets++
+		}
+		return
+	}
+	s.visitGen++
 }
 
 // ---------------------------------------------------------------------------
@@ -629,11 +690,11 @@ func (h *FlatHNSW) addReverseConnection(nbrID int32, level int, nodeID int32) {
 // searchLayer
 // ---------------------------------------------------------------------------
 
-func (h *FlatHNSW) searchLayer(queryVec []float32, epID int32, level int, ef int, candidates *minHeap) {
+func (h *FlatHNSW) searchLayer(queryPtr unsafe.Pointer, queryNorm float32, epID int32, level int, ef int, candidates *minHeap) {
 	result := &h.resultMax
 	result.data = result.data[:0]
 
-	epDist := h.distanceFromStored(epID, h.nodeVector(epID), queryVec)
+	epDist := h.distanceFromPtr(epID, queryPtr, queryNorm)
 	result.Push(searchCandidate{nodeID: epID, dist: epDist})
 	candidates.Push(searchCandidate{nodeID: epID, dist: epDist})
 	h.visit(epID)
@@ -645,12 +706,15 @@ func (h *FlatHNSW) searchLayer(queryVec []float32, epID int32, level int, ef int
 			break
 		}
 		neighbors := h.getLevelNeighbors(c.nodeID, level)
-		for _, nbrID := range neighbors {
+		for i, nbrID := range neighbors {
+			if j := i + 2; j < len(neighbors) {
+				simd.Prefetch(h.nodePtr(neighbors[j]), 0)
+			}
 			if h.isVisited(nbrID) {
 				continue
 			}
 			h.visit(nbrID)
-			d := h.distanceFromStored(nbrID, h.nodeVector(nbrID), queryVec)
+			d := h.distanceFromPtr(nbrID, queryPtr, queryNorm)
 			if result.Len() >= ef && d >= result.data[0].dist {
 				continue
 			}
@@ -668,24 +732,37 @@ func (h *FlatHNSW) searchLayerScratch(queryVec []float32, epID int32, level int,
 	result := &s.resultMax
 	result.data = result.data[:0]
 
-	epDist := h.distanceFromStoredScratch(epID, h.nodeVector(epID), queryVec, s)
+	epDist := h.distanceFromStoredScratch(epID, nil, nil, s)
 	result.Push(searchCandidate{nodeID: epID, dist: epDist})
 	candidates.Push(searchCandidate{nodeID: epID, dist: epDist})
 	h.visitScratch(s, epID)
 
 	for candidates.Len() > 0 {
+		if s.withStats {
+			s.stats.CandidatePops++
+		}
 		c := candidates.Pop()
 		worst := result.data[0].dist
 		if c.dist > worst && result.Len() >= ef {
 			break
 		}
 		neighbors := h.getLevelNeighbors(c.nodeID, level)
-		for _, nbrID := range neighbors {
+		for i, nbrID := range neighbors {
+			if s.withStats {
+				s.stats.NeighborVisits++
+			}
+			if j := i + 2; j < len(neighbors) {
+				simd.Prefetch(h.nodePtr(neighbors[j]), 0)
+				if s.withStats {
+					s.stats.VectorPrefetches++
+				}
+			}
 			if h.isVisitedScratch(s, nbrID) {
 				continue
 			}
 			h.visitScratch(s, nbrID)
-			d := h.distanceFromStoredScratch(nbrID, h.nodeVector(nbrID), queryVec, s)
+			s.stats.DistanceCalls++
+			d := h.distanceRaw(nbrID, s)
 			if result.Len() >= ef && d >= result.data[0].dist {
 				continue
 			}
@@ -703,14 +780,17 @@ func (h *FlatHNSW) searchLayerScratch(queryVec []float32, epID int32, level int,
 // greedyDescend
 // ---------------------------------------------------------------------------
 
-func (h *FlatHNSW) greedyDescend(queryVec []float32, epID int32, level int) int32 {
+func (h *FlatHNSW) greedyDescend(queryPtr unsafe.Pointer, queryNorm float32, epID int32, level int) int32 {
 	ep := epID
-	epDist := h.distanceFromStored(ep, h.nodeVector(ep), queryVec)
+	epDist := h.distanceFromPtr(ep, queryPtr, queryNorm)
 	for {
 		neighbors := h.getLevelNeighbors(ep, level)
 		changed := false
-		for _, nbrID := range neighbors {
-			d := h.distanceFromStored(nbrID, h.nodeVector(nbrID), queryVec)
+		for i, nbrID := range neighbors {
+			if j := i + 2; j < len(neighbors) {
+				simd.Prefetch(h.nodePtr(neighbors[j]), 0)
+			}
+			d := h.distanceFromPtr(nbrID, queryPtr, queryNorm)
 			if d < epDist {
 				ep = nbrID
 				epDist = d
@@ -726,12 +806,21 @@ func (h *FlatHNSW) greedyDescend(queryVec []float32, epID int32, level int) int3
 
 func (h *FlatHNSW) greedyDescendScratch(queryVec []float32, epID int32, level int, s *searchScratch) int32 {
 	ep := epID
-	epDist := h.distanceFromStoredScratch(ep, h.nodeVector(ep), queryVec, s)
+	epDist := h.distanceFromStoredScratch(ep, nil, nil, s)
 	for {
 		neighbors := h.getLevelNeighbors(ep, level)
 		changed := false
-		for _, nbrID := range neighbors {
-			d := h.distanceFromStoredScratch(nbrID, h.nodeVector(nbrID), queryVec, s)
+		for i, nbrID := range neighbors {
+			if s.withStats {
+				s.stats.NeighborVisits++
+			}
+			if j := i + 2; j < len(neighbors) {
+				simd.Prefetch(h.nodePtr(neighbors[j]), 0)
+				if s.withStats {
+					s.stats.VectorPrefetches++
+				}
+			}
+			d := h.distanceRaw(nbrID, s)
 			if d < epDist {
 				ep = nbrID
 				epDist = d
@@ -769,13 +858,30 @@ func (h *FlatHNSW) selectNeighbors(results *maxHeap, m int) []int32 {
 	}
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].dist < sorted[j].dist })
 
-	return h.heuristicSelect(sorted, m)
+	// 使用简单选择（最近的 M 个），不使用启发式，避免丢弃有用连接
+	return h.selectNeighborsSimple(sorted, m)
+}
+
+func (h *FlatHNSW) selectNeighborsSimple(candidates []nodeDist, m int) []int32 {
+	need := m
+	if len(candidates) < need {
+		need = len(candidates)
+	}
+	out := make([]int32, need)
+	for i := 0; i < need; i++ {
+		out[i] = candidates[i].nodeID
+	}
+	return out
 }
 
 // heuristicSelect 实现 HNSW 论文 Algorithm 4 的启发式邻居选择
 // 输入 candidates 已按到 query 的距离升序排列
 // 对每个候选 e，仅当 e 到 query 的距离 < e 到任意已选邻居 r 的距离时才选中
 func (h *FlatHNSW) heuristicSelect(candidates []nodeDist, m int) []int32 {
+	relThresh := float32(1.0)
+	if h.CheckRelativeDistance {
+		relThresh = 1.0 + h.PruneHeadroom
+	}
 	need := len(candidates)
 	if need > m {
 		need = m
@@ -792,11 +898,12 @@ func (h *FlatHNSW) heuristicSelect(candidates []nodeDist, m int) []int32 {
 			break
 		}
 		good := true
+		threshold := c.dist * relThresh
 		cVec := h.nodeVector(c.nodeID)
 		for _, rid := range result {
 			rVec := h.nodeVector(rid)
 			d := h.distance(cVec, rVec)
-			if d < c.dist {
+			if d < threshold {
 				good = false
 				break
 			}
@@ -863,6 +970,11 @@ func (h *FlatHNSW) pruneNeighborsHeuristic(nodeID int32, candidates []int32, max
 	n := len(candidates)
 	vec := h.nodeVector(nodeID)
 
+	relThresh := float32(1.0)
+	if h.CheckRelativeDistance {
+		relThresh = 1.0 + h.PruneHeadroom
+	}
+
 	// 计算所有候选到 nodeID 的距离
 	sorted := make([]nodeDist, n)
 	for i, nid := range candidates {
@@ -879,11 +991,12 @@ func (h *FlatHNSW) pruneNeighborsHeuristic(nodeID int32, candidates []int32, max
 			break
 		}
 		good := true
+		threshold := c.dist * relThresh
 		cVec := h.nodeVector(c.nodeID)
 		for _, rid := range result {
 			rVec := h.nodeVector(rid)
 			d := h.distance(cVec, rVec)
-			if d < c.dist {
+			if d < threshold {
 				good = false
 				break
 			}
@@ -948,22 +1061,35 @@ func (h *FlatHNSW) Insert(id uint64, vec []float32) error {
 
 	ep := h.ep
 	epLevel := int(h.levels[ep])
+	qp := unsafe.Pointer(&vec[0])
 
 	h.visitGen++
 	for level := epLevel; level > lvl; level-- {
-		ep = h.greedyDescend(vec, ep, level)
+		ep = h.greedyDescend(qp, h.queryNorm, ep, level)
 	}
 	for level := min(lvl, epLevel); level >= 0; level-- {
 		h.visitGen++
 
-		// 构建时使用 efConstruction（至少 200），而非 efSearch
-		ef := max(h.EfSearch, 200)
+		ef := h.EfConstruction
 		if level == 0 && lvl == 0 {
 			ef = max(ef, h.M)
 		}
 
 		h.candHeap.data = h.candHeap.data[:0]
-		h.searchLayer(vec, ep, level, ef, &h.candHeap)
+		h.searchLayer(qp, h.queryNorm, ep, level, ef, &h.candHeap)
+
+		// match FAISS: use closest result as entry for next lower level
+		if level > 0 && h.resultMax.Len() > 0 {
+			best := h.resultMax.data[0].nodeID
+			bestDist := h.resultMax.data[0].dist
+			for i := 1; i < h.resultMax.Len(); i++ {
+				if h.resultMax.data[i].dist < bestDist {
+					bestDist = h.resultMax.data[i].dist
+					best = h.resultMax.data[i].nodeID
+				}
+			}
+			ep = best
+		}
 
 		neighbors := h.selectNeighbors(&h.resultMax, h.M)
 		h.setNodeNeighbors(nodeID, level, neighbors)
@@ -1055,22 +1181,36 @@ func (h *FlatHNSW) Build(ids []uint64, vectors []float32) error {
 
 		vec := vectors[i*h.dim : (i+1)*h.dim]
 		h.queryNorm = float32(math.Sqrt(float64(simd.Dot(vec, vec))))
+		qp := unsafe.Pointer(&vec[0])
 		epLevel := int(h.levels[ep])
 
 		h.visitGen++
 		for level := epLevel; level > lvl; level-- {
-			ep = h.greedyDescend(vec, ep, level)
+			ep = h.greedyDescend(qp, h.queryNorm, ep, level)
 		}
 		for level := min(lvl, epLevel); level >= 0; level-- {
 			h.visitGen++
 
-			ef := max(h.EfSearch, 200)
+			ef := h.EfConstruction
 			if level == 0 && lvl == 0 {
 				ef = max(ef, h.M)
 			}
 
 			h.candHeap.data = h.candHeap.data[:0]
-			h.searchLayer(vec, ep, level, ef, &h.candHeap)
+			h.searchLayer(qp, h.queryNorm, ep, level, ef, &h.candHeap)
+
+			// match FAISS: use closest result as entry for next lower level
+			if level > 0 && h.resultMax.Len() > 0 {
+				best := h.resultMax.data[0].nodeID
+				bestDist := h.resultMax.data[0].dist
+				for i := 1; i < h.resultMax.Len(); i++ {
+					if h.resultMax.data[i].dist < bestDist {
+						bestDist = h.resultMax.data[i].dist
+						best = h.resultMax.data[i].nodeID
+					}
+				}
+				ep = best
+			}
 
 			neighbors := h.selectNeighbors(&h.resultMax, h.M)
 			h.setNodeNeighbors(nodeID, level, neighbors)
@@ -1108,6 +1248,25 @@ func (h *FlatHNSW) Search(query []float32, topK int) ([]HNSWSearchResult, error)
 	return h.searchWithScratch(query, topK, s)
 }
 
+func (h *FlatHNSW) SearchWithStats(query []float32, topK int) ([]HNSWSearchResult, HNSWSearchStats, error) {
+	s := h.scratchPool.Get().(*searchScratch)
+	defer h.scratchPool.Put(s)
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	if len(query) != h.dim {
+		return nil, HNSWSearchStats{}, fmt.Errorf("dim mismatch: expected %d, got %d", h.dim, len(query))
+	}
+	if h.count == 0 {
+		return nil, HNSWSearchStats{}, nil
+	}
+	s.withStats = true
+	results, err := h.searchWithScratch(query, topK, s)
+	s.withStats = false
+	return results, s.stats, err
+}
+
 func (h *FlatHNSW) SearchWithScratch(query []float32, topK int, s *searchScratch) ([]HNSWSearchResult, error) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -1122,31 +1281,79 @@ func (h *FlatHNSW) SearchWithScratch(query []float32, topK int, s *searchScratch
 }
 
 func (h *FlatHNSW) searchWithScratch(query []float32, topK int, s *searchScratch) ([]HNSWSearchResult, error) {
+	s.stats = HNSWSearchStats{}
 	s.queryNorm = float32(math.Sqrt(float64(simd.Dot(query, query))))
+	s.queryPtr = unsafe.Pointer(&query[0])
 
 	ep := h.ep
 	epLevel := int(h.levels[ep])
 
-	s.visitGen++
-
+	h.advanceScratchVisitGen(s)
+	var entryStart time.Time
+	if s.withStats {
+		entryStart = time.Now()
+	}
 	for level := epLevel; level > 0; level-- {
 		ep = h.greedyDescendScratch(query, ep, level, s)
 	}
+	if s.withStats {
+		s.stats.EntryDescendNs = time.Since(entryStart).Nanoseconds()
+	}
 
 	s.candHeap.data = s.candHeap.data[:0]
+	var searchStart time.Time
+	if s.withStats {
+		searchStart = time.Now()
+	}
 	h.searchLayerScratch(query, ep, 0, h.EfSearch, &s.candHeap, s)
+	if s.withStats {
+		s.stats.LayerSearchNs = time.Since(searchStart).Nanoseconds()
+	}
 
 	all := s.resultMax.data
 	topK = min(topK, len(all))
-	for i := 0; i < topK; i++ {
-		best := i
-		for j := i + 1; j < len(all); j++ {
-			if all[j].dist < all[best].dist {
-				best = j
+	var finalizeStart time.Time
+	if s.withStats {
+		finalizeStart = time.Now()
+	}
+	if topK > 0 && len(all) > 0 {
+		if topK <= simd.MaxTopK {
+			var sel simd.TopKSelector
+			sel.Init(topK)
+			for _, cand := range all {
+				sel.Push(cand.dist, cand.nodeID)
+				if s.withStats {
+					s.stats.SelectorPushes++
+				}
 			}
+			if cap(s.resultBuf) < topK {
+				s.resultBuf = make([]HNSWSearchResult, topK)
+			} else {
+				s.resultBuf = s.resultBuf[:topK]
+			}
+			scores, idxs := sel.Result()
+			for i, nodeID := range idxs {
+				s.resultBuf[i] = HNSWSearchResult{
+					ID:    h.ids[int(nodeID)],
+					Value: h.nodeVector(nodeID),
+					Score: scores[i],
+				}
+			}
+			if s.withStats {
+				s.stats.ResultFinalizeNs = time.Since(finalizeStart).Nanoseconds()
+			}
+			return s.resultBuf, nil
 		}
-		if best != i {
-			all[i], all[best] = all[best], all[i]
+		for i := 0; i < topK; i++ {
+			best := i
+			for j := i + 1; j < len(all); j++ {
+				if all[j].dist < all[best].dist {
+					best = j
+				}
+			}
+			if best != i {
+				all[i], all[best] = all[best], all[i]
+			}
 		}
 	}
 	all = all[:topK]
@@ -1164,6 +1371,9 @@ func (h *FlatHNSW) searchWithScratch(query []float32, topK int, s *searchScratch
 			Value: h.nodeVector(c.nodeID),
 			Score: c.dist,
 		}
+	}
+	if s.withStats {
+		s.stats.ResultFinalizeNs = time.Since(finalizeStart).Nanoseconds()
 	}
 	return s.resultBuf, nil
 }
@@ -1191,10 +1401,12 @@ func (h *FlatHNSW) FileSize() int {
 func (h *FlatHNSW) flattenTo(data []byte) {
 	off := 0
 	put32 := func(v uint32) {
-		binary.LittleEndian.PutUint32(data[off:], v); off += 4
+		binary.LittleEndian.PutUint32(data[off:], v)
+		off += 4
 	}
 	put64 := func(v uint64) {
-		binary.LittleEndian.PutUint64(data[off:], v); off += 8
+		binary.LittleEndian.PutUint64(data[off:], v)
+		off += 8
 	}
 
 	put32(uint32(h.count))
@@ -1255,11 +1467,13 @@ func (h *FlatHNSW) Deserialize(data []byte) error {
 	}
 	off := 0
 	read32 := func() uint32 {
-		v := binary.LittleEndian.Uint32(data[off:]); off += 4
+		v := binary.LittleEndian.Uint32(data[off:])
+		off += 4
 		return v
 	}
 	read64 := func() uint64 {
-		v := binary.LittleEndian.Uint64(data[off:]); off += 8
+		v := binary.LittleEndian.Uint64(data[off:])
+		off += 8
 		return v
 	}
 
@@ -1276,6 +1490,7 @@ func (h *FlatHNSW) Deserialize(data []byte) error {
 	h.Mmax0 = m * 2
 	h.Ml = ml
 	h.EfSearch = efSearch
+	h.EfConstruction = efSearch
 	h.ep = ep
 	h.count = count
 	h.capacity = count

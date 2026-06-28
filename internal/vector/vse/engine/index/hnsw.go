@@ -58,11 +58,30 @@ type HNSWSearchResult struct {
 	Score float32
 }
 
+type HNSWSearchStats struct {
+	EntryDescendNs   int64
+	LayerSearchNs    int64
+	ResultFinalizeNs int64
+	DistanceCalls    int64
+	CandidatePops    int64
+	NeighborVisits   int64
+	VisitedResets    int64
+	VectorPrefetches int64
+	SelectorPushes   int64
+}
+
 func (idx *HNSWIndex) Search(query []float32, topK int) ([]HNSWSearchResult, error) {
 	if len(query) != idx.dim {
 		return nil, fmt.Errorf("dimension mismatch: expected %d, got %d", idx.dim, len(query))
 	}
 	return idx.graph.Search(query, topK)
+}
+
+func (idx *HNSWIndex) SearchWithStats(query []float32, topK int) ([]HNSWSearchResult, HNSWSearchStats, error) {
+	if len(query) != idx.dim {
+		return nil, HNSWSearchStats{}, fmt.Errorf("dimension mismatch: expected %d, got %d", idx.dim, len(query))
+	}
+	return idx.graph.SearchWithStats(query, topK)
 }
 
 func (idx *HNSWIndex) Close() error {

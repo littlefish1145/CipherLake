@@ -19,17 +19,17 @@ import (
 // with robust pruning (Algorithm 1) that ensures diversity among neighbors.
 type VamanaGraph struct {
 	dim    int
-	R      int       // max out-degree
-	L      int       // search list size (efSearch equivalent)
-	alpha  float64   // pruning parameter (1 < α ≤ 2, typical 1.2)
+	R      int     // max out-degree
+	L      int     // search list size (efSearch equivalent)
+	alpha  float64 // pruning parameter (1 < α ≤ 2, typical 1.2)
 	metric MetricType
 	rng    *rand.Rand
 
 	count    int
 	capacity int
-	vectors  []float32   // [capacity * dim]
-	ids      []uint64    // [capacity]
-	norms    []float32   // [capacity]
+	vectors  []float32 // [capacity * dim]
+	ids      []uint64  // [capacity]
+	norms    []float32 // [capacity]
 
 	neighbors [][]int32 // [capacity] flat neighbor lists (no level headers)
 
@@ -42,9 +42,9 @@ type VamanaGraph struct {
 	visitGen  int32
 	resultBuf []HNSWSearchResult
 
-	scratchPool  sync.Pool
-	mmapReader   *mmap.Reader
-	mu           sync.RWMutex
+	scratchPool sync.Pool
+	mmapReader  *mmap.Reader
+	mu          sync.RWMutex
 }
 
 // ---------------------------------------------------------------------------
@@ -70,21 +70,21 @@ func NewVamanaGraph(dim, R, L int, alpha float64, mt MetricType) *VamanaGraph {
 	simd.Init()
 
 	return &VamanaGraph{
-		dim:        dim,
-		R:          R,
-		L:          L,
-		alpha:      alpha,
-		metric:     mt,
-		rng:        rand.New(rand.NewSource(42)),
-		ep:         -1,
-		capacity:   initCap,
-		vectors:    make([]float32, initCap*dim),
-		ids:        make([]uint64, initCap),
-		norms:      make([]float32, initCap),
-		neighbors:  make([][]int32, initCap),
-		candHeap:   minHeap{data: make([]searchCandidate, 0, bufSize)},
-		resultMax:  maxHeap{data: make([]searchCandidate, 0, bufSize)},
-		visited:    make([]int32, initCap),
+		dim:       dim,
+		R:         R,
+		L:         L,
+		alpha:     alpha,
+		metric:    mt,
+		rng:       rand.New(rand.NewSource(42)),
+		ep:        -1,
+		capacity:  initCap,
+		vectors:   make([]float32, initCap*dim),
+		ids:       make([]uint64, initCap),
+		norms:     make([]float32, initCap),
+		neighbors: make([][]int32, initCap),
+		candHeap:  minHeap{data: make([]searchCandidate, 0, bufSize)},
+		resultMax: maxHeap{data: make([]searchCandidate, 0, bufSize)},
+		visited:   make([]int32, initCap),
 		scratchPool: sync.Pool{New: func() any {
 			return &searchScratch{
 				candHeap:  minHeap{data: make([]searchCandidate, 0, bufSize)},
@@ -113,11 +113,13 @@ func MmapVamanaGraph(path string, mt MetricType) (*VamanaGraph, error) {
 
 	off := 0
 	read32 := func() uint32 {
-		v := binary.LittleEndian.Uint32(data[off:]); off += 4
+		v := binary.LittleEndian.Uint32(data[off:])
+		off += 4
 		return v
 	}
 	read64 := func() uint64 {
-		v := binary.LittleEndian.Uint64(data[off:]); off += 8
+		v := binary.LittleEndian.Uint64(data[off:])
+		off += 8
 		return v
 	}
 
@@ -196,8 +198,8 @@ func initVamanaNorms(g *VamanaGraph) {
 // basic accessors
 // ---------------------------------------------------------------------------
 
-func (g *VamanaGraph) Len() int { return g.count }
-func (g *VamanaGraph) Dim() int { return g.dim }
+func (g *VamanaGraph) Len() int          { return g.count }
+func (g *VamanaGraph) Dim() int          { return g.dim }
 func (g *VamanaGraph) EntryPoint() int32 { return g.ep }
 
 // IDs 返回所有节点 ID 的切片
@@ -223,6 +225,13 @@ func (g *VamanaGraph) NodeVector(localIdx int32) []float32 {
 		return nil
 	}
 	return g.nodeVector(localIdx)
+}
+
+func (g *VamanaGraph) VectorsBase() unsafe.Pointer {
+	if len(g.vectors) == 0 {
+		return nil
+	}
+	return unsafe.Pointer(&g.vectors[0])
 }
 
 // NeighborArrays 返回 CSR 格式的邻居数组，用于 GPU 上传或分析。
@@ -314,6 +323,21 @@ func (g *VamanaGraph) distanceFromStored(storedNodeID int32, storedVec, queryVec
 	}
 }
 
+func (g *VamanaGraph) distanceFromStoredScratch(storedNodeID int32, storedVec, queryVec []float32, s *searchScratch) float32 {
+	switch g.metric {
+	case MetricEuclidean:
+		return simd.L2Sq(storedVec, queryVec)
+	case MetricDotProduct:
+		return 1.0 - simd.Dot(storedVec, queryVec)
+	default:
+		dot := simd.Dot(storedVec, queryVec)
+		if dot == 0 || s.queryNorm == 0 {
+			return 1.0
+		}
+		return 1.0 - dot/(g.norms[storedNodeID]*s.queryNorm)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // grow
 // ---------------------------------------------------------------------------
@@ -376,12 +400,12 @@ func (g *VamanaGraph) greedyDescend(queryVec []float32, epID int32) int32 {
 
 func (g *VamanaGraph) greedyDescendScratch(queryVec []float32, epID int32, s *searchScratch) int32 {
 	ep := epID
-	epDist := g.distanceFromStored(ep, g.nodeVector(ep), queryVec)
+	epDist := g.distanceFromStoredScratch(ep, g.nodeVector(ep), queryVec, s)
 	for {
 		neighbors := g.neighbors[ep]
 		changed := false
 		for _, nbrID := range neighbors {
-			d := g.distanceFromStored(nbrID, g.nodeVector(nbrID), queryVec)
+			d := g.distanceFromStoredScratch(nbrID, g.nodeVector(nbrID), queryVec, s)
 			if d < epDist {
 				ep = nbrID
 				epDist = d
@@ -442,7 +466,7 @@ func (g *VamanaGraph) beamSearchScratch(queryVec []float32, epID int32, L int, s
 	candidates := &s.candHeap
 	candidates.data = candidates.data[:0]
 
-	epDist := g.distanceFromStored(epID, g.nodeVector(epID), queryVec)
+	epDist := g.distanceFromStoredScratch(epID, g.nodeVector(epID), queryVec, s)
 	s.visitGen++
 	g.visitScratch(s, epID)
 	candidates.Push(searchCandidate{nodeID: epID, dist: epDist})
@@ -459,7 +483,7 @@ func (g *VamanaGraph) beamSearchScratch(queryVec []float32, epID int32, L int, s
 				continue
 			}
 			g.visitScratch(s, nbrID)
-			d := g.distanceFromStored(nbrID, g.nodeVector(nbrID), queryVec)
+			d := g.distanceFromStoredScratch(nbrID, g.nodeVector(nbrID), queryVec, s)
 			if result.Len() >= L && d >= result.data[0].dist {
 				continue
 			}
@@ -712,6 +736,7 @@ func (g *VamanaGraph) Search(query []float32, topK int) ([]HNSWSearchResult, err
 }
 
 func (g *VamanaGraph) searchWithScratch(query []float32, topK int, s *searchScratch) ([]HNSWSearchResult, error) {
+	s.queryNorm = float32(math.Sqrt(float64(simd.Dot(query, query))))
 	ep := g.greedyDescendScratch(query, g.ep, s)
 	g.beamSearchScratch(query, ep, g.L, s)
 
@@ -772,12 +797,13 @@ func (g *VamanaGraph) StitchedSearch(
 		return nil, nil
 	}
 
-	if pqCodes == nil || distanceADC == nil {
-		return g.searchWithScratch(query, topK, nil)
-	}
-
 	s := g.scratchPool.Get().(*searchScratch)
 	defer g.scratchPool.Put(s)
+	s.queryNorm = float32(math.Sqrt(float64(simd.Dot(query, query))))
+
+	if pqCodes == nil || distanceADC == nil {
+		return g.searchWithScratch(query, topK, s)
+	}
 
 	// Phase 1: graph traversal with PQ-ADC distances
 	ep := g.greedyDescendScratch(query, g.ep, s)
@@ -825,7 +851,7 @@ func (g *VamanaGraph) StitchedSearch(
 	// Phase 2: exact rerank of top candidates
 	all := result.data[:min(searchL, len(result.data))]
 	for i := 0; i < len(all); i++ {
-		all[i].dist = g.distanceFromStored(all[i].nodeID, g.nodeVector(all[i].nodeID), query)
+		all[i].dist = g.distanceFromStoredScratch(all[i].nodeID, g.nodeVector(all[i].nodeID), query, s)
 	}
 	sort.Slice(all, func(i, j int) bool { return all[i].dist < all[j].dist })
 
@@ -874,10 +900,12 @@ func (g *VamanaGraph) FileSize() int {
 func (g *VamanaGraph) flattenTo(data []byte) {
 	off := 0
 	put32 := func(v uint32) {
-		binary.LittleEndian.PutUint32(data[off:], v); off += 4
+		binary.LittleEndian.PutUint32(data[off:], v)
+		off += 4
 	}
 	put64 := func(v uint64) {
-		binary.LittleEndian.PutUint64(data[off:], v); off += 8
+		binary.LittleEndian.PutUint64(data[off:], v)
+		off += 8
 	}
 
 	put32(uint32(g.count))
@@ -936,11 +964,13 @@ func (g *VamanaGraph) Deserialize(data []byte) error {
 
 	off := 0
 	read32 := func() uint32 {
-		v := binary.LittleEndian.Uint32(data[off:]); off += 4
+		v := binary.LittleEndian.Uint32(data[off:])
+		off += 4
 		return v
 	}
 	read64 := func() uint64 {
-		v := binary.LittleEndian.Uint64(data[off:]); off += 8
+		v := binary.LittleEndian.Uint64(data[off:])
+		off += 8
 		return v
 	}
 

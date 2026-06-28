@@ -195,7 +195,7 @@ func TestSIFT1M_HNSW(t *testing.T) {
 	t.Log("Building HNSW index (M=16, efSearch=128)...")
 	buildStart := time.Now()
 
-	hnsw := NewFlatHNSW(dim, 16, 128, 1.0/math.Log(2.0), MetricEuclidean)
+	hnsw := NewFlatHNSW(dim, 16, 128, 1.0 / math.Log(16.0), MetricEuclidean)
 	ids := make([]uint64, baseNv)
 	for i := range ids {
 		ids[i] = uint64(i + 1)
@@ -430,7 +430,7 @@ func TestSIFT1M_HNSW_Mmap(t *testing.T) {
 
 	// 构建
 	t.Log("Building HNSW index...")
-	hnsw := NewFlatHNSW(dim, 16, 64, 1.0/math.Log(2.0), MetricEuclidean)
+	hnsw := NewFlatHNSW(dim, 16, 64, 1.0 / math.Log(16.0), MetricEuclidean)
 	ids := make([]uint64, baseNv)
 	for i := range ids {
 		ids[i] = uint64(i + 1)

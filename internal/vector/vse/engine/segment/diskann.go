@@ -8,14 +8,15 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"sort"
 	"sync"
 	"time"
+	"unsafe"
 
 	"nexus/internal/vector/vse"
 	"nexus/internal/vector/vse/engine/index"
 	"nexus/internal/vector/vse/engine/quantizer"
 	"nexus/internal/vector/vse/gpu"
+	"nexus/internal/vector/vse/simd"
 )
 
 // CreateDiskANNSegment 在磁盘上创建 DiskANN 段：Vamana 图 + PQ 码表 + 精确向量。
@@ -342,28 +343,37 @@ func (ds *DiskANNSegment) Search(query []float32, topK int) ([]vse.SearchResult,
 }
 
 func (ds *DiskANNSegment) rerankFromCands(query []float32, candIDs []int32, topK int) ([]vse.SearchResult, error) {
-	type scored struct {
-		id    uint64
-		score float32
+	if topK <= 0 || len(candIDs) == 0 {
+		return nil, nil
 	}
-	cands := make([]scored, 0, len(candIDs))
 	g := ds.Index.Graph.Graph()
-	for _, nid := range candIDs {
+	var sel simd.TopKSelector
+	sel.Init(topK)
+	for i, nid := range candIDs {
 		if int(nid) >= g.Len() {
 			continue
 		}
-		gid := g.ID(nid)
+		if j := i + 2; j < len(candIDs) {
+			next := candIDs[j]
+			if int(next) < g.Len() {
+				vec := g.NodeVector(next)
+				if len(vec) > 0 {
+					simd.Prefetch(unsafe.Pointer(&vec[0]), 0)
+				}
+			}
+		}
 		vec := g.NodeVector(nid)
 		d := ds.Index.SimdFn(vec, query)
-		cands = append(cands, scored{id: gid, score: d})
+		sel.Push(d, nid)
 	}
-	sort.Slice(cands, func(i, j int) bool { return cands[i].score < cands[j].score })
-	if len(cands) > topK {
-		cands = cands[:topK]
-	}
-	sr := make([]vse.SearchResult, len(cands))
-	for i, c := range cands {
-		sr[i] = vse.SearchResult{ID: vse.VectorID(c.id), Score: c.score, SegmentID: ds.Meta.ID}
+	scores, idxs := sel.Result()
+	sr := make([]vse.SearchResult, len(idxs))
+	for i, nid := range idxs {
+		sr[i] = vse.SearchResult{
+			ID:        vse.VectorID(g.ID(nid)),
+			Score:     scores[i],
+			SegmentID: ds.Meta.ID,
+		}
 	}
 	return sr, nil
 }

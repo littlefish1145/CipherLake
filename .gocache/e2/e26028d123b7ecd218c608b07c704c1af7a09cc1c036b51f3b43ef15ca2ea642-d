@@ -1,0 +1,16 @@
+./bolt_amd64.go
+./bolt_windows.go
+./bucket.go
+./compact.go
+./cursor.go
+./db.go
+./doc.go
+./errors.go
+./freelist.go
+./freelist_hmap.go
+./mlock_windows.go
+./node.go
+./page.go
+./tx.go
+./tx_check.go
+./unsafe.go

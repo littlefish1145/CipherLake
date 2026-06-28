@@ -6,11 +6,12 @@ import "golang.org/x/sys/cpu"
 
 func detectCPU() {
 	RuntimeInfo = Runtime{
-		HasAVX512: cpu.X86.HasAVX512F,
-		HasAVX2:   cpu.X86.HasAVX2,
-		HasSSE42:  cpu.X86.HasSSE42,
-		HasVNNI:   cpu.X86.HasAVX512VNNI,
-		HasAMX:    cpu.X86.HasAMXTile,
+		HasAVX512:     cpu.X86.HasAVX512F,
+		HasAVX2:       cpu.X86.HasAVX2,
+		HasFMA:        cpu.X86.HasFMA,
+		HasSSE42:      cpu.X86.HasSSE42,
+		HasVNNI:       cpu.X86.HasAVX512VNNI,
+		HasAMX:        cpu.X86.HasAMXTile,
 		CacheLineSize: 64,
 		PageSize:      4096,
 		HugePageSize:  2 << 20,

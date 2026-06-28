@@ -1,0 +1,3 @@
+./metadata.go
+./types.go
+./bench_test.go

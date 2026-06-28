@@ -1,0 +1,8 @@
+./batch.go
+./cpu_x86.go
+./generic.go
+./kernel_amd64.go
+./runtime.go
+./topk.go
+./simd_test.go
+./kernel_amd64.s
