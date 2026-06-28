@@ -37,6 +37,7 @@ master.key
 Thumbs.db
 
 # Build
+build/
 *.exe
 *.dll
 *.so
