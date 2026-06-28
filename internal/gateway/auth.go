@@ -145,10 +145,10 @@ func (a *AuthHandler) Authenticate(r *http.Request) (*User, error) {
 			return nil, fmt.Errorf("authentication required")
 		}
 		return &User{
-			ID:   "anonymous",
-			Name: "anonymous",
-			Role: "anonymous",
-			Permissions: []string{"read"},
+			ID:          "anonymous",
+			Name:        "anonymous",
+			Role:        "anonymous",
+			Permissions: []string{"read", "write", "delete"},
 		}, nil
 	}
 

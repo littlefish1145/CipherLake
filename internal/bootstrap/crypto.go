@@ -3,13 +3,14 @@ package bootstrap
 import (
 	"fmt"
 
+	"go.uber.org/zap"
+
 	"nexus/internal/config"
+	"nexus/internal/kms"
 	"nexus/internal/services"
 	"nexus/internal/services/token_service"
 	"nexus/internal/services/keygen_service"
 	"nexus/internal/services/keyunwrap_service"
-	"nexus/internal/services/encrypt_service"
-	"nexus/internal/services/decrypt_service"
 	"nexus/internal/services/keystore_service"
 )
 
@@ -25,6 +26,77 @@ func InitializeCryptoServices(cfg *config.Config) (*services.EncryptionCoordinat
 		return initializeDistributed(cfg)
 	}
 	return initializeLocal(cfg)
+}
+
+// InitializeKMS creates the appropriate KMSClient based on encryption config.
+// It wraps the client with FallbackKMS for degradation handling.
+func InitializeKMS(cfg *config.Config) (kms.KMSClient, error) {
+	var primary kms.KMSClient
+	var err error
+
+	kmsType := cfg.Encryption.KMSType
+	if kmsType == "" {
+		kmsType = "local"
+	}
+
+	switch kmsType {
+	case "local", "":
+		primary, err = kms.NewLocalKMS(kms.LocalConfig{
+			KeyPath: cfg.CryptoServices.KeyPath + "/keygen",
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize local KMS: %w", err)
+		}
+		zap.L().Info("initialized local KMS")
+
+	case "vault":
+		primary, err = kms.NewVaultTransitKMS(kms.VaultConfig{
+			Address:    cfg.Encryption.VaultAddr,
+			TokenFile:  cfg.Encryption.VaultTokenFile,
+			TransitKey: cfg.Encryption.VaultTransitKey,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize Vault KMS: %w", err)
+		}
+		zap.L().Info("initialized Vault Transit KMS",
+			zap.String("address", cfg.Encryption.VaultAddr),
+			zap.String("transit_key", cfg.Encryption.VaultTransitKey))
+
+	case "aws":
+		primary, err = kms.NewAWSKMS(kms.AWSConfig{
+			KeyID:  cfg.Encryption.AWSKMSKeyID,
+			Region: cfg.Encryption.AWSRegion,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize AWS KMS: %w", err)
+		}
+		zap.L().Info("initialized AWS KMS",
+			zap.String("key_id", cfg.Encryption.AWSKMSKeyID),
+			zap.String("region", cfg.Encryption.AWSRegion))
+
+	default:
+		return nil, fmt.Errorf("unsupported KMS type: %s (valid: local, vault, aws)", kmsType)
+	}
+
+	// Wrap with FallbackKMS for degradation handling
+	degradationMode := kms.DegradationMode(cfg.Encryption.KMSDegradationMode)
+	if degradationMode == "" {
+		degradationMode = kms.RejectWrites
+	}
+
+	fallback, err := kms.NewFallbackKMS(kms.FallbackConfig{
+		Primary: primary,
+		Mode:    degradationMode,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize fallback KMS: %w", err)
+	}
+
+	zap.L().Info("KMS initialized with fallback",
+		zap.String("kms_type", kmsType),
+		zap.String("degradation_mode", string(degradationMode)))
+
+	return fallback, nil
 }
 
 // initializeLocal creates all services in-process
@@ -67,14 +139,6 @@ func initializeLocal(cfg *config.Config) (*services.EncryptionCoordinator, error
 		return nil, fmt.Errorf("failed to initialize keyunwrap service: %w", err)
 	}
 
-	encryptSvc := encrypt_service.NewEncryptService(encrypt_service.EncryptServiceConfig{
-		AuditSize: auditSize,
-	})
-
-	decryptSvc := decrypt_service.NewDecryptService(decrypt_service.DecryptServiceConfig{
-		AuditSize: auditSize,
-	})
-
 	keyStoreSvc, err := keystore_service.NewKeyStoreService(keystore_service.KeyStoreServiceConfig{
 		DataPath:  keyStorePath,
 		AuditSize: auditSize,
@@ -94,8 +158,6 @@ func initializeLocal(cfg *config.Config) (*services.EncryptionCoordinator, error
 		TokenService:     tokenSvc,
 		KeyGenService:    keyGenSvc,
 		KeyUnwrapService: keyUnwrapSvc,
-		EncryptService:   encryptSvc,
-		DecryptService:   decryptSvc,
 		KeyStoreService:  keyStoreSvc,
 		OPAClient:        opaClient,
 	}), nil
@@ -122,14 +184,6 @@ func initializeDistributed(cfg *config.Config) (*services.EncryptionCoordinator,
 	if keyunwrapAddr == "" {
 		keyunwrapAddr = "localhost:50053"
 	}
-	encryptAddr := cfg.CryptoServices.EncryptServiceAddr
-	if encryptAddr == "" {
-		encryptAddr = "localhost:50054"
-	}
-	decryptAddr := cfg.CryptoServices.DecryptServiceAddr
-	if decryptAddr == "" {
-		decryptAddr = "localhost:50055"
-	}
 	keystoreAddr := cfg.CryptoServices.KeyStoreServiceAddr
 	if keystoreAddr == "" {
 		keystoreAddr = "localhost:50056"
@@ -139,8 +193,6 @@ func initializeDistributed(cfg *config.Config) (*services.EncryptionCoordinator,
 		tokenAddr,
 		keygenAddr,
 		keyunwrapAddr,
-		encryptAddr,
-		decryptAddr,
 		keystoreAddr,
 		opaClient,
 		nil,

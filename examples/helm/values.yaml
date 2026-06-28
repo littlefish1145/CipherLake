@@ -1,0 +1,152 @@
+# Gateway configuration
+gateway:
+  replicas: 3
+  image:
+    repository: ghcr.io/nexus/nexus
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  accessKey: "nexus"
+  secretKey: "nexus-secret"
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "2"
+      memory: "2Gi"
+  service:
+    type: ClusterIP
+    port: 9000
+    adminPort: 9001
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts: []
+    tls: []
+  tls:
+    enabled: false
+    certFile: ""
+    keyFile: ""
+
+# Storage configuration
+storage:
+  backend: "local"
+  persistence:
+    enabled: true
+    size: 100Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+
+# Metadata configuration
+metadata:
+  backend: "boltdb"
+  persistence:
+    enabled: true
+    size: 50Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+  raft:
+    enabled: false
+    replicas: 3
+
+# Microservice configurations
+encryptService:
+  replicas: 2
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+    limits:
+      cpu: "1"
+      memory: "1Gi"
+
+decryptService:
+  replicas: 2
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+    limits:
+      cpu: "1"
+      memory: "1Gi"
+
+keygenService:
+  replicas: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+keystoreService:
+  replicas: 1
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+keyunwrapService:
+  replicas: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+tokenService:
+  replicas: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+stsService:
+  replicas: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+# Observability
+observability:
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: false
+      namespace: ""
+      interval: "30s"
+  tracing:
+    enabled: false
+    endpoint: ""
+  logging:
+    level: "info"
+
+# Security
+security:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  readOnlyRootFilesystem: true
+
+# Image pull secrets
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""

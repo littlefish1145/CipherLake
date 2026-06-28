@@ -4,6 +4,8 @@ import (
 	"os"
 	"testing"
 
+	"nexus/internal/units"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,7 +26,7 @@ func TestParseSize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			result, err := parseSize(tt.input)
+			result, err := units.ParseSize(tt.input)
 			if tt.hasError {
 				assert.Error(t, err)
 			} else {
@@ -40,9 +42,6 @@ func TestConfigNormalize(t *testing.T) {
 		Tiering: TieringConfig{
 			HotMaxSize: "32GB",
 		},
-		Vector: VectorConfig{
-			HotIndexSize: "10GB",
-		},
 		Cache: CacheConfig{
 			MetadataMaxSize: "10GB",
 			ObjectMaxSize:   "30GB",
@@ -56,7 +55,6 @@ func TestConfigNormalize(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, int64(32<<30), cfg.Tiering.HotMaxBytes)
-	assert.Equal(t, int64(10<<30), cfg.Vector.HotIndexBytes)
 	assert.Equal(t, int64(10<<30), cfg.Cache.MetadataMaxBytes)
 	assert.Equal(t, int64(30<<30), cfg.Cache.ObjectMaxBytes)
 	assert.Equal(t, int64(100<<30), cfg.Performance.MaxUploadBytes)

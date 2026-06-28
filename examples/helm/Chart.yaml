@@ -1,0 +1,16 @@
+apiVersion: v2
+name: nexus
+description: Nexus Object Storage - S3-compatible object storage with advanced features
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+home: https://github.com/nexus/nexus
+sources:
+  - https://github.com/nexus/nexus
+maintainers:
+  - name: nexus-team
+keywords:
+  - storage
+  - s3
+  - object-storage
+  - nexus

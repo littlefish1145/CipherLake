@@ -24,6 +24,7 @@ type IAMStore struct {
 	mu   sync.RWMutex
 	db   *bbolt.DB
 	path string
+	scp  *PolicyDocument // Service Control Policy (organization-level)
 }
 
 // NewIAMStore creates a new IAM store backed by BoltDB

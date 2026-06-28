@@ -716,6 +716,64 @@ var iamDeleteBucketPolicyCmd = &cobra.Command{
 
 // --- Helper ---
 
+var iamSimulateCmd = &cobra.Command{
+	Use:   "simulate",
+	Short: "Simulate an IAM policy evaluation",
+	Long:  "Simulate whether a specific action on a resource would be allowed for a principal",
+	Run: func(cmd *cobra.Command, args []string) {
+		action, _ := cmd.Flags().GetString("action")
+		resource, _ := cmd.Flags().GetString("resource")
+		principal, _ := cmd.Flags().GetString("principal")
+
+		if action == "" || resource == "" || principal == "" {
+			fmt.Fprintf(os.Stderr, "Error: --action, --resource, and --principal are required\n")
+			os.Exit(1)
+		}
+
+		body := map[string]string{
+			"action":    action,
+			"resource":  resource,
+			"principal": principal,
+		}
+
+		// Add optional fields
+		sourceIP, _ := cmd.Flags().GetString("source-ip")
+		if sourceIP != "" {
+			body["source_ip"] = sourceIP
+		}
+		userAgent, _ := cmd.Flags().GetString("user-agent")
+		if userAgent != "" {
+			body["user_agent"] = userAgent
+		}
+
+		resp, err := iamRequest("POST", "/admin/iam/simulate", body)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		defer resp.Body.Close()
+
+		respBody, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode != http.StatusOK {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", string(respBody))
+			os.Exit(1)
+		}
+
+		var result map[string]interface{}
+		if err := json.Unmarshal(respBody, &result); err != nil {
+			fmt.Println(string(respBody))
+			return
+		}
+
+		fmt.Printf("Decision:    %v\n", result["decision"])
+		fmt.Printf("Matched By:  %v\n", result["matched_by"])
+		fmt.Printf("Policy Type: %v\n", result["policy_type"])
+		if details, ok := result["details"]; ok && details != "" {
+			fmt.Printf("Details:     %v\n", details)
+		}
+	},
+}
+
 func iamRequest(method, path string, body interface{}) (*http.Response, error) {
 	var reqBody io.Reader
 	if body != nil {
@@ -816,5 +874,13 @@ func init() {
 	iamSetBucketPolicyCmd.Flags().String("file", "", "Path to bucket policy JSON file (required)")
 	iamBucketPolicyCmd.AddCommand(iamGetBucketPolicyCmd)
 	iamBucketPolicyCmd.AddCommand(iamDeleteBucketPolicyCmd)
+
+	// Simulate command
+	iamCmd.AddCommand(iamSimulateCmd)
+	iamSimulateCmd.Flags().String("action", "", "Action to simulate (e.g., s3:PutObject) (required)")
+	iamSimulateCmd.Flags().String("resource", "", "Resource ARN to simulate (e.g., arn:nexus:s3:::mybucket/mykey) (required)")
+	iamSimulateCmd.Flags().String("principal", "", "Principal (username) to simulate (required)")
+	iamSimulateCmd.Flags().String("source-ip", "", "Source IP address for condition evaluation")
+	iamSimulateCmd.Flags().String("user-agent", "", "User-Agent for condition evaluation")
 
 }

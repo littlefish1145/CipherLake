@@ -1,0 +1,155 @@
+version: "2.0"
+
+# Docker 环境专用配置 — 分布式加密微服务 + Milvus 向量后端
+# 由 docker-compose.full.yml 挂载到 /etc/nexus/config.yaml
+
+node:
+  role: "all"
+  listen_addr: ":8080"
+  data_dir: "/var/lib/nexus/data"
+  cluster_peers: []
+  domain: "localhost"
+
+tiering:
+  enabled: true
+  schedule: "*/6 * * * *"
+  hot_max_size: "10GB"
+  warm_devices: []
+  cold_devices: []
+  archive_path: ""
+
+encryption:
+  kms_type: "local"
+  kms_degradation_mode: "reject_writes"
+  enable_dedup: true
+  master_key_path: "/var/lib/nexus/keys/master.key"
+
+crypto_services:
+  enabled: true
+  distributed_mode: true           # 分布式模式:通过 gRPC 调用独立微服务
+  key_path: "/var/lib/nexus/keys"
+  keystore_path: "/var/lib/nexus/keystore"
+  opa_address: ""
+  consul_address: ""
+  audit_size: 10000
+  # gRPC 服务地址(对应 docker-compose 中的服务名)
+  token_service_addr: "token-service:50051"
+  keygen_service_addr: "keygen-service:50052"
+  keyunwrap_service_addr: "keyunwrap-service:50053"
+  encrypt_service_addr: "encrypt-service:50054"
+  decrypt_service_addr: "decrypt-service:50055"
+  keystore_service_addr: "keystore-service:50056"
+  mtls_cert_file: ""
+  mtls_key_file: ""
+  mtls_ca_file: ""
+
+vector:
+  enabled: true
+  dim: 1024
+  index_type: "milvus"
+  metric_type: "cosine"
+  max_vectors: 10000000
+  embedding_provider: "api"
+  embedding_model_path: ""
+  embedding_api_endpoint: "http://host.docker.internal:1234/v1/embeddings"
+  embedding_api_key: ""
+  embedding_model_name: "text-embedding-qwen3-embedding-0.6b"
+  auto_index: true
+  max_search_top_k: 100
+  max_query_length: 10000
+  require_auth: false
+  max_index_content_size: 1048576
+  milvus:
+    address: "milvus:19530"         # docker-compose 中 Milvus 服务名
+    username: ""
+    password: ""
+    db_name: "default"
+    collection_name: "nexus_vectors"
+    shards_num: 2
+    replica_number: 1
+    index_type: "HNSW"
+    index_params:
+      M: "16"
+      efConstruction: "200"
+    nprobe: 16
+    ef: 64
+    consistency_level: "Bounded"
+    tiered_storage:
+      enabled: false
+      hot_resource_group: "hot"
+      cold_resource_group: "cold"
+      hot_nodes: 2
+      cold_nodes: 1
+      warm_up: "async"
+    diskann:
+      max_degree: 56
+      search_list_size: 100
+      pq_code_budget_gb_ratio: 0.125
+      search_cache_budget_gb_ratio: 0.10
+      beam_width_ratio: 4.0
+
+pipelines:
+  config_file: "/etc/nexus/pipelines.yaml"
+  max_concurrent: 10
+  enabled: true
+
+cache:
+  metadata_max_size: "1GB"
+  object_max_size: "5GB"
+  policy: "tinyLFU"
+  ttl: "5m"
+
+performance:
+  max_upload_size: "50GB"
+  max_concurrent_uploads: 50
+  io_workers_per_core: 2
+  use_direct_io: false
+  enable_http2: true
+  read_buffer_size: 32768
+  write_buffer_size: 32768
+
+logging:
+  level: "info"
+  format: "json"
+  output_path: ""
+
+auth:
+  require_auth: false
+  anonymous_read: true
+  jwt_secret: ""
+  token_expiry: "24h"
+  refresh_expiry: "168h"
+
+iam:
+  enabled: true
+  db_path: "/var/lib/nexus/iam/iam.db"
+  master_key_path: "/var/lib/nexus/keys/master.key"
+  sts_service_addr: "sts-service:50057"
+
+tls:
+  enabled: false
+  cert_file: ""
+  key_file: ""
+  auto_cert: false
+  auto_cert_host: ""
+  redirect_addr: ":80"
+  min_version: "1.2"
+
+ratelimit:
+  enabled: false
+  global_rps: 1000
+  global_burst: 100
+  ip_rps: 100
+  ip_burst: 20
+  user_rps: 50
+  user_burst: 10
+  bucket_rps: 200
+  bucket_burst: 30
+  upload_bytes_per_sec: 52428800
+  upload_burst_bytes: 104857600
+  whitelist:
+    - "127.0.0.1"
+    - "::1"
+
+replication:
+  allow_private_endpoint: false

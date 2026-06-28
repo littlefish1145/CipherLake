@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.33.2
-// source: sts.proto
+// source: proto/sts.proto
 
 package sts
 
@@ -35,7 +35,7 @@ type AssumeRoleRequest struct {
 
 func (x *AssumeRoleRequest) Reset() {
 	*x = AssumeRoleRequest{}
-	mi := &file_sts_proto_msgTypes[0]
+	mi := &file_proto_sts_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -47,7 +47,7 @@ func (x *AssumeRoleRequest) String() string {
 func (*AssumeRoleRequest) ProtoMessage() {}
 
 func (x *AssumeRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sts_proto_msgTypes[0]
+	mi := &file_proto_sts_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -60,7 +60,7 @@ func (x *AssumeRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssumeRoleRequest.ProtoReflect.Descriptor instead.
 func (*AssumeRoleRequest) Descriptor() ([]byte, []int) {
-	return file_sts_proto_rawDescGZIP(), []int{0}
+	return file_proto_sts_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *AssumeRoleRequest) GetRoleArn() string {
@@ -116,7 +116,7 @@ type AssumeRoleResponse struct {
 
 func (x *AssumeRoleResponse) Reset() {
 	*x = AssumeRoleResponse{}
-	mi := &file_sts_proto_msgTypes[1]
+	mi := &file_proto_sts_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -128,7 +128,7 @@ func (x *AssumeRoleResponse) String() string {
 func (*AssumeRoleResponse) ProtoMessage() {}
 
 func (x *AssumeRoleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sts_proto_msgTypes[1]
+	mi := &file_proto_sts_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -141,7 +141,7 @@ func (x *AssumeRoleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssumeRoleResponse.ProtoReflect.Descriptor instead.
 func (*AssumeRoleResponse) Descriptor() ([]byte, []int) {
-	return file_sts_proto_rawDescGZIP(), []int{1}
+	return file_proto_sts_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *AssumeRoleResponse) GetCredentials() *Credentials {
@@ -175,7 +175,7 @@ type GetSessionTokenRequest struct {
 
 func (x *GetSessionTokenRequest) Reset() {
 	*x = GetSessionTokenRequest{}
-	mi := &file_sts_proto_msgTypes[2]
+	mi := &file_proto_sts_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -187,7 +187,7 @@ func (x *GetSessionTokenRequest) String() string {
 func (*GetSessionTokenRequest) ProtoMessage() {}
 
 func (x *GetSessionTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sts_proto_msgTypes[2]
+	mi := &file_proto_sts_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -200,7 +200,7 @@ func (x *GetSessionTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSessionTokenRequest.ProtoReflect.Descriptor instead.
 func (*GetSessionTokenRequest) Descriptor() ([]byte, []int) {
-	return file_sts_proto_rawDescGZIP(), []int{2}
+	return file_proto_sts_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *GetSessionTokenRequest) GetDurationSeconds() int32 {
@@ -226,7 +226,7 @@ type GetSessionTokenResponse struct {
 
 func (x *GetSessionTokenResponse) Reset() {
 	*x = GetSessionTokenResponse{}
-	mi := &file_sts_proto_msgTypes[3]
+	mi := &file_proto_sts_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -238,7 +238,7 @@ func (x *GetSessionTokenResponse) String() string {
 func (*GetSessionTokenResponse) ProtoMessage() {}
 
 func (x *GetSessionTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sts_proto_msgTypes[3]
+	mi := &file_proto_sts_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -251,7 +251,7 @@ func (x *GetSessionTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSessionTokenResponse.ProtoReflect.Descriptor instead.
 func (*GetSessionTokenResponse) Descriptor() ([]byte, []int) {
-	return file_sts_proto_rawDescGZIP(), []int{3}
+	return file_proto_sts_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GetSessionTokenResponse) GetCredentials() *Credentials {
@@ -273,7 +273,7 @@ type GetFederationTokenRequest struct {
 
 func (x *GetFederationTokenRequest) Reset() {
 	*x = GetFederationTokenRequest{}
-	mi := &file_sts_proto_msgTypes[4]
+	mi := &file_proto_sts_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -285,7 +285,7 @@ func (x *GetFederationTokenRequest) String() string {
 func (*GetFederationTokenRequest) ProtoMessage() {}
 
 func (x *GetFederationTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sts_proto_msgTypes[4]
+	mi := &file_proto_sts_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -298,7 +298,7 @@ func (x *GetFederationTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFederationTokenRequest.ProtoReflect.Descriptor instead.
 func (*GetFederationTokenRequest) Descriptor() ([]byte, []int) {
-	return file_sts_proto_rawDescGZIP(), []int{4}
+	return file_proto_sts_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetFederationTokenRequest) GetName() string {
@@ -340,7 +340,7 @@ type GetFederationTokenResponse struct {
 
 func (x *GetFederationTokenResponse) Reset() {
 	*x = GetFederationTokenResponse{}
-	mi := &file_sts_proto_msgTypes[5]
+	mi := &file_proto_sts_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -352,7 +352,7 @@ func (x *GetFederationTokenResponse) String() string {
 func (*GetFederationTokenResponse) ProtoMessage() {}
 
 func (x *GetFederationTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sts_proto_msgTypes[5]
+	mi := &file_proto_sts_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -365,7 +365,7 @@ func (x *GetFederationTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFederationTokenResponse.ProtoReflect.Descriptor instead.
 func (*GetFederationTokenResponse) Descriptor() ([]byte, []int) {
-	return file_sts_proto_rawDescGZIP(), []int{5}
+	return file_proto_sts_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetFederationTokenResponse) GetCredentials() *Credentials {
@@ -401,7 +401,7 @@ type Credentials struct {
 
 func (x *Credentials) Reset() {
 	*x = Credentials{}
-	mi := &file_sts_proto_msgTypes[6]
+	mi := &file_proto_sts_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -413,7 +413,7 @@ func (x *Credentials) String() string {
 func (*Credentials) ProtoMessage() {}
 
 func (x *Credentials) ProtoReflect() protoreflect.Message {
-	mi := &file_sts_proto_msgTypes[6]
+	mi := &file_proto_sts_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -426,7 +426,7 @@ func (x *Credentials) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Credentials.ProtoReflect.Descriptor instead.
 func (*Credentials) Descriptor() ([]byte, []int) {
-	return file_sts_proto_rawDescGZIP(), []int{6}
+	return file_proto_sts_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Credentials) GetAccessKeyId() string {
@@ -457,11 +457,3247 @@ func (x *Credentials) GetExpirationUnix() int64 {
 	return 0
 }
 
-var File_sts_proto protoreflect.FileDescriptor
+type LookupUserByAccessKeyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessKeyId   string                 `protobuf:"bytes,1,opt,name=access_key_id,json=accessKeyId,proto3" json:"access_key_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
 
-const file_sts_proto_rawDesc = "" +
+func (x *LookupUserByAccessKeyRequest) Reset() {
+	*x = LookupUserByAccessKeyRequest{}
+	mi := &file_proto_sts_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LookupUserByAccessKeyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LookupUserByAccessKeyRequest) ProtoMessage() {}
+
+func (x *LookupUserByAccessKeyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LookupUserByAccessKeyRequest.ProtoReflect.Descriptor instead.
+func (*LookupUserByAccessKeyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *LookupUserByAccessKeyRequest) GetAccessKeyId() string {
+	if x != nil {
+		return x.AccessKeyId
+	}
+	return ""
+}
+
+type LookupUserByAccessKeyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	User          *IAMUserProto          `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	AccessKey     *AccessKeyProto        `protobuf:"bytes,2,opt,name=access_key,json=accessKey,proto3" json:"access_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LookupUserByAccessKeyResponse) Reset() {
+	*x = LookupUserByAccessKeyResponse{}
+	mi := &file_proto_sts_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LookupUserByAccessKeyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LookupUserByAccessKeyResponse) ProtoMessage() {}
+
+func (x *LookupUserByAccessKeyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LookupUserByAccessKeyResponse.ProtoReflect.Descriptor instead.
+func (*LookupUserByAccessKeyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *LookupUserByAccessKeyResponse) GetUser() *IAMUserProto {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+func (x *LookupUserByAccessKeyResponse) GetAccessKey() *AccessKeyProto {
+	if x != nil {
+		return x.AccessKey
+	}
+	return nil
+}
+
+type DecryptSecretKeyRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	EncryptedSecret []byte                 `protobuf:"bytes,1,opt,name=encrypted_secret,json=encryptedSecret,proto3" json:"encrypted_secret,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *DecryptSecretKeyRequest) Reset() {
+	*x = DecryptSecretKeyRequest{}
+	mi := &file_proto_sts_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DecryptSecretKeyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DecryptSecretKeyRequest) ProtoMessage() {}
+
+func (x *DecryptSecretKeyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DecryptSecretKeyRequest.ProtoReflect.Descriptor instead.
+func (*DecryptSecretKeyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *DecryptSecretKeyRequest) GetEncryptedSecret() []byte {
+	if x != nil {
+		return x.EncryptedSecret
+	}
+	return nil
+}
+
+type DecryptSecretKeyResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	DecryptedSecret string                 `protobuf:"bytes,1,opt,name=decrypted_secret,json=decryptedSecret,proto3" json:"decrypted_secret,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *DecryptSecretKeyResponse) Reset() {
+	*x = DecryptSecretKeyResponse{}
+	mi := &file_proto_sts_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DecryptSecretKeyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DecryptSecretKeyResponse) ProtoMessage() {}
+
+func (x *DecryptSecretKeyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DecryptSecretKeyResponse.ProtoReflect.Descriptor instead.
+func (*DecryptSecretKeyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *DecryptSecretKeyResponse) GetDecryptedSecret() string {
+	if x != nil {
+		return x.DecryptedSecret
+	}
+	return ""
+}
+
+type LookupTempCredentialRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessKeyId   string                 `protobuf:"bytes,1,opt,name=access_key_id,json=accessKeyId,proto3" json:"access_key_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LookupTempCredentialRequest) Reset() {
+	*x = LookupTempCredentialRequest{}
+	mi := &file_proto_sts_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LookupTempCredentialRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LookupTempCredentialRequest) ProtoMessage() {}
+
+func (x *LookupTempCredentialRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LookupTempCredentialRequest.ProtoReflect.Descriptor instead.
+func (*LookupTempCredentialRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *LookupTempCredentialRequest) GetAccessKeyId() string {
+	if x != nil {
+		return x.AccessKeyId
+	}
+	return ""
+}
+
+type LookupTempCredentialResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	AccessKeyId     string                 `protobuf:"bytes,1,opt,name=access_key_id,json=accessKeyId,proto3" json:"access_key_id,omitempty"`
+	SecretAccessKey string                 `protobuf:"bytes,2,opt,name=secret_access_key,json=secretAccessKey,proto3" json:"secret_access_key,omitempty"`
+	SessionToken    string                 `protobuf:"bytes,3,opt,name=session_token,json=sessionToken,proto3" json:"session_token,omitempty"`
+	ExpirationUnix  int64                  `protobuf:"varint,4,opt,name=expiration_unix,json=expirationUnix,proto3" json:"expiration_unix,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *LookupTempCredentialResponse) Reset() {
+	*x = LookupTempCredentialResponse{}
+	mi := &file_proto_sts_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LookupTempCredentialResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LookupTempCredentialResponse) ProtoMessage() {}
+
+func (x *LookupTempCredentialResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LookupTempCredentialResponse.ProtoReflect.Descriptor instead.
+func (*LookupTempCredentialResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *LookupTempCredentialResponse) GetAccessKeyId() string {
+	if x != nil {
+		return x.AccessKeyId
+	}
+	return ""
+}
+
+func (x *LookupTempCredentialResponse) GetSecretAccessKey() string {
+	if x != nil {
+		return x.SecretAccessKey
+	}
+	return ""
+}
+
+func (x *LookupTempCredentialResponse) GetSessionToken() string {
+	if x != nil {
+		return x.SessionToken
+	}
+	return ""
+}
+
+func (x *LookupTempCredentialResponse) GetExpirationUnix() int64 {
+	if x != nil {
+		return x.ExpirationUnix
+	}
+	return 0
+}
+
+type LookupUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserName      string                 `protobuf:"bytes,1,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LookupUserRequest) Reset() {
+	*x = LookupUserRequest{}
+	mi := &file_proto_sts_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LookupUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LookupUserRequest) ProtoMessage() {}
+
+func (x *LookupUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LookupUserRequest.ProtoReflect.Descriptor instead.
+func (*LookupUserRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *LookupUserRequest) GetUserName() string {
+	if x != nil {
+		return x.UserName
+	}
+	return ""
+}
+
+type LookupUserResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	User          *IAMUserProto          `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LookupUserResponse) Reset() {
+	*x = LookupUserResponse{}
+	mi := &file_proto_sts_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LookupUserResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LookupUserResponse) ProtoMessage() {}
+
+func (x *LookupUserResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LookupUserResponse.ProtoReflect.Descriptor instead.
+func (*LookupUserResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *LookupUserResponse) GetUser() *IAMUserProto {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+type EvaluateAccessRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Principal       string                 `protobuf:"bytes,1,opt,name=principal,proto3" json:"principal,omitempty"`
+	Action          string                 `protobuf:"bytes,2,opt,name=action,proto3" json:"action,omitempty"`
+	Resource        string                 `protobuf:"bytes,3,opt,name=resource,proto3" json:"resource,omitempty"`
+	SourceIp        string                 `protobuf:"bytes,4,opt,name=source_ip,json=sourceIp,proto3" json:"source_ip,omitempty"`
+	RequestTimeUnix int64                  `protobuf:"varint,5,opt,name=request_time_unix,json=requestTimeUnix,proto3" json:"request_time_unix,omitempty"`
+	Conditions      map[string]string      `protobuf:"bytes,6,rep,name=conditions,proto3" json:"conditions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *EvaluateAccessRequest) Reset() {
+	*x = EvaluateAccessRequest{}
+	mi := &file_proto_sts_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EvaluateAccessRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EvaluateAccessRequest) ProtoMessage() {}
+
+func (x *EvaluateAccessRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EvaluateAccessRequest.ProtoReflect.Descriptor instead.
+func (*EvaluateAccessRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *EvaluateAccessRequest) GetPrincipal() string {
+	if x != nil {
+		return x.Principal
+	}
+	return ""
+}
+
+func (x *EvaluateAccessRequest) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *EvaluateAccessRequest) GetResource() string {
+	if x != nil {
+		return x.Resource
+	}
+	return ""
+}
+
+func (x *EvaluateAccessRequest) GetSourceIp() string {
+	if x != nil {
+		return x.SourceIp
+	}
+	return ""
+}
+
+func (x *EvaluateAccessRequest) GetRequestTimeUnix() int64 {
+	if x != nil {
+		return x.RequestTimeUnix
+	}
+	return 0
+}
+
+func (x *EvaluateAccessRequest) GetConditions() map[string]string {
+	if x != nil {
+		return x.Conditions
+	}
+	return nil
+}
+
+type EvaluateAccessResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Decision      string                 `protobuf:"bytes,1,opt,name=decision,proto3" json:"decision,omitempty"` // "Allow", "Deny", "ImplicitDeny"
+	MatchedBy     string                 `protobuf:"bytes,2,opt,name=matched_by,json=matchedBy,proto3" json:"matched_by,omitempty"`
+	PolicyType    string                 `protobuf:"bytes,3,opt,name=policy_type,json=policyType,proto3" json:"policy_type,omitempty"` // "identity", "boundary", "scp", "resource"
+	PolicyName    string                 `protobuf:"bytes,4,opt,name=policy_name,json=policyName,proto3" json:"policy_name,omitempty"`
+	Details       string                 `protobuf:"bytes,5,opt,name=details,proto3" json:"details,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EvaluateAccessResponse) Reset() {
+	*x = EvaluateAccessResponse{}
+	mi := &file_proto_sts_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EvaluateAccessResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EvaluateAccessResponse) ProtoMessage() {}
+
+func (x *EvaluateAccessResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EvaluateAccessResponse.ProtoReflect.Descriptor instead.
+func (*EvaluateAccessResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *EvaluateAccessResponse) GetDecision() string {
+	if x != nil {
+		return x.Decision
+	}
+	return ""
+}
+
+func (x *EvaluateAccessResponse) GetMatchedBy() string {
+	if x != nil {
+		return x.MatchedBy
+	}
+	return ""
+}
+
+func (x *EvaluateAccessResponse) GetPolicyType() string {
+	if x != nil {
+		return x.PolicyType
+	}
+	return ""
+}
+
+func (x *EvaluateAccessResponse) GetPolicyName() string {
+	if x != nil {
+		return x.PolicyName
+	}
+	return ""
+}
+
+func (x *EvaluateAccessResponse) GetDetails() string {
+	if x != nil {
+		return x.Details
+	}
+	return ""
+}
+
+type AccessKeyProto struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessKeyId   string                 `protobuf:"bytes,1,opt,name=access_key_id,json=accessKeyId,proto3" json:"access_key_id,omitempty"`
+	SecretKeyEnc  []byte                 `protobuf:"bytes,2,opt,name=secret_key_enc,json=secretKeyEnc,proto3" json:"secret_key_enc,omitempty"`
+	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	CreatedAtUnix int64                  `protobuf:"varint,4,opt,name=created_at_unix,json=createdAtUnix,proto3" json:"created_at_unix,omitempty"`
+	Description   string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AccessKeyProto) Reset() {
+	*x = AccessKeyProto{}
+	mi := &file_proto_sts_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AccessKeyProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AccessKeyProto) ProtoMessage() {}
+
+func (x *AccessKeyProto) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AccessKeyProto.ProtoReflect.Descriptor instead.
+func (*AccessKeyProto) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *AccessKeyProto) GetAccessKeyId() string {
+	if x != nil {
+		return x.AccessKeyId
+	}
+	return ""
+}
+
+func (x *AccessKeyProto) GetSecretKeyEnc() []byte {
+	if x != nil {
+		return x.SecretKeyEnc
+	}
+	return nil
+}
+
+func (x *AccessKeyProto) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *AccessKeyProto) GetCreatedAtUnix() int64 {
+	if x != nil {
+		return x.CreatedAtUnix
+	}
+	return 0
+}
+
+func (x *AccessKeyProto) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+type IAMUserProto struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Id                 string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name               string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	DisplayName        string                 `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	AccessKeys         []*AccessKeyProto      `protobuf:"bytes,4,rep,name=access_keys,json=accessKeys,proto3" json:"access_keys,omitempty"`
+	Groups             []string               `protobuf:"bytes,5,rep,name=groups,proto3" json:"groups,omitempty"`
+	AttachedPolicies   []string               `protobuf:"bytes,6,rep,name=attached_policies,json=attachedPolicies,proto3" json:"attached_policies,omitempty"`
+	PermissionBoundary string                 `protobuf:"bytes,7,opt,name=permission_boundary,json=permissionBoundary,proto3" json:"permission_boundary,omitempty"`
+	CreatedAtUnix      int64                  `protobuf:"varint,8,opt,name=created_at_unix,json=createdAtUnix,proto3" json:"created_at_unix,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *IAMUserProto) Reset() {
+	*x = IAMUserProto{}
+	mi := &file_proto_sts_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IAMUserProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IAMUserProto) ProtoMessage() {}
+
+func (x *IAMUserProto) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IAMUserProto.ProtoReflect.Descriptor instead.
+func (*IAMUserProto) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *IAMUserProto) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *IAMUserProto) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *IAMUserProto) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *IAMUserProto) GetAccessKeys() []*AccessKeyProto {
+	if x != nil {
+		return x.AccessKeys
+	}
+	return nil
+}
+
+func (x *IAMUserProto) GetGroups() []string {
+	if x != nil {
+		return x.Groups
+	}
+	return nil
+}
+
+func (x *IAMUserProto) GetAttachedPolicies() []string {
+	if x != nil {
+		return x.AttachedPolicies
+	}
+	return nil
+}
+
+func (x *IAMUserProto) GetPermissionBoundary() string {
+	if x != nil {
+		return x.PermissionBoundary
+	}
+	return ""
+}
+
+func (x *IAMUserProto) GetCreatedAtUnix() int64 {
+	if x != nil {
+		return x.CreatedAtUnix
+	}
+	return 0
+}
+
+type AdminCreateUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	DisplayName   string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminCreateUserRequest) Reset() {
+	*x = AdminCreateUserRequest{}
+	mi := &file_proto_sts_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminCreateUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminCreateUserRequest) ProtoMessage() {}
+
+func (x *AdminCreateUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminCreateUserRequest.ProtoReflect.Descriptor instead.
+func (*AdminCreateUserRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *AdminCreateUserRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *AdminCreateUserRequest) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+type AdminCreateUserResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	User          *IAMUserProto          `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminCreateUserResponse) Reset() {
+	*x = AdminCreateUserResponse{}
+	mi := &file_proto_sts_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminCreateUserResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminCreateUserResponse) ProtoMessage() {}
+
+func (x *AdminCreateUserResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminCreateUserResponse.ProtoReflect.Descriptor instead.
+func (*AdminCreateUserResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *AdminCreateUserResponse) GetUser() *IAMUserProto {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+type AdminDeleteUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserName      string                 `protobuf:"bytes,1,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminDeleteUserRequest) Reset() {
+	*x = AdminDeleteUserRequest{}
+	mi := &file_proto_sts_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminDeleteUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminDeleteUserRequest) ProtoMessage() {}
+
+func (x *AdminDeleteUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminDeleteUserRequest.ProtoReflect.Descriptor instead.
+func (*AdminDeleteUserRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *AdminDeleteUserRequest) GetUserName() string {
+	if x != nil {
+		return x.UserName
+	}
+	return ""
+}
+
+type AdminDeleteUserResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminDeleteUserResponse) Reset() {
+	*x = AdminDeleteUserResponse{}
+	mi := &file_proto_sts_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminDeleteUserResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminDeleteUserResponse) ProtoMessage() {}
+
+func (x *AdminDeleteUserResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminDeleteUserResponse.ProtoReflect.Descriptor instead.
+func (*AdminDeleteUserResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{22}
+}
+
+type AdminListUsersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminListUsersRequest) Reset() {
+	*x = AdminListUsersRequest{}
+	mi := &file_proto_sts_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminListUsersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminListUsersRequest) ProtoMessage() {}
+
+func (x *AdminListUsersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminListUsersRequest.ProtoReflect.Descriptor instead.
+func (*AdminListUsersRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{23}
+}
+
+type AdminListUsersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Users         []*IAMUserProto        `protobuf:"bytes,1,rep,name=users,proto3" json:"users,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminListUsersResponse) Reset() {
+	*x = AdminListUsersResponse{}
+	mi := &file_proto_sts_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminListUsersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminListUsersResponse) ProtoMessage() {}
+
+func (x *AdminListUsersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminListUsersResponse.ProtoReflect.Descriptor instead.
+func (*AdminListUsersResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *AdminListUsersResponse) GetUsers() []*IAMUserProto {
+	if x != nil {
+		return x.Users
+	}
+	return nil
+}
+
+type AdminCreateAccessKeyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserName      string                 `protobuf:"bytes,1,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"`
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminCreateAccessKeyRequest) Reset() {
+	*x = AdminCreateAccessKeyRequest{}
+	mi := &file_proto_sts_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminCreateAccessKeyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminCreateAccessKeyRequest) ProtoMessage() {}
+
+func (x *AdminCreateAccessKeyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminCreateAccessKeyRequest.ProtoReflect.Descriptor instead.
+func (*AdminCreateAccessKeyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *AdminCreateAccessKeyRequest) GetUserName() string {
+	if x != nil {
+		return x.UserName
+	}
+	return ""
+}
+
+func (x *AdminCreateAccessKeyRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+type AdminCreateAccessKeyResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	AccessKeyId     string                 `protobuf:"bytes,1,opt,name=access_key_id,json=accessKeyId,proto3" json:"access_key_id,omitempty"`
+	SecretAccessKey string                 `protobuf:"bytes,2,opt,name=secret_access_key,json=secretAccessKey,proto3" json:"secret_access_key,omitempty"`
+	Status          string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	CreatedAtUnix   int64                  `protobuf:"varint,4,opt,name=created_at_unix,json=createdAtUnix,proto3" json:"created_at_unix,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *AdminCreateAccessKeyResponse) Reset() {
+	*x = AdminCreateAccessKeyResponse{}
+	mi := &file_proto_sts_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminCreateAccessKeyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminCreateAccessKeyResponse) ProtoMessage() {}
+
+func (x *AdminCreateAccessKeyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminCreateAccessKeyResponse.ProtoReflect.Descriptor instead.
+func (*AdminCreateAccessKeyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *AdminCreateAccessKeyResponse) GetAccessKeyId() string {
+	if x != nil {
+		return x.AccessKeyId
+	}
+	return ""
+}
+
+func (x *AdminCreateAccessKeyResponse) GetSecretAccessKey() string {
+	if x != nil {
+		return x.SecretAccessKey
+	}
+	return ""
+}
+
+func (x *AdminCreateAccessKeyResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *AdminCreateAccessKeyResponse) GetCreatedAtUnix() int64 {
+	if x != nil {
+		return x.CreatedAtUnix
+	}
+	return 0
+}
+
+type AdminListAccessKeysRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserName      string                 `protobuf:"bytes,1,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminListAccessKeysRequest) Reset() {
+	*x = AdminListAccessKeysRequest{}
+	mi := &file_proto_sts_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminListAccessKeysRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminListAccessKeysRequest) ProtoMessage() {}
+
+func (x *AdminListAccessKeysRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminListAccessKeysRequest.ProtoReflect.Descriptor instead.
+func (*AdminListAccessKeysRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *AdminListAccessKeysRequest) GetUserName() string {
+	if x != nil {
+		return x.UserName
+	}
+	return ""
+}
+
+type AdminListAccessKeysResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessKeys    []*AccessKeyProto      `protobuf:"bytes,1,rep,name=access_keys,json=accessKeys,proto3" json:"access_keys,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminListAccessKeysResponse) Reset() {
+	*x = AdminListAccessKeysResponse{}
+	mi := &file_proto_sts_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminListAccessKeysResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminListAccessKeysResponse) ProtoMessage() {}
+
+func (x *AdminListAccessKeysResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminListAccessKeysResponse.ProtoReflect.Descriptor instead.
+func (*AdminListAccessKeysResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *AdminListAccessKeysResponse) GetAccessKeys() []*AccessKeyProto {
+	if x != nil {
+		return x.AccessKeys
+	}
+	return nil
+}
+
+type AdminDeleteAccessKeyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserName      string                 `protobuf:"bytes,1,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"`
+	AccessKeyId   string                 `protobuf:"bytes,2,opt,name=access_key_id,json=accessKeyId,proto3" json:"access_key_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminDeleteAccessKeyRequest) Reset() {
+	*x = AdminDeleteAccessKeyRequest{}
+	mi := &file_proto_sts_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminDeleteAccessKeyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminDeleteAccessKeyRequest) ProtoMessage() {}
+
+func (x *AdminDeleteAccessKeyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminDeleteAccessKeyRequest.ProtoReflect.Descriptor instead.
+func (*AdminDeleteAccessKeyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *AdminDeleteAccessKeyRequest) GetUserName() string {
+	if x != nil {
+		return x.UserName
+	}
+	return ""
+}
+
+func (x *AdminDeleteAccessKeyRequest) GetAccessKeyId() string {
+	if x != nil {
+		return x.AccessKeyId
+	}
+	return ""
+}
+
+type AdminDeleteAccessKeyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminDeleteAccessKeyResponse) Reset() {
+	*x = AdminDeleteAccessKeyResponse{}
+	mi := &file_proto_sts_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminDeleteAccessKeyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminDeleteAccessKeyResponse) ProtoMessage() {}
+
+func (x *AdminDeleteAccessKeyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminDeleteAccessKeyResponse.ProtoReflect.Descriptor instead.
+func (*AdminDeleteAccessKeyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{30}
+}
+
+type AdminListGroupsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminListGroupsRequest) Reset() {
+	*x = AdminListGroupsRequest{}
+	mi := &file_proto_sts_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminListGroupsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminListGroupsRequest) ProtoMessage() {}
+
+func (x *AdminListGroupsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminListGroupsRequest.ProtoReflect.Descriptor instead.
+func (*AdminListGroupsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{31}
+}
+
+type AdminListGroupResponse struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Name             string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description      string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	Users            []string               `protobuf:"bytes,3,rep,name=users,proto3" json:"users,omitempty"`
+	AttachedPolicies []string               `protobuf:"bytes,4,rep,name=attached_policies,json=attachedPolicies,proto3" json:"attached_policies,omitempty"`
+	CreatedAtUnix    int64                  `protobuf:"varint,5,opt,name=created_at_unix,json=createdAtUnix,proto3" json:"created_at_unix,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *AdminListGroupResponse) Reset() {
+	*x = AdminListGroupResponse{}
+	mi := &file_proto_sts_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminListGroupResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminListGroupResponse) ProtoMessage() {}
+
+func (x *AdminListGroupResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminListGroupResponse.ProtoReflect.Descriptor instead.
+func (*AdminListGroupResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *AdminListGroupResponse) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *AdminListGroupResponse) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *AdminListGroupResponse) GetUsers() []string {
+	if x != nil {
+		return x.Users
+	}
+	return nil
+}
+
+func (x *AdminListGroupResponse) GetAttachedPolicies() []string {
+	if x != nil {
+		return x.AttachedPolicies
+	}
+	return nil
+}
+
+func (x *AdminListGroupResponse) GetCreatedAtUnix() int64 {
+	if x != nil {
+		return x.CreatedAtUnix
+	}
+	return 0
+}
+
+type AdminListGroupsResponse struct {
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	Groups        []*AdminListGroupResponse `protobuf:"bytes,1,rep,name=groups,proto3" json:"groups,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminListGroupsResponse) Reset() {
+	*x = AdminListGroupsResponse{}
+	mi := &file_proto_sts_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminListGroupsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminListGroupsResponse) ProtoMessage() {}
+
+func (x *AdminListGroupsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminListGroupsResponse.ProtoReflect.Descriptor instead.
+func (*AdminListGroupsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *AdminListGroupsResponse) GetGroups() []*AdminListGroupResponse {
+	if x != nil {
+		return x.Groups
+	}
+	return nil
+}
+
+type AdminCreateGroupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminCreateGroupRequest) Reset() {
+	*x = AdminCreateGroupRequest{}
+	mi := &file_proto_sts_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminCreateGroupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminCreateGroupRequest) ProtoMessage() {}
+
+func (x *AdminCreateGroupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminCreateGroupRequest.ProtoReflect.Descriptor instead.
+func (*AdminCreateGroupRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *AdminCreateGroupRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *AdminCreateGroupRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+type AdminCreateGroupResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	CreatedAtUnix int64                  `protobuf:"varint,3,opt,name=created_at_unix,json=createdAtUnix,proto3" json:"created_at_unix,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminCreateGroupResponse) Reset() {
+	*x = AdminCreateGroupResponse{}
+	mi := &file_proto_sts_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminCreateGroupResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminCreateGroupResponse) ProtoMessage() {}
+
+func (x *AdminCreateGroupResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminCreateGroupResponse.ProtoReflect.Descriptor instead.
+func (*AdminCreateGroupResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *AdminCreateGroupResponse) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *AdminCreateGroupResponse) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *AdminCreateGroupResponse) GetCreatedAtUnix() int64 {
+	if x != nil {
+		return x.CreatedAtUnix
+	}
+	return 0
+}
+
+type AdminDeleteGroupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GroupName     string                 `protobuf:"bytes,1,opt,name=group_name,json=groupName,proto3" json:"group_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminDeleteGroupRequest) Reset() {
+	*x = AdminDeleteGroupRequest{}
+	mi := &file_proto_sts_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminDeleteGroupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminDeleteGroupRequest) ProtoMessage() {}
+
+func (x *AdminDeleteGroupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminDeleteGroupRequest.ProtoReflect.Descriptor instead.
+func (*AdminDeleteGroupRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *AdminDeleteGroupRequest) GetGroupName() string {
+	if x != nil {
+		return x.GroupName
+	}
+	return ""
+}
+
+type AdminDeleteGroupResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminDeleteGroupResponse) Reset() {
+	*x = AdminDeleteGroupResponse{}
+	mi := &file_proto_sts_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminDeleteGroupResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminDeleteGroupResponse) ProtoMessage() {}
+
+func (x *AdminDeleteGroupResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminDeleteGroupResponse.ProtoReflect.Descriptor instead.
+func (*AdminDeleteGroupResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{37}
+}
+
+type AdminAddUserToGroupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserName      string                 `protobuf:"bytes,1,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"`
+	GroupName     string                 `protobuf:"bytes,2,opt,name=group_name,json=groupName,proto3" json:"group_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminAddUserToGroupRequest) Reset() {
+	*x = AdminAddUserToGroupRequest{}
+	mi := &file_proto_sts_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminAddUserToGroupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminAddUserToGroupRequest) ProtoMessage() {}
+
+func (x *AdminAddUserToGroupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminAddUserToGroupRequest.ProtoReflect.Descriptor instead.
+func (*AdminAddUserToGroupRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *AdminAddUserToGroupRequest) GetUserName() string {
+	if x != nil {
+		return x.UserName
+	}
+	return ""
+}
+
+func (x *AdminAddUserToGroupRequest) GetGroupName() string {
+	if x != nil {
+		return x.GroupName
+	}
+	return ""
+}
+
+type AdminAddUserToGroupResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminAddUserToGroupResponse) Reset() {
+	*x = AdminAddUserToGroupResponse{}
+	mi := &file_proto_sts_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminAddUserToGroupResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminAddUserToGroupResponse) ProtoMessage() {}
+
+func (x *AdminAddUserToGroupResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminAddUserToGroupResponse.ProtoReflect.Descriptor instead.
+func (*AdminAddUserToGroupResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{39}
+}
+
+type AdminRemoveUserFromGroupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserName      string                 `protobuf:"bytes,1,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"`
+	GroupName     string                 `protobuf:"bytes,2,opt,name=group_name,json=groupName,proto3" json:"group_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminRemoveUserFromGroupRequest) Reset() {
+	*x = AdminRemoveUserFromGroupRequest{}
+	mi := &file_proto_sts_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminRemoveUserFromGroupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminRemoveUserFromGroupRequest) ProtoMessage() {}
+
+func (x *AdminRemoveUserFromGroupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminRemoveUserFromGroupRequest.ProtoReflect.Descriptor instead.
+func (*AdminRemoveUserFromGroupRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *AdminRemoveUserFromGroupRequest) GetUserName() string {
+	if x != nil {
+		return x.UserName
+	}
+	return ""
+}
+
+func (x *AdminRemoveUserFromGroupRequest) GetGroupName() string {
+	if x != nil {
+		return x.GroupName
+	}
+	return ""
+}
+
+type AdminRemoveUserFromGroupResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminRemoveUserFromGroupResponse) Reset() {
+	*x = AdminRemoveUserFromGroupResponse{}
+	mi := &file_proto_sts_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminRemoveUserFromGroupResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminRemoveUserFromGroupResponse) ProtoMessage() {}
+
+func (x *AdminRemoveUserFromGroupResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminRemoveUserFromGroupResponse.ProtoReflect.Descriptor instead.
+func (*AdminRemoveUserFromGroupResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{41}
+}
+
+type AdminListPoliciesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminListPoliciesRequest) Reset() {
+	*x = AdminListPoliciesRequest{}
+	mi := &file_proto_sts_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminListPoliciesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminListPoliciesRequest) ProtoMessage() {}
+
+func (x *AdminListPoliciesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminListPoliciesRequest.ProtoReflect.Descriptor instead.
+func (*AdminListPoliciesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{42}
+}
+
+type AdminListPolicyItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Arn           string                 `protobuf:"bytes,1,opt,name=arn,proto3" json:"arn,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Type          string                 `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
+	CreatedAtUnix int64                  `protobuf:"varint,5,opt,name=created_at_unix,json=createdAtUnix,proto3" json:"created_at_unix,omitempty"`
+	UpdatedAtUnix int64                  `protobuf:"varint,6,opt,name=updated_at_unix,json=updatedAtUnix,proto3" json:"updated_at_unix,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminListPolicyItem) Reset() {
+	*x = AdminListPolicyItem{}
+	mi := &file_proto_sts_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminListPolicyItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminListPolicyItem) ProtoMessage() {}
+
+func (x *AdminListPolicyItem) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminListPolicyItem.ProtoReflect.Descriptor instead.
+func (*AdminListPolicyItem) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *AdminListPolicyItem) GetArn() string {
+	if x != nil {
+		return x.Arn
+	}
+	return ""
+}
+
+func (x *AdminListPolicyItem) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *AdminListPolicyItem) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *AdminListPolicyItem) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *AdminListPolicyItem) GetCreatedAtUnix() int64 {
+	if x != nil {
+		return x.CreatedAtUnix
+	}
+	return 0
+}
+
+func (x *AdminListPolicyItem) GetUpdatedAtUnix() int64 {
+	if x != nil {
+		return x.UpdatedAtUnix
+	}
+	return 0
+}
+
+type AdminListPoliciesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Policies      []*AdminListPolicyItem `protobuf:"bytes,1,rep,name=policies,proto3" json:"policies,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminListPoliciesResponse) Reset() {
+	*x = AdminListPoliciesResponse{}
+	mi := &file_proto_sts_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminListPoliciesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminListPoliciesResponse) ProtoMessage() {}
+
+func (x *AdminListPoliciesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminListPoliciesResponse.ProtoReflect.Descriptor instead.
+func (*AdminListPoliciesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *AdminListPoliciesResponse) GetPolicies() []*AdminListPolicyItem {
+	if x != nil {
+		return x.Policies
+	}
+	return nil
+}
+
+type AdminCreatePolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	DocumentJson  string                 `protobuf:"bytes,3,opt,name=document_json,json=documentJson,proto3" json:"document_json,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminCreatePolicyRequest) Reset() {
+	*x = AdminCreatePolicyRequest{}
+	mi := &file_proto_sts_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminCreatePolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminCreatePolicyRequest) ProtoMessage() {}
+
+func (x *AdminCreatePolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminCreatePolicyRequest.ProtoReflect.Descriptor instead.
+func (*AdminCreatePolicyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *AdminCreatePolicyRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *AdminCreatePolicyRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *AdminCreatePolicyRequest) GetDocumentJson() string {
+	if x != nil {
+		return x.DocumentJson
+	}
+	return ""
+}
+
+type AdminCreatePolicyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Arn           string                 `protobuf:"bytes,1,opt,name=arn,proto3" json:"arn,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminCreatePolicyResponse) Reset() {
+	*x = AdminCreatePolicyResponse{}
+	mi := &file_proto_sts_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminCreatePolicyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminCreatePolicyResponse) ProtoMessage() {}
+
+func (x *AdminCreatePolicyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminCreatePolicyResponse.ProtoReflect.Descriptor instead.
+func (*AdminCreatePolicyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *AdminCreatePolicyResponse) GetArn() string {
+	if x != nil {
+		return x.Arn
+	}
+	return ""
+}
+
+func (x *AdminCreatePolicyResponse) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type AdminDeletePolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PolicyName    string                 `protobuf:"bytes,1,opt,name=policy_name,json=policyName,proto3" json:"policy_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminDeletePolicyRequest) Reset() {
+	*x = AdminDeletePolicyRequest{}
+	mi := &file_proto_sts_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminDeletePolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminDeletePolicyRequest) ProtoMessage() {}
+
+func (x *AdminDeletePolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminDeletePolicyRequest.ProtoReflect.Descriptor instead.
+func (*AdminDeletePolicyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *AdminDeletePolicyRequest) GetPolicyName() string {
+	if x != nil {
+		return x.PolicyName
+	}
+	return ""
+}
+
+type AdminDeletePolicyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminDeletePolicyResponse) Reset() {
+	*x = AdminDeletePolicyResponse{}
+	mi := &file_proto_sts_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminDeletePolicyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminDeletePolicyResponse) ProtoMessage() {}
+
+func (x *AdminDeletePolicyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminDeletePolicyResponse.ProtoReflect.Descriptor instead.
+func (*AdminDeletePolicyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{48}
+}
+
+type AdminAttachUserPolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserName      string                 `protobuf:"bytes,1,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"`
+	PolicyName    string                 `protobuf:"bytes,2,opt,name=policy_name,json=policyName,proto3" json:"policy_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminAttachUserPolicyRequest) Reset() {
+	*x = AdminAttachUserPolicyRequest{}
+	mi := &file_proto_sts_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminAttachUserPolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminAttachUserPolicyRequest) ProtoMessage() {}
+
+func (x *AdminAttachUserPolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminAttachUserPolicyRequest.ProtoReflect.Descriptor instead.
+func (*AdminAttachUserPolicyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *AdminAttachUserPolicyRequest) GetUserName() string {
+	if x != nil {
+		return x.UserName
+	}
+	return ""
+}
+
+func (x *AdminAttachUserPolicyRequest) GetPolicyName() string {
+	if x != nil {
+		return x.PolicyName
+	}
+	return ""
+}
+
+type AdminAttachUserPolicyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminAttachUserPolicyResponse) Reset() {
+	*x = AdminAttachUserPolicyResponse{}
+	mi := &file_proto_sts_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminAttachUserPolicyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminAttachUserPolicyResponse) ProtoMessage() {}
+
+func (x *AdminAttachUserPolicyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminAttachUserPolicyResponse.ProtoReflect.Descriptor instead.
+func (*AdminAttachUserPolicyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{50}
+}
+
+type AdminDetachUserPolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserName      string                 `protobuf:"bytes,1,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"`
+	PolicyName    string                 `protobuf:"bytes,2,opt,name=policy_name,json=policyName,proto3" json:"policy_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminDetachUserPolicyRequest) Reset() {
+	*x = AdminDetachUserPolicyRequest{}
+	mi := &file_proto_sts_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminDetachUserPolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminDetachUserPolicyRequest) ProtoMessage() {}
+
+func (x *AdminDetachUserPolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminDetachUserPolicyRequest.ProtoReflect.Descriptor instead.
+func (*AdminDetachUserPolicyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *AdminDetachUserPolicyRequest) GetUserName() string {
+	if x != nil {
+		return x.UserName
+	}
+	return ""
+}
+
+func (x *AdminDetachUserPolicyRequest) GetPolicyName() string {
+	if x != nil {
+		return x.PolicyName
+	}
+	return ""
+}
+
+type AdminDetachUserPolicyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminDetachUserPolicyResponse) Reset() {
+	*x = AdminDetachUserPolicyResponse{}
+	mi := &file_proto_sts_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminDetachUserPolicyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminDetachUserPolicyResponse) ProtoMessage() {}
+
+func (x *AdminDetachUserPolicyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminDetachUserPolicyResponse.ProtoReflect.Descriptor instead.
+func (*AdminDetachUserPolicyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{52}
+}
+
+type AdminAttachGroupPolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GroupName     string                 `protobuf:"bytes,1,opt,name=group_name,json=groupName,proto3" json:"group_name,omitempty"`
+	PolicyName    string                 `protobuf:"bytes,2,opt,name=policy_name,json=policyName,proto3" json:"policy_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminAttachGroupPolicyRequest) Reset() {
+	*x = AdminAttachGroupPolicyRequest{}
+	mi := &file_proto_sts_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminAttachGroupPolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminAttachGroupPolicyRequest) ProtoMessage() {}
+
+func (x *AdminAttachGroupPolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminAttachGroupPolicyRequest.ProtoReflect.Descriptor instead.
+func (*AdminAttachGroupPolicyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *AdminAttachGroupPolicyRequest) GetGroupName() string {
+	if x != nil {
+		return x.GroupName
+	}
+	return ""
+}
+
+func (x *AdminAttachGroupPolicyRequest) GetPolicyName() string {
+	if x != nil {
+		return x.PolicyName
+	}
+	return ""
+}
+
+type AdminAttachGroupPolicyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminAttachGroupPolicyResponse) Reset() {
+	*x = AdminAttachGroupPolicyResponse{}
+	mi := &file_proto_sts_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminAttachGroupPolicyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminAttachGroupPolicyResponse) ProtoMessage() {}
+
+func (x *AdminAttachGroupPolicyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminAttachGroupPolicyResponse.ProtoReflect.Descriptor instead.
+func (*AdminAttachGroupPolicyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{54}
+}
+
+type AdminListRolesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminListRolesRequest) Reset() {
+	*x = AdminListRolesRequest{}
+	mi := &file_proto_sts_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminListRolesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminListRolesRequest) ProtoMessage() {}
+
+func (x *AdminListRolesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminListRolesRequest.ProtoReflect.Descriptor instead.
+func (*AdminListRolesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{55}
+}
+
+type AdminListRoleItem struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Name               string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description        string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	PermissionPolicies []string               `protobuf:"bytes,3,rep,name=permission_policies,json=permissionPolicies,proto3" json:"permission_policies,omitempty"`
+	CreatedAtUnix      int64                  `protobuf:"varint,4,opt,name=created_at_unix,json=createdAtUnix,proto3" json:"created_at_unix,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *AdminListRoleItem) Reset() {
+	*x = AdminListRoleItem{}
+	mi := &file_proto_sts_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminListRoleItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminListRoleItem) ProtoMessage() {}
+
+func (x *AdminListRoleItem) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminListRoleItem.ProtoReflect.Descriptor instead.
+func (*AdminListRoleItem) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *AdminListRoleItem) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *AdminListRoleItem) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *AdminListRoleItem) GetPermissionPolicies() []string {
+	if x != nil {
+		return x.PermissionPolicies
+	}
+	return nil
+}
+
+func (x *AdminListRoleItem) GetCreatedAtUnix() int64 {
+	if x != nil {
+		return x.CreatedAtUnix
+	}
+	return 0
+}
+
+type AdminListRolesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Roles         []*AdminListRoleItem   `protobuf:"bytes,1,rep,name=roles,proto3" json:"roles,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminListRolesResponse) Reset() {
+	*x = AdminListRolesResponse{}
+	mi := &file_proto_sts_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminListRolesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminListRolesResponse) ProtoMessage() {}
+
+func (x *AdminListRolesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminListRolesResponse.ProtoReflect.Descriptor instead.
+func (*AdminListRolesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *AdminListRolesResponse) GetRoles() []*AdminListRoleItem {
+	if x != nil {
+		return x.Roles
+	}
+	return nil
+}
+
+type AdminCreateRoleRequest struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Name               string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description        string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	TrustPolicyJson    string                 `protobuf:"bytes,3,opt,name=trust_policy_json,json=trustPolicyJson,proto3" json:"trust_policy_json,omitempty"`
+	MaxSessionDuration int32                  `protobuf:"varint,4,opt,name=max_session_duration,json=maxSessionDuration,proto3" json:"max_session_duration,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *AdminCreateRoleRequest) Reset() {
+	*x = AdminCreateRoleRequest{}
+	mi := &file_proto_sts_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminCreateRoleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminCreateRoleRequest) ProtoMessage() {}
+
+func (x *AdminCreateRoleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminCreateRoleRequest.ProtoReflect.Descriptor instead.
+func (*AdminCreateRoleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *AdminCreateRoleRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *AdminCreateRoleRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *AdminCreateRoleRequest) GetTrustPolicyJson() string {
+	if x != nil {
+		return x.TrustPolicyJson
+	}
+	return ""
+}
+
+func (x *AdminCreateRoleRequest) GetMaxSessionDuration() int32 {
+	if x != nil {
+		return x.MaxSessionDuration
+	}
+	return 0
+}
+
+type AdminCreateRoleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminCreateRoleResponse) Reset() {
+	*x = AdminCreateRoleResponse{}
+	mi := &file_proto_sts_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminCreateRoleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminCreateRoleResponse) ProtoMessage() {}
+
+func (x *AdminCreateRoleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminCreateRoleResponse.ProtoReflect.Descriptor instead.
+func (*AdminCreateRoleResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *AdminCreateRoleResponse) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type AdminDeleteRoleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RoleName      string                 `protobuf:"bytes,1,opt,name=role_name,json=roleName,proto3" json:"role_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminDeleteRoleRequest) Reset() {
+	*x = AdminDeleteRoleRequest{}
+	mi := &file_proto_sts_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminDeleteRoleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminDeleteRoleRequest) ProtoMessage() {}
+
+func (x *AdminDeleteRoleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminDeleteRoleRequest.ProtoReflect.Descriptor instead.
+func (*AdminDeleteRoleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *AdminDeleteRoleRequest) GetRoleName() string {
+	if x != nil {
+		return x.RoleName
+	}
+	return ""
+}
+
+type AdminDeleteRoleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminDeleteRoleResponse) Reset() {
+	*x = AdminDeleteRoleResponse{}
+	mi := &file_proto_sts_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminDeleteRoleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminDeleteRoleResponse) ProtoMessage() {}
+
+func (x *AdminDeleteRoleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminDeleteRoleResponse.ProtoReflect.Descriptor instead.
+func (*AdminDeleteRoleResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{61}
+}
+
+type AdminAttachRolePolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RoleName      string                 `protobuf:"bytes,1,opt,name=role_name,json=roleName,proto3" json:"role_name,omitempty"`
+	PolicyName    string                 `protobuf:"bytes,2,opt,name=policy_name,json=policyName,proto3" json:"policy_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminAttachRolePolicyRequest) Reset() {
+	*x = AdminAttachRolePolicyRequest{}
+	mi := &file_proto_sts_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminAttachRolePolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminAttachRolePolicyRequest) ProtoMessage() {}
+
+func (x *AdminAttachRolePolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminAttachRolePolicyRequest.ProtoReflect.Descriptor instead.
+func (*AdminAttachRolePolicyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *AdminAttachRolePolicyRequest) GetRoleName() string {
+	if x != nil {
+		return x.RoleName
+	}
+	return ""
+}
+
+func (x *AdminAttachRolePolicyRequest) GetPolicyName() string {
+	if x != nil {
+		return x.PolicyName
+	}
+	return ""
+}
+
+type AdminAttachRolePolicyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminAttachRolePolicyResponse) Reset() {
+	*x = AdminAttachRolePolicyResponse{}
+	mi := &file_proto_sts_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminAttachRolePolicyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminAttachRolePolicyResponse) ProtoMessage() {}
+
+func (x *AdminAttachRolePolicyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminAttachRolePolicyResponse.ProtoReflect.Descriptor instead.
+func (*AdminAttachRolePolicyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{63}
+}
+
+type AdminGetBucketPolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Bucket        string                 `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminGetBucketPolicyRequest) Reset() {
+	*x = AdminGetBucketPolicyRequest{}
+	mi := &file_proto_sts_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminGetBucketPolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminGetBucketPolicyRequest) ProtoMessage() {}
+
+func (x *AdminGetBucketPolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminGetBucketPolicyRequest.ProtoReflect.Descriptor instead.
+func (*AdminGetBucketPolicyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *AdminGetBucketPolicyRequest) GetBucket() string {
+	if x != nil {
+		return x.Bucket
+	}
+	return ""
+}
+
+type AdminGetBucketPolicyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DocumentJson  string                 `protobuf:"bytes,1,opt,name=document_json,json=documentJson,proto3" json:"document_json,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminGetBucketPolicyResponse) Reset() {
+	*x = AdminGetBucketPolicyResponse{}
+	mi := &file_proto_sts_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminGetBucketPolicyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminGetBucketPolicyResponse) ProtoMessage() {}
+
+func (x *AdminGetBucketPolicyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminGetBucketPolicyResponse.ProtoReflect.Descriptor instead.
+func (*AdminGetBucketPolicyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *AdminGetBucketPolicyResponse) GetDocumentJson() string {
+	if x != nil {
+		return x.DocumentJson
+	}
+	return ""
+}
+
+type AdminPutBucketPolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Bucket        string                 `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	DocumentJson  string                 `protobuf:"bytes,2,opt,name=document_json,json=documentJson,proto3" json:"document_json,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminPutBucketPolicyRequest) Reset() {
+	*x = AdminPutBucketPolicyRequest{}
+	mi := &file_proto_sts_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminPutBucketPolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminPutBucketPolicyRequest) ProtoMessage() {}
+
+func (x *AdminPutBucketPolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminPutBucketPolicyRequest.ProtoReflect.Descriptor instead.
+func (*AdminPutBucketPolicyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *AdminPutBucketPolicyRequest) GetBucket() string {
+	if x != nil {
+		return x.Bucket
+	}
+	return ""
+}
+
+func (x *AdminPutBucketPolicyRequest) GetDocumentJson() string {
+	if x != nil {
+		return x.DocumentJson
+	}
+	return ""
+}
+
+type AdminPutBucketPolicyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminPutBucketPolicyResponse) Reset() {
+	*x = AdminPutBucketPolicyResponse{}
+	mi := &file_proto_sts_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminPutBucketPolicyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminPutBucketPolicyResponse) ProtoMessage() {}
+
+func (x *AdminPutBucketPolicyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminPutBucketPolicyResponse.ProtoReflect.Descriptor instead.
+func (*AdminPutBucketPolicyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{67}
+}
+
+type AdminDeleteBucketPolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Bucket        string                 `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminDeleteBucketPolicyRequest) Reset() {
+	*x = AdminDeleteBucketPolicyRequest{}
+	mi := &file_proto_sts_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminDeleteBucketPolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminDeleteBucketPolicyRequest) ProtoMessage() {}
+
+func (x *AdminDeleteBucketPolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminDeleteBucketPolicyRequest.ProtoReflect.Descriptor instead.
+func (*AdminDeleteBucketPolicyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *AdminDeleteBucketPolicyRequest) GetBucket() string {
+	if x != nil {
+		return x.Bucket
+	}
+	return ""
+}
+
+type AdminDeleteBucketPolicyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminDeleteBucketPolicyResponse) Reset() {
+	*x = AdminDeleteBucketPolicyResponse{}
+	mi := &file_proto_sts_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminDeleteBucketPolicyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminDeleteBucketPolicyResponse) ProtoMessage() {}
+
+func (x *AdminDeleteBucketPolicyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminDeleteBucketPolicyResponse.ProtoReflect.Descriptor instead.
+func (*AdminDeleteBucketPolicyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{69}
+}
+
+type AdminSimulatePolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Principal     string                 `protobuf:"bytes,1,opt,name=principal,proto3" json:"principal,omitempty"`
+	Action        string                 `protobuf:"bytes,2,opt,name=action,proto3" json:"action,omitempty"`
+	Resource      string                 `protobuf:"bytes,3,opt,name=resource,proto3" json:"resource,omitempty"`
+	SourceIp      string                 `protobuf:"bytes,4,opt,name=source_ip,json=sourceIp,proto3" json:"source_ip,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminSimulatePolicyRequest) Reset() {
+	*x = AdminSimulatePolicyRequest{}
+	mi := &file_proto_sts_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminSimulatePolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminSimulatePolicyRequest) ProtoMessage() {}
+
+func (x *AdminSimulatePolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminSimulatePolicyRequest.ProtoReflect.Descriptor instead.
+func (*AdminSimulatePolicyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *AdminSimulatePolicyRequest) GetPrincipal() string {
+	if x != nil {
+		return x.Principal
+	}
+	return ""
+}
+
+func (x *AdminSimulatePolicyRequest) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *AdminSimulatePolicyRequest) GetResource() string {
+	if x != nil {
+		return x.Resource
+	}
+	return ""
+}
+
+func (x *AdminSimulatePolicyRequest) GetSourceIp() string {
+	if x != nil {
+		return x.SourceIp
+	}
+	return ""
+}
+
+type AdminSimulatePolicyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Decision      string                 `protobuf:"bytes,1,opt,name=decision,proto3" json:"decision,omitempty"`
+	MatchedBy     string                 `protobuf:"bytes,2,opt,name=matched_by,json=matchedBy,proto3" json:"matched_by,omitempty"`
+	PolicyType    string                 `protobuf:"bytes,3,opt,name=policy_type,json=policyType,proto3" json:"policy_type,omitempty"`
+	Details       string                 `protobuf:"bytes,4,opt,name=details,proto3" json:"details,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminSimulatePolicyResponse) Reset() {
+	*x = AdminSimulatePolicyResponse{}
+	mi := &file_proto_sts_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminSimulatePolicyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminSimulatePolicyResponse) ProtoMessage() {}
+
+func (x *AdminSimulatePolicyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sts_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminSimulatePolicyResponse.ProtoReflect.Descriptor instead.
+func (*AdminSimulatePolicyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_sts_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *AdminSimulatePolicyResponse) GetDecision() string {
+	if x != nil {
+		return x.Decision
+	}
+	return ""
+}
+
+func (x *AdminSimulatePolicyResponse) GetMatchedBy() string {
+	if x != nil {
+		return x.MatchedBy
+	}
+	return ""
+}
+
+func (x *AdminSimulatePolicyResponse) GetPolicyType() string {
+	if x != nil {
+		return x.PolicyType
+	}
+	return ""
+}
+
+func (x *AdminSimulatePolicyResponse) GetDetails() string {
+	if x != nil {
+		return x.Details
+	}
+	return ""
+}
+
+var File_proto_sts_proto protoreflect.FileDescriptor
+
+const file_proto_sts_proto_rawDesc = "" +
 	"\n" +
-	"\tsts.proto\x12\x03sts\"\xdd\x01\n" +
+	"\x0fproto/sts.proto\x12\x03sts\"\xdd\x01\n" +
 	"\x11AssumeRoleRequest\x12\x19\n" +
 	"\brole_arn\x18\x01 \x01(\tR\aroleArn\x12*\n" +
 	"\x11role_session_name\x18\x02 \x01(\tR\x0froleSessionName\x12)\n" +
@@ -495,73 +3731,440 @@ const file_sts_proto_rawDesc = "" +
 	"\raccess_key_id\x18\x01 \x01(\tR\vaccessKeyId\x12*\n" +
 	"\x11secret_access_key\x18\x02 \x01(\tR\x0fsecretAccessKey\x12#\n" +
 	"\rsession_token\x18\x03 \x01(\tR\fsessionToken\x12'\n" +
-	"\x0fexpiration_unix\x18\x04 \x01(\x03R\x0eexpirationUnix2\xf0\x01\n" +
+	"\x0fexpiration_unix\x18\x04 \x01(\x03R\x0eexpirationUnix\"B\n" +
+	"\x1cLookupUserByAccessKeyRequest\x12\"\n" +
+	"\raccess_key_id\x18\x01 \x01(\tR\vaccessKeyId\"z\n" +
+	"\x1dLookupUserByAccessKeyResponse\x12%\n" +
+	"\x04user\x18\x01 \x01(\v2\x11.sts.IAMUserProtoR\x04user\x122\n" +
+	"\n" +
+	"access_key\x18\x02 \x01(\v2\x13.sts.AccessKeyProtoR\taccessKey\"D\n" +
+	"\x17DecryptSecretKeyRequest\x12)\n" +
+	"\x10encrypted_secret\x18\x01 \x01(\fR\x0fencryptedSecret\"E\n" +
+	"\x18DecryptSecretKeyResponse\x12)\n" +
+	"\x10decrypted_secret\x18\x01 \x01(\tR\x0fdecryptedSecret\"A\n" +
+	"\x1bLookupTempCredentialRequest\x12\"\n" +
+	"\raccess_key_id\x18\x01 \x01(\tR\vaccessKeyId\"\xbc\x01\n" +
+	"\x1cLookupTempCredentialResponse\x12\"\n" +
+	"\raccess_key_id\x18\x01 \x01(\tR\vaccessKeyId\x12*\n" +
+	"\x11secret_access_key\x18\x02 \x01(\tR\x0fsecretAccessKey\x12#\n" +
+	"\rsession_token\x18\x03 \x01(\tR\fsessionToken\x12'\n" +
+	"\x0fexpiration_unix\x18\x04 \x01(\x03R\x0eexpirationUnix\"0\n" +
+	"\x11LookupUserRequest\x12\x1b\n" +
+	"\tuser_name\x18\x01 \x01(\tR\buserName\";\n" +
+	"\x12LookupUserResponse\x12%\n" +
+	"\x04user\x18\x01 \x01(\v2\x11.sts.IAMUserProtoR\x04user\"\xbd\x02\n" +
+	"\x15EvaluateAccessRequest\x12\x1c\n" +
+	"\tprincipal\x18\x01 \x01(\tR\tprincipal\x12\x16\n" +
+	"\x06action\x18\x02 \x01(\tR\x06action\x12\x1a\n" +
+	"\bresource\x18\x03 \x01(\tR\bresource\x12\x1b\n" +
+	"\tsource_ip\x18\x04 \x01(\tR\bsourceIp\x12*\n" +
+	"\x11request_time_unix\x18\x05 \x01(\x03R\x0frequestTimeUnix\x12J\n" +
+	"\n" +
+	"conditions\x18\x06 \x03(\v2*.sts.EvaluateAccessRequest.ConditionsEntryR\n" +
+	"conditions\x1a=\n" +
+	"\x0fConditionsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xaf\x01\n" +
+	"\x16EvaluateAccessResponse\x12\x1a\n" +
+	"\bdecision\x18\x01 \x01(\tR\bdecision\x12\x1d\n" +
+	"\n" +
+	"matched_by\x18\x02 \x01(\tR\tmatchedBy\x12\x1f\n" +
+	"\vpolicy_type\x18\x03 \x01(\tR\n" +
+	"policyType\x12\x1f\n" +
+	"\vpolicy_name\x18\x04 \x01(\tR\n" +
+	"policyName\x12\x18\n" +
+	"\adetails\x18\x05 \x01(\tR\adetails\"\xbc\x01\n" +
+	"\x0eAccessKeyProto\x12\"\n" +
+	"\raccess_key_id\x18\x01 \x01(\tR\vaccessKeyId\x12$\n" +
+	"\x0esecret_key_enc\x18\x02 \x01(\fR\fsecretKeyEnc\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12&\n" +
+	"\x0fcreated_at_unix\x18\x04 \x01(\x03R\rcreatedAtUnix\x12 \n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\"\xa9\x02\n" +
+	"\fIAMUserProto\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
+	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\x124\n" +
+	"\vaccess_keys\x18\x04 \x03(\v2\x13.sts.AccessKeyProtoR\n" +
+	"accessKeys\x12\x16\n" +
+	"\x06groups\x18\x05 \x03(\tR\x06groups\x12+\n" +
+	"\x11attached_policies\x18\x06 \x03(\tR\x10attachedPolicies\x12/\n" +
+	"\x13permission_boundary\x18\a \x01(\tR\x12permissionBoundary\x12&\n" +
+	"\x0fcreated_at_unix\x18\b \x01(\x03R\rcreatedAtUnix\"O\n" +
+	"\x16AdminCreateUserRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
+	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\"@\n" +
+	"\x17AdminCreateUserResponse\x12%\n" +
+	"\x04user\x18\x01 \x01(\v2\x11.sts.IAMUserProtoR\x04user\"5\n" +
+	"\x16AdminDeleteUserRequest\x12\x1b\n" +
+	"\tuser_name\x18\x01 \x01(\tR\buserName\"\x19\n" +
+	"\x17AdminDeleteUserResponse\"\x17\n" +
+	"\x15AdminListUsersRequest\"A\n" +
+	"\x16AdminListUsersResponse\x12'\n" +
+	"\x05users\x18\x01 \x03(\v2\x11.sts.IAMUserProtoR\x05users\"\\\n" +
+	"\x1bAdminCreateAccessKeyRequest\x12\x1b\n" +
+	"\tuser_name\x18\x01 \x01(\tR\buserName\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\"\xae\x01\n" +
+	"\x1cAdminCreateAccessKeyResponse\x12\"\n" +
+	"\raccess_key_id\x18\x01 \x01(\tR\vaccessKeyId\x12*\n" +
+	"\x11secret_access_key\x18\x02 \x01(\tR\x0fsecretAccessKey\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12&\n" +
+	"\x0fcreated_at_unix\x18\x04 \x01(\x03R\rcreatedAtUnix\"9\n" +
+	"\x1aAdminListAccessKeysRequest\x12\x1b\n" +
+	"\tuser_name\x18\x01 \x01(\tR\buserName\"S\n" +
+	"\x1bAdminListAccessKeysResponse\x124\n" +
+	"\vaccess_keys\x18\x01 \x03(\v2\x13.sts.AccessKeyProtoR\n" +
+	"accessKeys\"^\n" +
+	"\x1bAdminDeleteAccessKeyRequest\x12\x1b\n" +
+	"\tuser_name\x18\x01 \x01(\tR\buserName\x12\"\n" +
+	"\raccess_key_id\x18\x02 \x01(\tR\vaccessKeyId\"\x1e\n" +
+	"\x1cAdminDeleteAccessKeyResponse\"\x18\n" +
+	"\x16AdminListGroupsRequest\"\xb9\x01\n" +
+	"\x16AdminListGroupResponse\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x14\n" +
+	"\x05users\x18\x03 \x03(\tR\x05users\x12+\n" +
+	"\x11attached_policies\x18\x04 \x03(\tR\x10attachedPolicies\x12&\n" +
+	"\x0fcreated_at_unix\x18\x05 \x01(\x03R\rcreatedAtUnix\"N\n" +
+	"\x17AdminListGroupsResponse\x123\n" +
+	"\x06groups\x18\x01 \x03(\v2\x1b.sts.AdminListGroupResponseR\x06groups\"O\n" +
+	"\x17AdminCreateGroupRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\"x\n" +
+	"\x18AdminCreateGroupResponse\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12&\n" +
+	"\x0fcreated_at_unix\x18\x03 \x01(\x03R\rcreatedAtUnix\"8\n" +
+	"\x17AdminDeleteGroupRequest\x12\x1d\n" +
+	"\n" +
+	"group_name\x18\x01 \x01(\tR\tgroupName\"\x1a\n" +
+	"\x18AdminDeleteGroupResponse\"X\n" +
+	"\x1aAdminAddUserToGroupRequest\x12\x1b\n" +
+	"\tuser_name\x18\x01 \x01(\tR\buserName\x12\x1d\n" +
+	"\n" +
+	"group_name\x18\x02 \x01(\tR\tgroupName\"\x1d\n" +
+	"\x1bAdminAddUserToGroupResponse\"]\n" +
+	"\x1fAdminRemoveUserFromGroupRequest\x12\x1b\n" +
+	"\tuser_name\x18\x01 \x01(\tR\buserName\x12\x1d\n" +
+	"\n" +
+	"group_name\x18\x02 \x01(\tR\tgroupName\"\"\n" +
+	" AdminRemoveUserFromGroupResponse\"\x1a\n" +
+	"\x18AdminListPoliciesRequest\"\xc1\x01\n" +
+	"\x13AdminListPolicyItem\x12\x10\n" +
+	"\x03arn\x18\x01 \x01(\tR\x03arn\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x12\n" +
+	"\x04type\x18\x04 \x01(\tR\x04type\x12&\n" +
+	"\x0fcreated_at_unix\x18\x05 \x01(\x03R\rcreatedAtUnix\x12&\n" +
+	"\x0fupdated_at_unix\x18\x06 \x01(\x03R\rupdatedAtUnix\"Q\n" +
+	"\x19AdminListPoliciesResponse\x124\n" +
+	"\bpolicies\x18\x01 \x03(\v2\x18.sts.AdminListPolicyItemR\bpolicies\"u\n" +
+	"\x18AdminCreatePolicyRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12#\n" +
+	"\rdocument_json\x18\x03 \x01(\tR\fdocumentJson\"A\n" +
+	"\x19AdminCreatePolicyResponse\x12\x10\n" +
+	"\x03arn\x18\x01 \x01(\tR\x03arn\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\";\n" +
+	"\x18AdminDeletePolicyRequest\x12\x1f\n" +
+	"\vpolicy_name\x18\x01 \x01(\tR\n" +
+	"policyName\"\x1b\n" +
+	"\x19AdminDeletePolicyResponse\"\\\n" +
+	"\x1cAdminAttachUserPolicyRequest\x12\x1b\n" +
+	"\tuser_name\x18\x01 \x01(\tR\buserName\x12\x1f\n" +
+	"\vpolicy_name\x18\x02 \x01(\tR\n" +
+	"policyName\"\x1f\n" +
+	"\x1dAdminAttachUserPolicyResponse\"\\\n" +
+	"\x1cAdminDetachUserPolicyRequest\x12\x1b\n" +
+	"\tuser_name\x18\x01 \x01(\tR\buserName\x12\x1f\n" +
+	"\vpolicy_name\x18\x02 \x01(\tR\n" +
+	"policyName\"\x1f\n" +
+	"\x1dAdminDetachUserPolicyResponse\"_\n" +
+	"\x1dAdminAttachGroupPolicyRequest\x12\x1d\n" +
+	"\n" +
+	"group_name\x18\x01 \x01(\tR\tgroupName\x12\x1f\n" +
+	"\vpolicy_name\x18\x02 \x01(\tR\n" +
+	"policyName\" \n" +
+	"\x1eAdminAttachGroupPolicyResponse\"\x17\n" +
+	"\x15AdminListRolesRequest\"\xa2\x01\n" +
+	"\x11AdminListRoleItem\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12/\n" +
+	"\x13permission_policies\x18\x03 \x03(\tR\x12permissionPolicies\x12&\n" +
+	"\x0fcreated_at_unix\x18\x04 \x01(\x03R\rcreatedAtUnix\"F\n" +
+	"\x16AdminListRolesResponse\x12,\n" +
+	"\x05roles\x18\x01 \x03(\v2\x16.sts.AdminListRoleItemR\x05roles\"\xac\x01\n" +
+	"\x16AdminCreateRoleRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12*\n" +
+	"\x11trust_policy_json\x18\x03 \x01(\tR\x0ftrustPolicyJson\x120\n" +
+	"\x14max_session_duration\x18\x04 \x01(\x05R\x12maxSessionDuration\"-\n" +
+	"\x17AdminCreateRoleResponse\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"5\n" +
+	"\x16AdminDeleteRoleRequest\x12\x1b\n" +
+	"\trole_name\x18\x01 \x01(\tR\broleName\"\x19\n" +
+	"\x17AdminDeleteRoleResponse\"\\\n" +
+	"\x1cAdminAttachRolePolicyRequest\x12\x1b\n" +
+	"\trole_name\x18\x01 \x01(\tR\broleName\x12\x1f\n" +
+	"\vpolicy_name\x18\x02 \x01(\tR\n" +
+	"policyName\"\x1f\n" +
+	"\x1dAdminAttachRolePolicyResponse\"5\n" +
+	"\x1bAdminGetBucketPolicyRequest\x12\x16\n" +
+	"\x06bucket\x18\x01 \x01(\tR\x06bucket\"C\n" +
+	"\x1cAdminGetBucketPolicyResponse\x12#\n" +
+	"\rdocument_json\x18\x01 \x01(\tR\fdocumentJson\"Z\n" +
+	"\x1bAdminPutBucketPolicyRequest\x12\x16\n" +
+	"\x06bucket\x18\x01 \x01(\tR\x06bucket\x12#\n" +
+	"\rdocument_json\x18\x02 \x01(\tR\fdocumentJson\"\x1e\n" +
+	"\x1cAdminPutBucketPolicyResponse\"8\n" +
+	"\x1eAdminDeleteBucketPolicyRequest\x12\x16\n" +
+	"\x06bucket\x18\x01 \x01(\tR\x06bucket\"!\n" +
+	"\x1fAdminDeleteBucketPolicyResponse\"\x8b\x01\n" +
+	"\x1aAdminSimulatePolicyRequest\x12\x1c\n" +
+	"\tprincipal\x18\x01 \x01(\tR\tprincipal\x12\x16\n" +
+	"\x06action\x18\x02 \x01(\tR\x06action\x12\x1a\n" +
+	"\bresource\x18\x03 \x01(\tR\bresource\x12\x1b\n" +
+	"\tsource_ip\x18\x04 \x01(\tR\bsourceIp\"\x93\x01\n" +
+	"\x1bAdminSimulatePolicyResponse\x12\x1a\n" +
+	"\bdecision\x18\x01 \x01(\tR\bdecision\x12\x1d\n" +
+	"\n" +
+	"matched_by\x18\x02 \x01(\tR\tmatchedBy\x12\x1f\n" +
+	"\vpolicy_type\x18\x03 \x01(\tR\n" +
+	"policyType\x12\x18\n" +
+	"\adetails\x18\x04 \x01(\tR\adetails2\x96\x16\n" +
 	"\n" +
 	"STSService\x12=\n" +
 	"\n" +
 	"AssumeRole\x12\x16.sts.AssumeRoleRequest\x1a\x17.sts.AssumeRoleResponse\x12L\n" +
 	"\x0fGetSessionToken\x12\x1b.sts.GetSessionTokenRequest\x1a\x1c.sts.GetSessionTokenResponse\x12U\n" +
-	"\x12GetFederationToken\x12\x1e.sts.GetFederationTokenRequest\x1a\x1f.sts.GetFederationTokenResponseB\x11Z\x0fnexus/proto/stsb\x06proto3"
+	"\x12GetFederationToken\x12\x1e.sts.GetFederationTokenRequest\x1a\x1f.sts.GetFederationTokenResponse\x12^\n" +
+	"\x15LookupUserByAccessKey\x12!.sts.LookupUserByAccessKeyRequest\x1a\".sts.LookupUserByAccessKeyResponse\x12O\n" +
+	"\x10DecryptSecretKey\x12\x1c.sts.DecryptSecretKeyRequest\x1a\x1d.sts.DecryptSecretKeyResponse\x12[\n" +
+	"\x14LookupTempCredential\x12 .sts.LookupTempCredentialRequest\x1a!.sts.LookupTempCredentialResponse\x12=\n" +
+	"\n" +
+	"LookupUser\x12\x16.sts.LookupUserRequest\x1a\x17.sts.LookupUserResponse\x12I\n" +
+	"\x0eEvaluateAccess\x12\x1a.sts.EvaluateAccessRequest\x1a\x1b.sts.EvaluateAccessResponse\x12L\n" +
+	"\x0fAdminCreateUser\x12\x1b.sts.AdminCreateUserRequest\x1a\x1c.sts.AdminCreateUserResponse\x12L\n" +
+	"\x0fAdminDeleteUser\x12\x1b.sts.AdminDeleteUserRequest\x1a\x1c.sts.AdminDeleteUserResponse\x12I\n" +
+	"\x0eAdminListUsers\x12\x1a.sts.AdminListUsersRequest\x1a\x1b.sts.AdminListUsersResponse\x12[\n" +
+	"\x14AdminCreateAccessKey\x12 .sts.AdminCreateAccessKeyRequest\x1a!.sts.AdminCreateAccessKeyResponse\x12X\n" +
+	"\x13AdminListAccessKeys\x12\x1f.sts.AdminListAccessKeysRequest\x1a .sts.AdminListAccessKeysResponse\x12[\n" +
+	"\x14AdminDeleteAccessKey\x12 .sts.AdminDeleteAccessKeyRequest\x1a!.sts.AdminDeleteAccessKeyResponse\x12L\n" +
+	"\x0fAdminListGroups\x12\x1b.sts.AdminListGroupsRequest\x1a\x1c.sts.AdminListGroupsResponse\x12O\n" +
+	"\x10AdminCreateGroup\x12\x1c.sts.AdminCreateGroupRequest\x1a\x1d.sts.AdminCreateGroupResponse\x12O\n" +
+	"\x10AdminDeleteGroup\x12\x1c.sts.AdminDeleteGroupRequest\x1a\x1d.sts.AdminDeleteGroupResponse\x12X\n" +
+	"\x13AdminAddUserToGroup\x12\x1f.sts.AdminAddUserToGroupRequest\x1a .sts.AdminAddUserToGroupResponse\x12g\n" +
+	"\x18AdminRemoveUserFromGroup\x12$.sts.AdminRemoveUserFromGroupRequest\x1a%.sts.AdminRemoveUserFromGroupResponse\x12R\n" +
+	"\x11AdminListPolicies\x12\x1d.sts.AdminListPoliciesRequest\x1a\x1e.sts.AdminListPoliciesResponse\x12R\n" +
+	"\x11AdminCreatePolicy\x12\x1d.sts.AdminCreatePolicyRequest\x1a\x1e.sts.AdminCreatePolicyResponse\x12R\n" +
+	"\x11AdminDeletePolicy\x12\x1d.sts.AdminDeletePolicyRequest\x1a\x1e.sts.AdminDeletePolicyResponse\x12^\n" +
+	"\x15AdminAttachUserPolicy\x12!.sts.AdminAttachUserPolicyRequest\x1a\".sts.AdminAttachUserPolicyResponse\x12^\n" +
+	"\x15AdminDetachUserPolicy\x12!.sts.AdminDetachUserPolicyRequest\x1a\".sts.AdminDetachUserPolicyResponse\x12a\n" +
+	"\x16AdminAttachGroupPolicy\x12\".sts.AdminAttachGroupPolicyRequest\x1a#.sts.AdminAttachGroupPolicyResponse\x12I\n" +
+	"\x0eAdminListRoles\x12\x1a.sts.AdminListRolesRequest\x1a\x1b.sts.AdminListRolesResponse\x12L\n" +
+	"\x0fAdminCreateRole\x12\x1b.sts.AdminCreateRoleRequest\x1a\x1c.sts.AdminCreateRoleResponse\x12L\n" +
+	"\x0fAdminDeleteRole\x12\x1b.sts.AdminDeleteRoleRequest\x1a\x1c.sts.AdminDeleteRoleResponse\x12^\n" +
+	"\x15AdminAttachRolePolicy\x12!.sts.AdminAttachRolePolicyRequest\x1a\".sts.AdminAttachRolePolicyResponse\x12[\n" +
+	"\x14AdminGetBucketPolicy\x12 .sts.AdminGetBucketPolicyRequest\x1a!.sts.AdminGetBucketPolicyResponse\x12[\n" +
+	"\x14AdminPutBucketPolicy\x12 .sts.AdminPutBucketPolicyRequest\x1a!.sts.AdminPutBucketPolicyResponse\x12d\n" +
+	"\x17AdminDeleteBucketPolicy\x12#.sts.AdminDeleteBucketPolicyRequest\x1a$.sts.AdminDeleteBucketPolicyResponse\x12X\n" +
+	"\x13AdminSimulatePolicy\x12\x1f.sts.AdminSimulatePolicyRequest\x1a .sts.AdminSimulatePolicyResponseB\x11Z\x0fnexus/proto/stsb\x06proto3"
 
 var (
-	file_sts_proto_rawDescOnce sync.Once
-	file_sts_proto_rawDescData []byte
+	file_proto_sts_proto_rawDescOnce sync.Once
+	file_proto_sts_proto_rawDescData []byte
 )
 
-func file_sts_proto_rawDescGZIP() []byte {
-	file_sts_proto_rawDescOnce.Do(func() {
-		file_sts_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_sts_proto_rawDesc), len(file_sts_proto_rawDesc)))
+func file_proto_sts_proto_rawDescGZIP() []byte {
+	file_proto_sts_proto_rawDescOnce.Do(func() {
+		file_proto_sts_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_sts_proto_rawDesc), len(file_proto_sts_proto_rawDesc)))
 	})
-	return file_sts_proto_rawDescData
+	return file_proto_sts_proto_rawDescData
 }
 
-var file_sts_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
-var file_sts_proto_goTypes = []any{
-	(*AssumeRoleRequest)(nil),          // 0: sts.AssumeRoleRequest
-	(*AssumeRoleResponse)(nil),         // 1: sts.AssumeRoleResponse
-	(*GetSessionTokenRequest)(nil),     // 2: sts.GetSessionTokenRequest
-	(*GetSessionTokenResponse)(nil),    // 3: sts.GetSessionTokenResponse
-	(*GetFederationTokenRequest)(nil),  // 4: sts.GetFederationTokenRequest
-	(*GetFederationTokenResponse)(nil), // 5: sts.GetFederationTokenResponse
-	(*Credentials)(nil),                // 6: sts.Credentials
+var file_proto_sts_proto_msgTypes = make([]protoimpl.MessageInfo, 73)
+var file_proto_sts_proto_goTypes = []any{
+	(*AssumeRoleRequest)(nil),                // 0: sts.AssumeRoleRequest
+	(*AssumeRoleResponse)(nil),               // 1: sts.AssumeRoleResponse
+	(*GetSessionTokenRequest)(nil),           // 2: sts.GetSessionTokenRequest
+	(*GetSessionTokenResponse)(nil),          // 3: sts.GetSessionTokenResponse
+	(*GetFederationTokenRequest)(nil),        // 4: sts.GetFederationTokenRequest
+	(*GetFederationTokenResponse)(nil),       // 5: sts.GetFederationTokenResponse
+	(*Credentials)(nil),                      // 6: sts.Credentials
+	(*LookupUserByAccessKeyRequest)(nil),     // 7: sts.LookupUserByAccessKeyRequest
+	(*LookupUserByAccessKeyResponse)(nil),    // 8: sts.LookupUserByAccessKeyResponse
+	(*DecryptSecretKeyRequest)(nil),          // 9: sts.DecryptSecretKeyRequest
+	(*DecryptSecretKeyResponse)(nil),         // 10: sts.DecryptSecretKeyResponse
+	(*LookupTempCredentialRequest)(nil),      // 11: sts.LookupTempCredentialRequest
+	(*LookupTempCredentialResponse)(nil),     // 12: sts.LookupTempCredentialResponse
+	(*LookupUserRequest)(nil),                // 13: sts.LookupUserRequest
+	(*LookupUserResponse)(nil),               // 14: sts.LookupUserResponse
+	(*EvaluateAccessRequest)(nil),            // 15: sts.EvaluateAccessRequest
+	(*EvaluateAccessResponse)(nil),           // 16: sts.EvaluateAccessResponse
+	(*AccessKeyProto)(nil),                   // 17: sts.AccessKeyProto
+	(*IAMUserProto)(nil),                     // 18: sts.IAMUserProto
+	(*AdminCreateUserRequest)(nil),           // 19: sts.AdminCreateUserRequest
+	(*AdminCreateUserResponse)(nil),          // 20: sts.AdminCreateUserResponse
+	(*AdminDeleteUserRequest)(nil),           // 21: sts.AdminDeleteUserRequest
+	(*AdminDeleteUserResponse)(nil),          // 22: sts.AdminDeleteUserResponse
+	(*AdminListUsersRequest)(nil),            // 23: sts.AdminListUsersRequest
+	(*AdminListUsersResponse)(nil),           // 24: sts.AdminListUsersResponse
+	(*AdminCreateAccessKeyRequest)(nil),      // 25: sts.AdminCreateAccessKeyRequest
+	(*AdminCreateAccessKeyResponse)(nil),     // 26: sts.AdminCreateAccessKeyResponse
+	(*AdminListAccessKeysRequest)(nil),       // 27: sts.AdminListAccessKeysRequest
+	(*AdminListAccessKeysResponse)(nil),      // 28: sts.AdminListAccessKeysResponse
+	(*AdminDeleteAccessKeyRequest)(nil),      // 29: sts.AdminDeleteAccessKeyRequest
+	(*AdminDeleteAccessKeyResponse)(nil),     // 30: sts.AdminDeleteAccessKeyResponse
+	(*AdminListGroupsRequest)(nil),           // 31: sts.AdminListGroupsRequest
+	(*AdminListGroupResponse)(nil),           // 32: sts.AdminListGroupResponse
+	(*AdminListGroupsResponse)(nil),          // 33: sts.AdminListGroupsResponse
+	(*AdminCreateGroupRequest)(nil),          // 34: sts.AdminCreateGroupRequest
+	(*AdminCreateGroupResponse)(nil),         // 35: sts.AdminCreateGroupResponse
+	(*AdminDeleteGroupRequest)(nil),          // 36: sts.AdminDeleteGroupRequest
+	(*AdminDeleteGroupResponse)(nil),         // 37: sts.AdminDeleteGroupResponse
+	(*AdminAddUserToGroupRequest)(nil),       // 38: sts.AdminAddUserToGroupRequest
+	(*AdminAddUserToGroupResponse)(nil),      // 39: sts.AdminAddUserToGroupResponse
+	(*AdminRemoveUserFromGroupRequest)(nil),  // 40: sts.AdminRemoveUserFromGroupRequest
+	(*AdminRemoveUserFromGroupResponse)(nil), // 41: sts.AdminRemoveUserFromGroupResponse
+	(*AdminListPoliciesRequest)(nil),         // 42: sts.AdminListPoliciesRequest
+	(*AdminListPolicyItem)(nil),              // 43: sts.AdminListPolicyItem
+	(*AdminListPoliciesResponse)(nil),        // 44: sts.AdminListPoliciesResponse
+	(*AdminCreatePolicyRequest)(nil),         // 45: sts.AdminCreatePolicyRequest
+	(*AdminCreatePolicyResponse)(nil),        // 46: sts.AdminCreatePolicyResponse
+	(*AdminDeletePolicyRequest)(nil),         // 47: sts.AdminDeletePolicyRequest
+	(*AdminDeletePolicyResponse)(nil),        // 48: sts.AdminDeletePolicyResponse
+	(*AdminAttachUserPolicyRequest)(nil),     // 49: sts.AdminAttachUserPolicyRequest
+	(*AdminAttachUserPolicyResponse)(nil),    // 50: sts.AdminAttachUserPolicyResponse
+	(*AdminDetachUserPolicyRequest)(nil),     // 51: sts.AdminDetachUserPolicyRequest
+	(*AdminDetachUserPolicyResponse)(nil),    // 52: sts.AdminDetachUserPolicyResponse
+	(*AdminAttachGroupPolicyRequest)(nil),    // 53: sts.AdminAttachGroupPolicyRequest
+	(*AdminAttachGroupPolicyResponse)(nil),   // 54: sts.AdminAttachGroupPolicyResponse
+	(*AdminListRolesRequest)(nil),            // 55: sts.AdminListRolesRequest
+	(*AdminListRoleItem)(nil),                // 56: sts.AdminListRoleItem
+	(*AdminListRolesResponse)(nil),           // 57: sts.AdminListRolesResponse
+	(*AdminCreateRoleRequest)(nil),           // 58: sts.AdminCreateRoleRequest
+	(*AdminCreateRoleResponse)(nil),          // 59: sts.AdminCreateRoleResponse
+	(*AdminDeleteRoleRequest)(nil),           // 60: sts.AdminDeleteRoleRequest
+	(*AdminDeleteRoleResponse)(nil),          // 61: sts.AdminDeleteRoleResponse
+	(*AdminAttachRolePolicyRequest)(nil),     // 62: sts.AdminAttachRolePolicyRequest
+	(*AdminAttachRolePolicyResponse)(nil),    // 63: sts.AdminAttachRolePolicyResponse
+	(*AdminGetBucketPolicyRequest)(nil),      // 64: sts.AdminGetBucketPolicyRequest
+	(*AdminGetBucketPolicyResponse)(nil),     // 65: sts.AdminGetBucketPolicyResponse
+	(*AdminPutBucketPolicyRequest)(nil),      // 66: sts.AdminPutBucketPolicyRequest
+	(*AdminPutBucketPolicyResponse)(nil),     // 67: sts.AdminPutBucketPolicyResponse
+	(*AdminDeleteBucketPolicyRequest)(nil),   // 68: sts.AdminDeleteBucketPolicyRequest
+	(*AdminDeleteBucketPolicyResponse)(nil),  // 69: sts.AdminDeleteBucketPolicyResponse
+	(*AdminSimulatePolicyRequest)(nil),       // 70: sts.AdminSimulatePolicyRequest
+	(*AdminSimulatePolicyResponse)(nil),      // 71: sts.AdminSimulatePolicyResponse
+	nil,                                      // 72: sts.EvaluateAccessRequest.ConditionsEntry
 }
-var file_sts_proto_depIdxs = []int32{
-	6, // 0: sts.AssumeRoleResponse.credentials:type_name -> sts.Credentials
-	6, // 1: sts.GetSessionTokenResponse.credentials:type_name -> sts.Credentials
-	6, // 2: sts.GetFederationTokenResponse.credentials:type_name -> sts.Credentials
-	0, // 3: sts.STSService.AssumeRole:input_type -> sts.AssumeRoleRequest
-	2, // 4: sts.STSService.GetSessionToken:input_type -> sts.GetSessionTokenRequest
-	4, // 5: sts.STSService.GetFederationToken:input_type -> sts.GetFederationTokenRequest
-	1, // 6: sts.STSService.AssumeRole:output_type -> sts.AssumeRoleResponse
-	3, // 7: sts.STSService.GetSessionToken:output_type -> sts.GetSessionTokenResponse
-	5, // 8: sts.STSService.GetFederationToken:output_type -> sts.GetFederationTokenResponse
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+var file_proto_sts_proto_depIdxs = []int32{
+	6,  // 0: sts.AssumeRoleResponse.credentials:type_name -> sts.Credentials
+	6,  // 1: sts.GetSessionTokenResponse.credentials:type_name -> sts.Credentials
+	6,  // 2: sts.GetFederationTokenResponse.credentials:type_name -> sts.Credentials
+	18, // 3: sts.LookupUserByAccessKeyResponse.user:type_name -> sts.IAMUserProto
+	17, // 4: sts.LookupUserByAccessKeyResponse.access_key:type_name -> sts.AccessKeyProto
+	18, // 5: sts.LookupUserResponse.user:type_name -> sts.IAMUserProto
+	72, // 6: sts.EvaluateAccessRequest.conditions:type_name -> sts.EvaluateAccessRequest.ConditionsEntry
+	17, // 7: sts.IAMUserProto.access_keys:type_name -> sts.AccessKeyProto
+	18, // 8: sts.AdminCreateUserResponse.user:type_name -> sts.IAMUserProto
+	18, // 9: sts.AdminListUsersResponse.users:type_name -> sts.IAMUserProto
+	17, // 10: sts.AdminListAccessKeysResponse.access_keys:type_name -> sts.AccessKeyProto
+	32, // 11: sts.AdminListGroupsResponse.groups:type_name -> sts.AdminListGroupResponse
+	43, // 12: sts.AdminListPoliciesResponse.policies:type_name -> sts.AdminListPolicyItem
+	56, // 13: sts.AdminListRolesResponse.roles:type_name -> sts.AdminListRoleItem
+	0,  // 14: sts.STSService.AssumeRole:input_type -> sts.AssumeRoleRequest
+	2,  // 15: sts.STSService.GetSessionToken:input_type -> sts.GetSessionTokenRequest
+	4,  // 16: sts.STSService.GetFederationToken:input_type -> sts.GetFederationTokenRequest
+	7,  // 17: sts.STSService.LookupUserByAccessKey:input_type -> sts.LookupUserByAccessKeyRequest
+	9,  // 18: sts.STSService.DecryptSecretKey:input_type -> sts.DecryptSecretKeyRequest
+	11, // 19: sts.STSService.LookupTempCredential:input_type -> sts.LookupTempCredentialRequest
+	13, // 20: sts.STSService.LookupUser:input_type -> sts.LookupUserRequest
+	15, // 21: sts.STSService.EvaluateAccess:input_type -> sts.EvaluateAccessRequest
+	19, // 22: sts.STSService.AdminCreateUser:input_type -> sts.AdminCreateUserRequest
+	21, // 23: sts.STSService.AdminDeleteUser:input_type -> sts.AdminDeleteUserRequest
+	23, // 24: sts.STSService.AdminListUsers:input_type -> sts.AdminListUsersRequest
+	25, // 25: sts.STSService.AdminCreateAccessKey:input_type -> sts.AdminCreateAccessKeyRequest
+	27, // 26: sts.STSService.AdminListAccessKeys:input_type -> sts.AdminListAccessKeysRequest
+	29, // 27: sts.STSService.AdminDeleteAccessKey:input_type -> sts.AdminDeleteAccessKeyRequest
+	31, // 28: sts.STSService.AdminListGroups:input_type -> sts.AdminListGroupsRequest
+	34, // 29: sts.STSService.AdminCreateGroup:input_type -> sts.AdminCreateGroupRequest
+	36, // 30: sts.STSService.AdminDeleteGroup:input_type -> sts.AdminDeleteGroupRequest
+	38, // 31: sts.STSService.AdminAddUserToGroup:input_type -> sts.AdminAddUserToGroupRequest
+	40, // 32: sts.STSService.AdminRemoveUserFromGroup:input_type -> sts.AdminRemoveUserFromGroupRequest
+	42, // 33: sts.STSService.AdminListPolicies:input_type -> sts.AdminListPoliciesRequest
+	45, // 34: sts.STSService.AdminCreatePolicy:input_type -> sts.AdminCreatePolicyRequest
+	47, // 35: sts.STSService.AdminDeletePolicy:input_type -> sts.AdminDeletePolicyRequest
+	49, // 36: sts.STSService.AdminAttachUserPolicy:input_type -> sts.AdminAttachUserPolicyRequest
+	51, // 37: sts.STSService.AdminDetachUserPolicy:input_type -> sts.AdminDetachUserPolicyRequest
+	53, // 38: sts.STSService.AdminAttachGroupPolicy:input_type -> sts.AdminAttachGroupPolicyRequest
+	55, // 39: sts.STSService.AdminListRoles:input_type -> sts.AdminListRolesRequest
+	58, // 40: sts.STSService.AdminCreateRole:input_type -> sts.AdminCreateRoleRequest
+	60, // 41: sts.STSService.AdminDeleteRole:input_type -> sts.AdminDeleteRoleRequest
+	62, // 42: sts.STSService.AdminAttachRolePolicy:input_type -> sts.AdminAttachRolePolicyRequest
+	64, // 43: sts.STSService.AdminGetBucketPolicy:input_type -> sts.AdminGetBucketPolicyRequest
+	66, // 44: sts.STSService.AdminPutBucketPolicy:input_type -> sts.AdminPutBucketPolicyRequest
+	68, // 45: sts.STSService.AdminDeleteBucketPolicy:input_type -> sts.AdminDeleteBucketPolicyRequest
+	70, // 46: sts.STSService.AdminSimulatePolicy:input_type -> sts.AdminSimulatePolicyRequest
+	1,  // 47: sts.STSService.AssumeRole:output_type -> sts.AssumeRoleResponse
+	3,  // 48: sts.STSService.GetSessionToken:output_type -> sts.GetSessionTokenResponse
+	5,  // 49: sts.STSService.GetFederationToken:output_type -> sts.GetFederationTokenResponse
+	8,  // 50: sts.STSService.LookupUserByAccessKey:output_type -> sts.LookupUserByAccessKeyResponse
+	10, // 51: sts.STSService.DecryptSecretKey:output_type -> sts.DecryptSecretKeyResponse
+	12, // 52: sts.STSService.LookupTempCredential:output_type -> sts.LookupTempCredentialResponse
+	14, // 53: sts.STSService.LookupUser:output_type -> sts.LookupUserResponse
+	16, // 54: sts.STSService.EvaluateAccess:output_type -> sts.EvaluateAccessResponse
+	20, // 55: sts.STSService.AdminCreateUser:output_type -> sts.AdminCreateUserResponse
+	22, // 56: sts.STSService.AdminDeleteUser:output_type -> sts.AdminDeleteUserResponse
+	24, // 57: sts.STSService.AdminListUsers:output_type -> sts.AdminListUsersResponse
+	26, // 58: sts.STSService.AdminCreateAccessKey:output_type -> sts.AdminCreateAccessKeyResponse
+	28, // 59: sts.STSService.AdminListAccessKeys:output_type -> sts.AdminListAccessKeysResponse
+	30, // 60: sts.STSService.AdminDeleteAccessKey:output_type -> sts.AdminDeleteAccessKeyResponse
+	33, // 61: sts.STSService.AdminListGroups:output_type -> sts.AdminListGroupsResponse
+	35, // 62: sts.STSService.AdminCreateGroup:output_type -> sts.AdminCreateGroupResponse
+	37, // 63: sts.STSService.AdminDeleteGroup:output_type -> sts.AdminDeleteGroupResponse
+	39, // 64: sts.STSService.AdminAddUserToGroup:output_type -> sts.AdminAddUserToGroupResponse
+	41, // 65: sts.STSService.AdminRemoveUserFromGroup:output_type -> sts.AdminRemoveUserFromGroupResponse
+	44, // 66: sts.STSService.AdminListPolicies:output_type -> sts.AdminListPoliciesResponse
+	46, // 67: sts.STSService.AdminCreatePolicy:output_type -> sts.AdminCreatePolicyResponse
+	48, // 68: sts.STSService.AdminDeletePolicy:output_type -> sts.AdminDeletePolicyResponse
+	50, // 69: sts.STSService.AdminAttachUserPolicy:output_type -> sts.AdminAttachUserPolicyResponse
+	52, // 70: sts.STSService.AdminDetachUserPolicy:output_type -> sts.AdminDetachUserPolicyResponse
+	54, // 71: sts.STSService.AdminAttachGroupPolicy:output_type -> sts.AdminAttachGroupPolicyResponse
+	57, // 72: sts.STSService.AdminListRoles:output_type -> sts.AdminListRolesResponse
+	59, // 73: sts.STSService.AdminCreateRole:output_type -> sts.AdminCreateRoleResponse
+	61, // 74: sts.STSService.AdminDeleteRole:output_type -> sts.AdminDeleteRoleResponse
+	63, // 75: sts.STSService.AdminAttachRolePolicy:output_type -> sts.AdminAttachRolePolicyResponse
+	65, // 76: sts.STSService.AdminGetBucketPolicy:output_type -> sts.AdminGetBucketPolicyResponse
+	67, // 77: sts.STSService.AdminPutBucketPolicy:output_type -> sts.AdminPutBucketPolicyResponse
+	69, // 78: sts.STSService.AdminDeleteBucketPolicy:output_type -> sts.AdminDeleteBucketPolicyResponse
+	71, // 79: sts.STSService.AdminSimulatePolicy:output_type -> sts.AdminSimulatePolicyResponse
+	47, // [47:80] is the sub-list for method output_type
+	14, // [14:47] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
-func init() { file_sts_proto_init() }
-func file_sts_proto_init() {
-	if File_sts_proto != nil {
+func init() { file_proto_sts_proto_init() }
+func file_proto_sts_proto_init() {
+	if File_proto_sts_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sts_proto_rawDesc), len(file_sts_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_sts_proto_rawDesc), len(file_proto_sts_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   73,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_sts_proto_goTypes,
-		DependencyIndexes: file_sts_proto_depIdxs,
-		MessageInfos:      file_sts_proto_msgTypes,
+		GoTypes:           file_proto_sts_proto_goTypes,
+		DependencyIndexes: file_proto_sts_proto_depIdxs,
+		MessageInfos:      file_proto_sts_proto_msgTypes,
 	}.Build()
-	File_sts_proto = out.File
-	file_sts_proto_goTypes = nil
-	file_sts_proto_depIdxs = nil
+	File_proto_sts_proto = out.File
+	file_proto_sts_proto_goTypes = nil
+	file_proto_sts_proto_depIdxs = nil
 }

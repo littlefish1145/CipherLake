@@ -1,0 +1,63 @@
+# Build artifacts
+*.o
+*.a
+*.so
+*.exe
+*.dll
+*.dylib
+
+# Test artifacts
+*.test
+*.out
+*.prof
+coverage.txt
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation build
+docs/site/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Terraform state
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+
+# Docker
+.docker/
+
+# Git
+.git/
+.gitignore
+
+# Large files
+*.tar.gz
+*.zip
+
+# Local development
+config.local.yaml
+*.db
+nexus-data/
+.env
+.env.*
+
+# Temporary files
+tmp/
+temp/

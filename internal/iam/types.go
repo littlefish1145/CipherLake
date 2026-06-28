@@ -50,6 +50,7 @@ type IAMUser struct {
 	Groups            []string          `json:"groups"`
 	AttachedPolicies  []string          `json:"attached_policies"` // Policy ARNs or names
 	InlinePolicies    []PolicyDocument  `json:"inline_policies"`
+	PermissionBoundary string           `json:"permission_boundary,omitempty"` // Policy name reference
 	PasswordHash      string            `json:"password_hash,omitempty"`
 	CreatedAt         time.Time         `json:"created_at"`
 	LastActivityAt    *time.Time        `json:"last_activity_at,omitempty"`
@@ -157,18 +158,28 @@ type GetFederationTokenRequest struct {
 
 // EvalContext is the context for policy evaluation
 type EvalContext struct {
-	Principal  string            // User ARN or anonymous
-	Action     string            // e.g., "s3:GetObject"
-	Resource   string            // e.g., "arn:nexus:s3:::images/photo.png"
-	Conditions map[string]string // key-value conditions for evaluation
-	SourceIP   string            // client IP
-	Time       time.Time         // request time
+	Principal     string            // User ARN or anonymous
+	Action        string            // e.g., "s3:GetObject"
+	Resource      string            // e.g., "arn:nexus:s3:::images/photo.png"
+	Conditions    map[string]string // key-value conditions for evaluation
+	SourceIP      string            // client IP
+	Time          time.Time         // request time
+	UserAgent     string            // client User-Agent
+	PrincipalType string            // e.g., "User", "Role", "Federated"
+	ResourceTags  map[string]string // tags on the resource
+	PrincipalTags map[string]string // tags on the principal
+	RequestTags   map[string]string // tags in the request
+	S3Prefix      string            // S3 prefix for list operations
+	S3ACL         string            // S3 ACL header value
 }
 
 // EvalResult is the result of policy evaluation
 type EvalResult struct {
-	Decision  Decision // Allow, Deny, ImplicitDeny
-	MatchedBy string   // Which policy/statement matched
+	Decision    Decision // Allow, Deny, ImplicitDeny
+	MatchedBy   string   // Which policy/statement matched
+	PolicyType  string   // "identity", "boundary", "scp", "resource"
+	PolicyName  string   // Name of the policy that matched
+	Details     string   // Human-readable explanation
 }
 
 // Decision represents an authorization decision
@@ -179,6 +190,28 @@ const (
 	DecisionAllow
 	DecisionImplicitDeny
 )
+
+// String returns the string representation of a Decision
+func (d Decision) String() string {
+	switch d {
+	case DecisionAllow:
+		return "Allow"
+	case DecisionDeny:
+		return "Deny"
+	case DecisionImplicitDeny:
+		return "ImplicitDeny"
+	default:
+		return "Unknown"
+	}
+}
+
+// SimulateResponse is the response for policy simulation
+type SimulateResponse struct {
+	Decision   string `json:"decision"`
+	MatchedBy  string `json:"matched_by"`
+	PolicyType string `json:"policy_type"`
+	Details    string `json:"details"`
+}
 
 // CreateAccessKeyResult is returned when creating an access key
 type CreateAccessKeyResult struct {

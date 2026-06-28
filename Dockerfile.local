@@ -1,0 +1,24 @@
+FROM alpine:3.20
+
+RUN apk add --no-cache ca-certificates wget && \
+    addgroup -g 1000 -S nexus && \
+    adduser -u 1000 -S nexus -G nexus
+
+WORKDIR /home/nexus
+
+COPY nexus-linux /usr/local/bin/nexus
+COPY nexusctl-linux /usr/local/bin/nexusctl
+COPY config.yaml /etc/nexus/config.yaml
+
+RUN chmod +x /usr/local/bin/nexus /usr/local/bin/nexusctl && \
+    mkdir -p /var/lib/nexus/data /var/lib/nexus/metadata /var/lib/nexus/keystore /etc/nexus && \
+    chown -R nexus:nexus /var/lib/nexus /etc/nexus
+
+USER nexus
+
+EXPOSE 8080
+
+VOLUME ["/var/lib/nexus", "/etc/nexus"]
+
+ENTRYPOINT ["/usr/local/bin/nexus"]
+CMD ["--config", "/etc/nexus/config.yaml"]

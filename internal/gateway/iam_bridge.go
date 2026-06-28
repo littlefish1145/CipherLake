@@ -13,12 +13,12 @@ import (
 
 // IAMAuthBridge bridges the new IAM system with the existing AuthHandler
 type IAMAuthBridge struct {
-	iamService *iam.IAMService
+	iamService iam.IAMServiceProvider
 	auth       *AuthHandler
 }
 
 // NewIAMAuthBridge creates a new bridge between IAM and the existing auth system
-func NewIAMAuthBridge(iamService *iam.IAMService, auth *AuthHandler) *IAMAuthBridge {
+func NewIAMAuthBridge(iamService iam.IAMServiceProvider, auth *AuthHandler) *IAMAuthBridge {
 	return &IAMAuthBridge{
 		iamService: iamService,
 		auth:       auth,
@@ -198,6 +198,14 @@ func (b *IAMAuthBridge) validateAWSSignatureIAM(r *http.Request) (*User, *iam.IA
 	// Fall back to old auth
 	user, err := b.auth.validateAWSSignature(r)
 	return user, nil, err
+}
+
+// GetIAMUser retrieves an IAM user by name.
+func (b *IAMAuthBridge) GetIAMUser(name string) (*iam.IAMUser, error) {
+	if b == nil || b.iamService == nil {
+		return nil, fmt.Errorf("IAM service not available")
+	}
+	return b.iamService.GetUser(name)
 }
 
 // CheckIAMAccess checks if an IAM user has access to perform an action

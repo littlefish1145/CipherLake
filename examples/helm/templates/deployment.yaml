@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nexus.fullname" . }}
+  labels:
+    {{- include "nexus.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  replicas: {{ .Values.gateway.replicas }}
+  selector:
+    matchLabels:
+      {{- include "nexus.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: gateway
+  template:
+    metadata:
+      labels:
+        {{- include "nexus.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: gateway
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: {{ .Values.security.runAsNonRoot }}
+        runAsUser: {{ .Values.security.runAsUser }}
+        fsGroup: {{ .Values.security.fsGroup }}
+      containers:
+        - name: nexus
+          image: "{{ .Values.gateway.image.repository }}:{{ .Values.gateway.image.tag }}"
+          imagePullPolicy: {{ .Values.gateway.image.pullPolicy }}
+          command: ["/usr/local/bin/nexus"]
+          args:
+            - "--config"
+            - "/etc/nexus/config.yaml"
+          ports:
+            - name: s3
+              containerPort: 9000
+              protocol: TCP
+            - name: admin
+              containerPort: 9001
+              protocol: TCP
+            - name: metrics
+              containerPort: 9091
+              protocol: TCP
+          env:
+            - name: NEXUS_GATEWAY_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nexus.fullname" . }}-credentials
+                  key: accessKey
+            - name: NEXUS_GATEWAY_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nexus.fullname" . }}-credentials
+                  key: secretKey
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nexus
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/nexus/data
+            - name: metadata
+              mountPath: /var/lib/nexus/metadata
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: s3
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: s3
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.gateway.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "nexus.fullname" . }}-config
+        - name: data
+          {{- if .Values.storage.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "nexus.fullname" . }}-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: metadata
+          {{- if .Values.metadata.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "nexus.fullname" . }}-metadata
+          {{- else }}
+          emptyDir: {}
+          {{- end }}

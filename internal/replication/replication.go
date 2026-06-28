@@ -71,6 +71,7 @@ type ReplicationManager struct {
 	workers      map[string]*ReplicationWorker
 	stopCh       chan struct{}
 	allowPrivate bool
+	started      bool
 }
 
 type ReplicationStats struct {
@@ -335,7 +336,9 @@ func (m *ReplicationManager) AddRule(rule *ReplicationRule) error {
 	}
 	m.workers[rule.ID] = worker
 
-	go worker.run()
+	if m.started {
+		go worker.run()
+	}
 
 	return nil
 }
@@ -486,8 +489,13 @@ func (m *ReplicationManager) GetStats() *ReplicationStats {
 }
 
 func (m *ReplicationManager) Start() error {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.started {
+		return nil
+	}
+	m.started = true
 
 	for _, worker := range m.workers {
 		go worker.run()

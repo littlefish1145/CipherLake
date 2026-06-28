@@ -1,10 +1,10 @@
 package services
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdh"
 	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"time"
@@ -24,13 +24,14 @@ type TokenIssuer interface {
 }
 
 // EncryptionCoordinator coordinates all crypto microservices
-// Main service uses this to orchestrate encryption/decryption operations
+// Main service uses this to orchestrate encryption/decryption operations.
+// Data encryption uses per-chunk key derivation streaming AES-256-GCM locally,
+// which is more memory-efficient than the chunk-level DataEncryptor/DataDecryptor
+// interfaces. The encrypt/decrypt services are available for non-streaming use.
 type EncryptionCoordinator struct {
 	tokenService     TokenIssuer
 	keyGenService    KeyGenerator
 	keyUnwrapService KeyUnwrapper
-	encryptService   DataEncryptor
-	decryptService   DataDecryptor
 	keyStoreService  KeyStorer
 	opaClient        *OPAClient
 }
@@ -40,8 +41,6 @@ type CoordinatorConfig struct {
 	TokenService     TokenIssuer
 	KeyGenService    KeyGenerator
 	KeyUnwrapService KeyUnwrapper
-	EncryptService   DataEncryptor
-	DecryptService   DataDecryptor
 	KeyStoreService  KeyStorer
 	OPAClient        *OPAClient
 }
@@ -52,15 +51,14 @@ func NewEncryptionCoordinator(cfg CoordinatorConfig) *EncryptionCoordinator {
 		tokenService:     cfg.TokenService,
 		keyGenService:    cfg.KeyGenService,
 		keyUnwrapService: cfg.KeyUnwrapService,
-		encryptService:   cfg.EncryptService,
-		decryptService:   cfg.DecryptService,
 		keyStoreService:  cfg.KeyStoreService,
 		opaClient:        cfg.OPAClient,
 	}
 }
 
-// EncryptOperation performs a complete encryption operation
-// Returns ciphertext reader, keyID, nonce+authTag metadata, ciphertext size, error
+// EncryptOperation performs a complete encryption operation using chunked,
+// true streaming envelope encryption. It never buffers the entire object in
+// memory. Returns ciphertext reader, keyID, metadata, ciphertext size, error.
 func (c *EncryptionCoordinator) EncryptOperation(ctx context.Context, userID, bucket, objectKey string, plaintext io.Reader, objectSize int64) (io.Reader, string, []byte, int64, error) {
 	// Step 1: Policy decision via OPA
 	if c.opaClient != nil {
@@ -125,34 +123,46 @@ func (c *EncryptionCoordinator) EncryptOperation(ctx context.Context, userID, bu
 		return nil, "", nil, 0, fmt.Errorf("failed to store key: %w", err)
 	}
 
-	// Step 6: Encrypt data with EncryptService
-	plaintextData, err := io.ReadAll(plaintext)
+	// Step 6: Unwrap the DEK locally and stream-encrypt the plaintext.
+	// The actual data encryption is done in chunked AES-256-GCM so the entire
+	// object is never loaded into memory.
+	sessionKey, err := deriveSessionKey(clientECDHPriv, serviceECDHPub)
 	if err != nil {
-		return nil, "", nil, 0, fmt.Errorf("failed to read plaintext: %w", err)
+		return nil, "", nil, 0, fmt.Errorf("failed to derive session key: %w", err)
+	}
+	defer clearBytes(sessionKey)
+
+	dek, err := unwrapDEK(ecdhEncryptedDEK, sessionKey)
+	if err != nil {
+		return nil, "", nil, 0, fmt.Errorf("failed to unwrap DEK: %w", err)
+	}
+	defer clearBytes(dek)
+
+	nonce := make([]byte, ssecNonceSize)
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, "", nil, 0, fmt.Errorf("failed to generate nonce: %w", err)
 	}
 
-	ciphertext, nonce, authTag, err := c.encryptService.Encrypt(
-		clientECDHPriv,
-		serviceECDHPub,
-		ecdhEncryptedDEK,
-		plaintextData,
-		"AES-256-GCM",
-	)
-	if err != nil {
-		return nil, "", nil, 0, fmt.Errorf("failed to encrypt data: %w", err)
+	metadata := make([]byte, 0, 1+ssecNonceSize)
+	metadata = append(metadata, envelopeMetadataVersion)
+	metadata = append(metadata, nonce...)
+
+	encryptReader := newStreamingEncryptReader(plaintext, dek, nonce)
+
+	numChunks := int64(1)
+	if objectSize > 0 {
+		numChunks = (objectSize + ssecChunkSize - 1) / ssecChunkSize
 	}
+	estimatedCiphertextSize := objectSize + numChunks*(ssecCiphertextLenSize+ssecAuthTagSize)
 
 	zap.L().Info("encryption completed",
 		zap.String("key_id", keyID),
 		zap.String("bucket", bucket),
 		zap.String("object_key", objectKey),
-		zap.Int("plaintext_size", len(plaintextData)),
-		zap.Int("ciphertext_size", len(ciphertext)))
+		zap.Int64("plaintext_size", objectSize),
+		zap.Int64("estimated_ciphertext_size", estimatedCiphertextSize))
 
-	// Combine nonce and authTag for storage
-	metadata := append(nonce, authTag...)
-
-	return io.NopCloser(bytes.NewReader(ciphertext)), keyID, metadata, int64(len(ciphertext)), nil
+	return encryptReader, keyID, metadata, estimatedCiphertextSize, nil
 }
 
 // DecryptOperation performs a complete decryption operation
@@ -215,42 +225,33 @@ func (c *EncryptionCoordinator) DecryptOperation(ctx context.Context, userID, bu
 		return nil, fmt.Errorf("failed to unwrap key: %w", err)
 	}
 
-	// Step 6: Decrypt data with DecryptService
-	ciphertextData, err := io.ReadAll(ciphertext)
+	// Step 6: Unwrap the DEK locally and stream-decrypt the ciphertext.
+	sessionKey, err := deriveSessionKey(clientECDHPriv, serviceECDHPub)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read ciphertext: %w", err)
+		return nil, fmt.Errorf("failed to derive session key: %w", err)
 	}
+	defer clearBytes(sessionKey)
 
-	// Parse metadata (nonce + authTag)
-	nonceLen := 12
-	authTagLen := 16
-	if len(metadata) < nonceLen+authTagLen {
-		return nil, fmt.Errorf("invalid metadata: too short")
-	}
-	nonce := metadata[:nonceLen]
-	authTag := metadata[nonceLen : nonceLen+authTagLen]
-
-	plaintext, err := c.decryptService.Decrypt(
-		clientECDHPriv,
-		serviceECDHPub,
-		ecdhEncryptedDEK,
-		ciphertextData,
-		nonce,
-		authTag,
-		"AES-256-GCM",
-	)
+	dek, err := unwrapDEK(ecdhEncryptedDEK, sessionKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt data: %w", err)
+		return nil, fmt.Errorf("failed to unwrap DEK: %w", err)
 	}
+	defer clearBytes(dek)
 
-	zap.L().Info("decryption completed",
+	// Parse metadata: [version(1)][nonce(12)]
+	if len(metadata) < 1+ssecNonceSize || metadata[0] != envelopeMetadataVersion {
+		return nil, fmt.Errorf("invalid envelope metadata")
+	}
+	nonce := metadata[1 : 1+ssecNonceSize]
+
+	decryptReader := newStreamingDecryptReader(ciphertext, dek, nonce)
+
+	zap.L().Info("decryption started",
 		zap.String("key_id", encryptedDEK.KeyID),
 		zap.String("bucket", bucket),
-		zap.String("object_key", objectKey),
-		zap.Int("ciphertext_size", len(ciphertextData)),
-		zap.Int("plaintext_size", len(plaintext)))
+		zap.String("object_key", objectKey))
 
-	return io.NopCloser(bytes.NewReader(plaintext)), nil
+	return decryptReader, nil
 }
 
 // DeleteKey deletes the key for an object
@@ -295,6 +296,55 @@ func (c *EncryptionCoordinator) DeleteKey(ctx context.Context, userID, bucket, o
 	return nil
 }
 
+// EncryptWithClientKey encrypts data using a customer-provided key (SSE-C).
+// Uses streaming encryption to avoid loading the entire plaintext into memory.
+func (c *EncryptionCoordinator) EncryptWithClientKey(ctx context.Context, plaintext io.Reader, clientKey []byte, objectSize int64) (io.Reader, []byte, int64, error) {
+	if len(clientKey) != 32 {
+		return nil, nil, 0, fmt.Errorf("invalid client key size: expected 32 bytes, got %d", len(clientKey))
+	}
+
+	nonce := make([]byte, ssecNonceSize)
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, nil, 0, fmt.Errorf("failed to generate nonce: %w", err)
+	}
+
+	metadata := make([]byte, ssecNonceSize+ssecMetadataOriginalSizeLen)
+	copy(metadata, nonce)
+	binary.BigEndian.PutUint64(metadata[ssecNonceSize:], uint64(objectSize))
+
+	encryptReader := newStreamingEncryptReader(plaintext, clientKey, nonce)
+
+	numChunks := uint32(1)
+	if objectSize > 0 {
+		numChunks = uint32((objectSize + ssecChunkSize - 1) / ssecChunkSize)
+	}
+	estimatedCiphertextSize := objectSize + int64(numChunks)*(ssecCiphertextLenSize+ssecAuthTagSize)
+
+	zap.L().Info("sse-c streaming encryption started",
+		zap.Int64("object_size", objectSize))
+
+	return encryptReader, metadata, estimatedCiphertextSize, nil
+}
+
+// DecryptWithClientKey decrypts data using a customer-provided key (SSE-C).
+// Uses streaming decryption to avoid loading the entire ciphertext into memory.
+func (c *EncryptionCoordinator) DecryptWithClientKey(ctx context.Context, ciphertext io.Reader, clientKey []byte, metadata []byte, objectSize int64) (io.Reader, error) {
+	if len(clientKey) != 32 {
+		return nil, fmt.Errorf("invalid client key size: expected 32 bytes, got %d", len(clientKey))
+	}
+
+	if len(metadata) < ssecNonceSize {
+		return nil, fmt.Errorf("invalid metadata: too short")
+	}
+	nonce := metadata[:ssecNonceSize]
+
+	decryptReader := newStreamingDecryptReader(ciphertext, clientKey, nonce)
+
+	zap.L().Info("sse-c streaming decryption started")
+
+	return decryptReader, nil
+}
+
 // Close closes all services
 func (c *EncryptionCoordinator) Close() error {
 	var errs []error
@@ -311,16 +361,6 @@ func (c *EncryptionCoordinator) Close() error {
 	}
 	if c.keyUnwrapService != nil {
 		if err := c.keyUnwrapService.Close(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if c.encryptService != nil {
-		if err := c.encryptService.Close(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if c.decryptService != nil {
-		if err := c.decryptService.Close(); err != nil {
 			errs = append(errs, err)
 		}
 	}

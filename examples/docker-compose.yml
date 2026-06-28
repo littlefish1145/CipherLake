@@ -1,0 +1,162 @@
+version: "3.8"
+
+services:
+  nexus:
+    image: nexus:latest
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      NEXUS_GATEWAY_ADDRESS: ":9000"
+      NEXUS_GATEWAY_ADMIN_ADDRESS: ":9001"
+      NEXUS_GATEWAY_ACCESS_KEY: "nexus"
+      NEXUS_GATEWAY_SECRET_KEY: "nexus-secret"
+      NEXUS_STORAGE_BACKEND: "local"
+      NEXUS_STORAGE_LOCAL_DATA_DIR: "/var/lib/nexus/data"
+      NEXUS_METADATA_BACKEND: "boltdb"
+      NEXUS_METADATA_PATH: "/var/lib/nexus/metadata.db"
+      NEXUS_OBSERVABILITY_LOGGING_LEVEL: "info"
+      NEXUS_SERVICES_ENCRYPT_ADDRESS: "encrypt-service:50051"
+      NEXUS_SERVICES_DECRYPT_ADDRESS: "decrypt-service:50052"
+      NEXUS_SERVICES_KEYGEN_ADDRESS: "keygen-service:50053"
+      NEXUS_SERVICES_KEYSTORE_ADDRESS: "keystore-service:50054"
+      NEXUS_SERVICES_KEYUNWRAP_ADDRESS: "keyunwrap-service:50055"
+      NEXUS_SERVICES_TOKEN_ADDRESS: "token-service:50056"
+      NEXUS_SERVICES_STS_ADDRESS: "sts-service:50057"
+    volumes:
+      - nexus-data:/var/lib/nexus
+    depends_on:
+      encrypt-service:
+        condition: service_healthy
+      decrypt-service:
+        condition: service_healthy
+      keygen-service:
+        condition: service_healthy
+      keystore-service:
+        condition: service_healthy
+      keyunwrap-service:
+        condition: service_healthy
+      token-service:
+        condition: service_healthy
+      sts-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - nexus-net
+
+  encrypt-service:
+    image: nexus:latest
+    command: ["/usr/local/bin/encrypt-service"]
+    environment:
+      NEXUS_SERVICE_ADDRESS: ":50051"
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50051"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - nexus-net
+
+  decrypt-service:
+    image: nexus:latest
+    command: ["/usr/local/bin/decrypt-service"]
+    environment:
+      NEXUS_SERVICE_ADDRESS: ":50052"
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50052"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - nexus-net
+
+  keygen-service:
+    image: nexus:latest
+    command: ["/usr/local/bin/keygen-service"]
+    environment:
+      NEXUS_SERVICE_ADDRESS: ":50053"
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50053"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - nexus-net
+
+  keystore-service:
+    image: nexus:latest
+    command: ["/usr/local/bin/keystore-service"]
+    environment:
+      NEXUS_SERVICE_ADDRESS: ":50054"
+      NEXUS_KEYSTORE_PATH: "/var/lib/nexus/keystore.db"
+    volumes:
+      - nexus-keystore:/var/lib/nexus
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50054"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - nexus-net
+
+  keyunwrap-service:
+    image: nexus:latest
+    command: ["/usr/local/bin/keyunwrap-service"]
+    environment:
+      NEXUS_SERVICE_ADDRESS: ":50055"
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50055"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - nexus-net
+
+  token-service:
+    image: nexus:latest
+    command: ["/usr/local/bin/token-service"]
+    environment:
+      NEXUS_SERVICE_ADDRESS: ":50056"
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50056"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - nexus-net
+
+  sts-service:
+    image: nexus:latest
+    command: ["/usr/local/bin/sts-service"]
+    environment:
+      NEXUS_SERVICE_ADDRESS: ":50057"
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50057"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - nexus-net
+
+volumes:
+  nexus-data:
+  nexus-keystore:
+
+networks:
+  nexus-net:
+    driver: bridge

@@ -5,6 +5,7 @@ node:
   listen_addr: ":8080"
   data_dir: "./data"
   cluster_peers: []
+  domain: "host.docker.internal,localhost"
 
 tiering:
   enabled: true
@@ -21,8 +22,18 @@ encryption:
   vault_transit_key: "nexus"
   aws_kms_key_id: ""
   aws_region: "us-east-1"
+  kms_degradation_mode: "reject_writes"
   enable_dedup: true
   master_key_path: "./data/master.key"
+
+task_queue:
+  enabled: true
+  store_path: "tasks.db"
+  workers: 4
+  poll_interval: "500ms"
+  retry_base: "1s"
+  max_retry_delay: "5m"
+  default_retry: 3
 
 crypto_services:
   enabled: true
@@ -45,24 +56,100 @@ crypto_services:
   mtls_ca_file: ""
 
 vector:
-  enabled: false
-  hot_index_size: "10GB"
-  model_dir: "/models"
-  dim: 768
-  index_type: "hnsw"
+  enabled: true
+  dim: 1024
+  index_type: "milvus"
   metric_type: "cosine"
-  max_vectors: 1000000
-  embedding_provider: "mock"
+  max_vectors: 10000000
+  embedding_provider: "api"
   embedding_model_path: ""
-  embedding_api_endpoint: ""
+  embedding_api_endpoint: "http://localhost:1234/v1/embeddings"
   embedding_api_key: ""
-  embedding_model_name: ""
+  embedding_model_name: "text-embedding-qwen3-embedding-0.6b"
   # Security settings
   auto_index: true              # Auto-index text files on upload when vector is enabled
   max_search_top_k: 100         # Maximum topK allowed in search queries
   max_query_length: 10000       # Maximum search query length in characters
-  require_auth: true            # Require authentication for vector search API
+  require_auth: false
   max_index_content_size: 1048576  # Maximum content size to index (1MB)
+  # Milvus 后端配置(全面转向 Milvus,自研 HNSW/MMap/BucketIndex 已退役)
+  milvus:
+    address: "localhost:19530"
+    username: ""
+    password: ""
+    db_name: "default"
+    collection_name: "nexus_vectors"
+    shards_num: 2               # 分片数,水平扩展能力
+    replica_number: 1           # 副本数,高可用场景设为 2+
+    index_type: "HNSW"          # FLAT | HNSW | IVF_FLAT | IVF_SQ8 | DISKANN
+    index_params:               # 索引参数
+      M: "16"
+      efConstruction: "200"
+    nprobe: 16                  # IVF 系列查询探查聚类数
+    ef: 64                      # HNSW 查询 ef
+    consistency_level: "Bounded" # Strong | Bounded | Session | Eventually
+    # Tiered Storage(分层存储)— 通过 ResourceGroup 实现 hot/cold 分离
+    # Milvus 2.6+ 的 Tiered Storage 是服务端透明功能,SDK 无需改动
+    tiered_storage:
+      enabled: false            # 是否启用分层存储
+      hot_resource_group: "hot"  # 热数据资源组名
+      cold_resource_group: "cold" # 冷数据资源组名
+      hot_nodes: 2              # 热资源组节点数(全内存,低延迟)
+      cold_nodes: 1             # 冷资源组节点数(DISKANN,低成本)
+      warm_up: "async"          # sync | async | disable (Milvus 2.6+ 服务端配置)
+    # DISKANN 专用参数(当 index_type: "DISKANN" 时生效)
+    diskann:
+      max_degree: 56            # Vamana 图最大度数
+      search_list_size: 100     # 候选列表大小
+      pq_code_budget_gb_ratio: 0.125  # PQ 码本内存比例
+      search_cache_budget_gb_ratio: 0.10 # 缓存节点数据比例(温层)
+      beam_width_ratio: 4.0     # 每次搜索迭代最大 IO 请求数与 CPU 数的比值
+
+  # VSE 后端配置(当 index_type: "vse" 时使用)
+  vse:
+    data_dir: "data/vector"        # 向量数据存储目录
+    max_hot_segments: 10           # 最大热段数(HNSW,全内存)
+    max_cold_segments: 100         # 最大冷段数(IVF-PQ,mmap/S3)
+    hot_segment_size: 10000        # 每段最大向量数(热)
+    cold_segment_size: 100000      # 每段最大向量数(冷)
+    ivf_centroids: 256             # IVF 聚类中心数
+    ivf_nprobe: 16                 # IVF 查询探查的聚类数
+    pq_sub_quantizers: 8           # PQ 子向量数
+    pq_bits: 8                     # PQ 每个子向量的编码位数
+    hnsw_m: 16                     # HNSW 图节点连接数
+    hnsw_ef_search: 64             # HNSW 搜索 ef 参数
+    search_workers: 4              # 并发搜索线程数(仅在 VSE 内置后端生效)
+    gpu_accel: false               # GPU 加速(需 go build -tags cuda + CUDA toolkit)
+    gpu_batch_min: 500000          # GPU 加速的最小批处理向量数
+    quantizer_type: "sq"           # 量化类型: "sq" | "pq" | "none"
+    cache_size: 10000              # 块缓存大小
+    auto_merge: true               # 自动合并小段
+    merge_interval: "10m"          # 合并检查间隔
+    enable_s3: false               # 启用 S3 后端(冷数据存储)
+    s3_endpoint: ""                # S3 端点
+    s3_region: ""                  # S3 区域
+    s3_bucket: ""                  # S3 桶名
+    s3_access_key: ""
+    s3_secret_key: ""
+
+    # 合并策略配置
+    merge_policy:
+      hot_target_size: 10000         # 热段合并目标大小
+      hot_max_segments: 10           # 热段最大数量触发合并
+      cold_target_size: 100000       # 冷段合并目标大小
+      cold_max_segments: 50          # 冷段最大数量触发合并
+      min_vectors_merge: 100         # 最小合并向量数
+      merge_interval: "5m"           # 合并检查间隔
+      idle_threshold: "30m"          # 段空闲阈值
+
+    # 预热策略配置
+    warmup_policy:
+      enabled: true                  # 启用启动预热
+      batch_size: 5                  # 每批预热段数
+      batch_interval: "100ms"        # 批次间隔
+      preload_centroids: true        # 预加载 IVF 质心
+      preload_pq: false              # 预加载 PQ 码本
+      max_preload_bytes: 536870912   # 最大预加载字节(512MB)
 
 pipelines:
   config_file: "./pipelines.yaml"

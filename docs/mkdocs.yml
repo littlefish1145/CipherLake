@@ -1,0 +1,69 @@
+site_name: Nexus Object Storage
+site_description: Enterprise-grade object storage with S3 compatibility
+site_author: Nexus Team
+repo_url: https://github.com/nexus/nexus
+edit_uri: edit/main/docs/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+plugins:
+  - search:
+      lang: en
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - footnotes
+  - meta
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist
+  - attr_list
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Quick Start: getting-started/quickstart.md
+    - Configuration: getting-started/config.md
+  - Deployment:
+    - Single Node: deployment/single-node.md
+    - Cluster: deployment/cluster.md
+    - Kubernetes: deployment/k8s.md
+  - Operations:
+    - Backup & Restore: operations/backup-restore.md
+    - Upgrade: operations/upgrade.md
+    - Troubleshooting: operations/troubleshooting.md
+  - API Reference:
+    - S3 API: api/s3.md
+    - Admin API: api/admin.md
+    - gRPC Services: api/grpc.md
+  - Performance Tuning: performance.md
+  - Security: security.md

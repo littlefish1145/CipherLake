@@ -9,16 +9,16 @@ import threading
 import time
 from datetime import datetime
 
-# Service definitions: (name, executable, args, color)
+# Service definitions: (name, executable, args, color, env)
 SERVICES = [
-    ("token-service",     "token-service.exe",     ["-port", "50051", "-key-path", "./data/keys/token"],     "\033[96m"),   # Cyan
-    ("keygen-service",    "keygen-service.exe",     ["-port", "50052", "-key-path", "./data/keys/keygen"],    "\033[93m"),   # Yellow
-    ("keyunwrap-service", "keyunwrap-service.exe",  ["-port", "50053", "-key-path", "./data/keys/keygen"],    "\033[95m"),   # Magenta
-    ("encrypt-service",   "encrypt-service.exe",    ["-port", "50054"],                                     "\033[92m"),   # Green
-    ("decrypt-service",   "decrypt-service.exe",    ["-port", "50055"],                                     "\033[94m"),   # Blue
-    ("keystore-service",  "keystore-service.exe",   ["-port", "50056", "-data-path", "./data/keystore"],     "\033[97m"),   # White
-    ("sts-service",       "sts-service.exe",        ["-port", "50057"],                                     "\033[35m"),   # Purple
-    ("nexus",             "nexus.exe",              [],                                                     "\033[33m"),   # Dark Yellow
+    ("token-service",     "token-service.exe",     ["-port", "50051", "-key-path", "./data/keys/token"],     "\033[96m",   None),
+    ("keygen-service",    "keygen-service.exe",     ["-port", "50052", "-key-path", "./data/keys/keygen"],    "\033[93m",   None),
+    ("keyunwrap-service", "keyunwrap-service.exe",  ["-port", "50053", "-key-path", "./data/keys/keygen"],    "\033[95m",   None),
+    ("encrypt-service",   "encrypt-service.exe",    ["-port", "50054"],                                     "\033[92m",   None),
+    ("decrypt-service",   "decrypt-service.exe",    ["-port", "50055"],                                     "\033[94m",   None),
+    ("keystore-service",  "keystore-service.exe",   ["-port", "50056", "-data-path", "./data/keystore"],     "\033[97m",   None),
+    ("sts-service",       "sts-service.exe",        ["-port", "50057"],                                     "\033[35m",   None),
+    ("nexus",             "nexus.exe",              [],                                                     "\033[33m",   {"NEXUS_IAM_ENABLED": "true", "NEXUS_IAM_STS_SERVICE_ADDR": "localhost:50057"}),
 ]
 
 RESET = "\033[0m"
@@ -72,14 +72,19 @@ def read_stream(name, color, stream, is_stderr):
                 print(f"{GRAY}{ts}{RESET} {color}{BOLD}[{name:>18s}]{RESET} {color}{text}{RESET}", flush=True)
 
 
-def start_service(name, exe, args, color):
+def start_service(name, exe, args, color, env):
     """Start a single service process."""
     cmd = [exe] + args
     try:
+        proc_env = os.environ.copy()
+        if env:
+            proc_env.update(env)
+
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=proc_env,
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0,
         )
         processes.append((name, proc))
@@ -152,8 +157,8 @@ def main():
         os.makedirs(d, exist_ok=True)
 
     # Start all services
-    for name, exe, args, color in SERVICES:
-        start_service(name, exe, args, color)
+    for name, exe, args, color, env in SERVICES:
+        start_service(name, exe, args, color, env)
 
     # Start monitor thread
     t_monitor = threading.Thread(target=monitor, daemon=True)

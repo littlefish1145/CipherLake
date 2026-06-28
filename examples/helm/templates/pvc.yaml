@@ -1,0 +1,35 @@
+{{- if .Values.storage.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "nexus.fullname" . }}-data
+  labels:
+    {{- include "nexus.labels" . | nindent 4 }}
+    app.kubernetes.io/component: data
+spec:
+  accessModes:
+    - {{ .Values.storage.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.persistence.size }}
+  {{- if .Values.storage.persistence.storageClass }}
+  storageClassName: {{ .Values.storage.persistence.storageClass }}
+  {{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "nexus.fullname" . }}-metadata
+  labels:
+    {{- include "nexus.labels" . | nindent 4 }}
+    app.kubernetes.io/component: metadata
+spec:
+  accessModes:
+    - {{ .Values.metadata.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.metadata.persistence.size }}
+  {{- if .Values.metadata.persistence.storageClass }}
+  storageClassName: {{ .Values.metadata.persistence.storageClass }}
+  {{- end }}
+{{- end }}

@@ -85,6 +85,9 @@ type ObjectMetadata struct {
 	PipelineResults  map[string]string `json:"pipeline_results,omitempty"`
 	DeleteMarker     bool              `json:"delete_marker,omitempty"`
 	RetainUntil      *time.Time        `json:"retain_until,omitempty"`
+	SSECUsed         bool              `json:"ssec_used"`
+	SSECKeySHA256    string            `json:"ssec_key_sha256"`
+	SSECAlgorithm    string            `json:"ssec_algorithm"`
 }
 
 type BucketInfo struct {
@@ -105,6 +108,7 @@ type BucketInfo struct {
 	Versioning     bool                 `json:"versioning"`
 	LoggingEnabled bool                 `json:"logging_enabled"`
 	ObjectLock     *ObjectLockConfig     `json:"object_lock,omitempty"`
+	StorageClass   string               `json:"storage_class"`
 }
 
 type QuotaConfig struct {
@@ -162,6 +166,20 @@ type MultipartUpload struct {
 	TotalSize  int64   `json:"total_size"`
 	Encrypted  bool    `json:"encrypted"`
 	Checksum   string  `json:"checksum"`
+}
+
+type ResumableSession struct {
+	UploadID    string            `json:"upload_id"`
+	Bucket      string            `json:"bucket"`
+	Key         string            `json:"key"`
+	Offset      int64             `json:"offset"`
+	TotalSize   int64             `json:"total_size"`
+	ContentType string            `json:"content_type"`
+	Metadata    map[string]string `json:"metadata"`
+	CreatedAt   time.Time         `json:"created_at"`
+	ExpiresAt   time.Time         `json:"expires_at"`
+	Checksum    string            `json:"checksum"`
+	Finalized   bool              `json:"finalized"`
 }
 
 type UploadPart struct {
@@ -229,6 +247,7 @@ func NewBoltDBMetadataStore(path string) (*BoltDBMetadataStore, error) {
 			"access_history",
 			"vectors",
 			"pipelines",
+			"resumable_uploads",
 		}
 		for _, name := range buckets {
 			if _, err := tx.CreateBucketIfNotExists([]byte(name)); err != nil {
@@ -941,3 +960,68 @@ func ComputeChecksum(data []byte, checksumType string) string {
 }
 
 func import_crypto_sha256() {}
+
+func (s *BoltDBMetadataStore) PutResumableSession(ctx context.Context, session *ResumableSession) error {
+	data, err := json.Marshal(session)
+	if err != nil {
+		return fmt.Errorf("failed to marshal resumable session: %w", err)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("resumable_uploads"))
+		return bucket.Put([]byte(session.UploadID), data)
+	})
+}
+
+func (s *BoltDBMetadataStore) GetResumableSession(ctx context.Context, uploadID string) (*ResumableSession, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var session *ResumableSession
+	err := s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("resumable_uploads"))
+		data := bucket.Get([]byte(uploadID))
+		if data == nil {
+			return ErrKeyNotFound
+		}
+		return json.Unmarshal(data, &session)
+	})
+
+	return session, err
+}
+
+func (s *BoltDBMetadataStore) DeleteResumableSession(ctx context.Context, uploadID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("resumable_uploads"))
+		return bucket.Delete([]byte(uploadID))
+	})
+}
+
+func (s *BoltDBMetadataStore) ListExpiredSessions(ctx context.Context) ([]*ResumableSession, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var results []*ResumableSession
+	now := time.Now()
+
+	err := s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("resumable_uploads"))
+		return bucket.ForEach(func(k, v []byte) error {
+			var session ResumableSession
+			if err := json.Unmarshal(v, &session); err == nil {
+				if session.ExpiresAt.Before(now) && !session.Finalized {
+					results = append(results, &session)
+				}
+			}
+			return nil
+		})
+	})
+
+	return results, err
+}

@@ -1,0 +1,22 @@
+[Unit]
+Description=Nexus Decrypt Microservice
+After=network-online.target
+Wants=network-online.target
+PartOf=nexus.target
+
+[Service]
+Type=simple
+User=nexus
+Group=nexus
+ExecStart=/usr/local/bin/decrypt-service --address :50052
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=nexus.target

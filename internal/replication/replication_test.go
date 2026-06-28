@@ -15,7 +15,6 @@ func TestNewReplicationManager(t *testing.T) {
 	assert.NotNil(t, mgr)
 	assert.NotNil(t, mgr.rules)
 	assert.NotNil(t, mgr.wal)
-	assert.NotNil(t, mgr.mu)
 }
 
 func TestReplicationManager_AddRule(t *testing.T) {

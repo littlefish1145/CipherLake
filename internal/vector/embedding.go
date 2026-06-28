@@ -13,6 +13,7 @@ import (
 	"time"
 )
 
+// EmbeddingProvider 将文本转换为向量嵌入，支持单条和批量模式。
 type EmbeddingProvider interface {
 	GenerateEmbedding(ctx context.Context, input string) ([]float32, error)
 	GenerateEmbeddingBatch(ctx context.Context, inputs []string) ([][]float32, error)
@@ -20,6 +21,7 @@ type EmbeddingProvider interface {
 	Close() error
 }
 
+// EmbeddingConfig 配置嵌入提供者的参数。
 type EmbeddingConfig struct {
 	Provider      string
 	ModelPath     string
@@ -31,10 +33,12 @@ type EmbeddingConfig struct {
 	Timeout       time.Duration
 }
 
+// MockEmbeddingProvider 使用确定性哈希生成嵌入，仅用于测试。
 type MockEmbeddingProvider struct {
 	dim int
 }
 
+// NewMockEmbeddingProvider 创建测试用的模拟嵌入提供者。
 func NewMockEmbeddingProvider(dim int) *MockEmbeddingProvider {
 	return &MockEmbeddingProvider{dim: dim}
 }
@@ -55,6 +59,7 @@ func (m *MockEmbeddingProvider) GenerateEmbeddingBatch(ctx context.Context, inpu
 func (m *MockEmbeddingProvider) Dimension() int { return m.dim }
 func (m *MockEmbeddingProvider) Close() error  { return nil }
 
+// ONNXEmbeddingProvider 使用本地 ONNX 模型推理生成嵌入。
 type ONNXEmbeddingProvider struct {
 	modelPath    string
 	dim          int
@@ -63,6 +68,7 @@ type ONNXEmbeddingProvider struct {
 	initialized  bool
 }
 
+// NewONNXEmbeddingProvider 创建本地 ONNX 模型嵌入提供者。
 func NewONNXEmbeddingProvider(modelPath string, dim int) (*ONNXEmbeddingProvider, error) {
 	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("model file not found: %s", modelPath)
@@ -119,6 +125,7 @@ func (o *ONNXEmbeddingProvider) GenerateEmbeddingBatch(ctx context.Context, inpu
 func (o *ONNXEmbeddingProvider) Dimension() int { return o.dim }
 func (o *ONNXEmbeddingProvider) Close() error  { return nil }
 
+// APIEmbeddingProvider 通过 HTTP API 调用远程嵌入服务。
 type APIEmbeddingProvider struct {
 	endpoint     string
 	apiKey       string
@@ -157,6 +164,7 @@ type APIEmbeddingResponse struct {
 	} `json:"error,omitempty"`
 }
 
+// NewAPIEmbeddingProvider 创建远程 API 嵌入提供者。
 func NewAPIEmbeddingProvider(endpoint, apiKey, modelName string, dim int, timeout time.Duration) *APIEmbeddingProvider {
 	if timeout == 0 {
 		timeout = 30 * time.Second
@@ -279,10 +287,12 @@ func (a *APIEmbeddingProvider) Close() error {
 	return nil
 }
 
+// OpenAIEmbeddingProvider 封装 OpenAI Embedding API。
 type OpenAIEmbeddingProvider struct {
 	*APIEmbeddingProvider
 }
 
+// NewOpenAIEmbeddingProvider 创建 OpenAI 嵌入提供者。
 func NewOpenAIEmbeddingProvider(apiKey, model string, dim int) *OpenAIEmbeddingProvider {
 	if model == "" {
 		model = "text-embedding-ada-002"

@@ -4,16 +4,110 @@ package sts;
 
 option go_package = "nexus/proto/sts";
 
-// STS Service - Security Token Service
+// STS Service - Security Token Service + IAM Lookup
 service STSService {
   // AssumeRole returns temporary credentials for an assumed role
   rpc AssumeRole(AssumeRoleRequest) returns (AssumeRoleResponse);
-  
+
   // GetSessionToken returns temporary credentials for the current user
   rpc GetSessionToken(GetSessionTokenRequest) returns (GetSessionTokenResponse);
-  
+
   // GetFederationToken returns temporary credentials for a federated user
   rpc GetFederationToken(GetFederationTokenRequest) returns (GetFederationTokenResponse);
+
+  // --- IAM Lookup RPCs (used by nexus gateway in distributed mode) ---
+
+  // LookupUserByAccessKey finds a user by access key ID
+  rpc LookupUserByAccessKey(LookupUserByAccessKeyRequest) returns (LookupUserByAccessKeyResponse);
+
+  // DecryptSecretKey decrypts an encrypted secret key
+  rpc DecryptSecretKey(DecryptSecretKeyRequest) returns (DecryptSecretKeyResponse);
+
+  // LookupTempCredential finds a temporary credential by access key ID
+  rpc LookupTempCredential(LookupTempCredentialRequest) returns (LookupTempCredentialResponse);
+
+  // LookupUser finds a user by name
+  rpc LookupUser(LookupUserRequest) returns (LookupUserResponse);
+
+  // EvaluateAccess evaluates IAM policy for a request
+  rpc EvaluateAccess(EvaluateAccessRequest) returns (EvaluateAccessResponse);
+
+  // --- IAM Admin RPCs (used by nexus gateway in distributed mode) ---
+
+  // AdminCreateUser creates a new IAM user
+  rpc AdminCreateUser(AdminCreateUserRequest) returns (AdminCreateUserResponse);
+
+  // AdminDeleteUser deletes an IAM user
+  rpc AdminDeleteUser(AdminDeleteUserRequest) returns (AdminDeleteUserResponse);
+
+  // AdminListUsers lists all IAM users
+  rpc AdminListUsers(AdminListUsersRequest) returns (AdminListUsersResponse);
+
+  // AdminCreateAccessKey creates a new access key for a user
+  rpc AdminCreateAccessKey(AdminCreateAccessKeyRequest) returns (AdminCreateAccessKeyResponse);
+
+  // AdminListAccessKeys lists access keys for a user
+  rpc AdminListAccessKeys(AdminListAccessKeysRequest) returns (AdminListAccessKeysResponse);
+
+  // AdminDeleteAccessKey deletes an access key
+  rpc AdminDeleteAccessKey(AdminDeleteAccessKeyRequest) returns (AdminDeleteAccessKeyResponse);
+
+  // AdminListGroups lists all IAM groups
+  rpc AdminListGroups(AdminListGroupsRequest) returns (AdminListGroupsResponse);
+
+  // AdminCreateGroup creates a new IAM group
+  rpc AdminCreateGroup(AdminCreateGroupRequest) returns (AdminCreateGroupResponse);
+
+  // AdminDeleteGroup deletes an IAM group
+  rpc AdminDeleteGroup(AdminDeleteGroupRequest) returns (AdminDeleteGroupResponse);
+
+  // AdminAddUserToGroup adds a user to a group
+  rpc AdminAddUserToGroup(AdminAddUserToGroupRequest) returns (AdminAddUserToGroupResponse);
+
+  // AdminRemoveUserFromGroup removes a user from a group
+  rpc AdminRemoveUserFromGroup(AdminRemoveUserFromGroupRequest) returns (AdminRemoveUserFromGroupResponse);
+
+  // AdminListPolicies lists all IAM policies
+  rpc AdminListPolicies(AdminListPoliciesRequest) returns (AdminListPoliciesResponse);
+
+  // AdminCreatePolicy creates a new IAM policy
+  rpc AdminCreatePolicy(AdminCreatePolicyRequest) returns (AdminCreatePolicyResponse);
+
+  // AdminDeletePolicy deletes an IAM policy
+  rpc AdminDeletePolicy(AdminDeletePolicyRequest) returns (AdminDeletePolicyResponse);
+
+  // AdminAttachUserPolicy attaches a policy to a user
+  rpc AdminAttachUserPolicy(AdminAttachUserPolicyRequest) returns (AdminAttachUserPolicyResponse);
+
+  // AdminDetachUserPolicy detaches a policy from a user
+  rpc AdminDetachUserPolicy(AdminDetachUserPolicyRequest) returns (AdminDetachUserPolicyResponse);
+
+  // AdminAttachGroupPolicy attaches a policy to a group
+  rpc AdminAttachGroupPolicy(AdminAttachGroupPolicyRequest) returns (AdminAttachGroupPolicyResponse);
+
+  // AdminListRoles lists all IAM roles
+  rpc AdminListRoles(AdminListRolesRequest) returns (AdminListRolesResponse);
+
+  // AdminCreateRole creates a new IAM role
+  rpc AdminCreateRole(AdminCreateRoleRequest) returns (AdminCreateRoleResponse);
+
+  // AdminDeleteRole deletes an IAM role
+  rpc AdminDeleteRole(AdminDeleteRoleRequest) returns (AdminDeleteRoleResponse);
+
+  // AdminAttachRolePolicy attaches a policy to a role
+  rpc AdminAttachRolePolicy(AdminAttachRolePolicyRequest) returns (AdminAttachRolePolicyResponse);
+
+  // AdminGetBucketPolicy gets a bucket policy
+  rpc AdminGetBucketPolicy(AdminGetBucketPolicyRequest) returns (AdminGetBucketPolicyResponse);
+
+  // AdminPutBucketPolicy sets a bucket policy
+  rpc AdminPutBucketPolicy(AdminPutBucketPolicyRequest) returns (AdminPutBucketPolicyResponse);
+
+  // AdminDeleteBucketPolicy deletes a bucket policy
+  rpc AdminDeleteBucketPolicy(AdminDeleteBucketPolicyRequest) returns (AdminDeleteBucketPolicyResponse);
+
+  // AdminSimulatePolicy simulates an IAM policy evaluation
+  rpc AdminSimulatePolicy(AdminSimulatePolicyRequest) returns (AdminSimulatePolicyResponse);
 }
 
 message AssumeRoleRequest {
@@ -58,4 +152,300 @@ message Credentials {
   string secret_access_key = 2;
   string session_token = 3;
   int64 expiration_unix = 4;
+}
+
+// --- IAM Lookup messages ---
+
+message LookupUserByAccessKeyRequest {
+  string access_key_id = 1;
+}
+
+message LookupUserByAccessKeyResponse {
+  IAMUserProto user = 1;
+  AccessKeyProto access_key = 2;
+}
+
+message DecryptSecretKeyRequest {
+  bytes encrypted_secret = 1;
+}
+
+message DecryptSecretKeyResponse {
+  string decrypted_secret = 1;
+}
+
+message LookupTempCredentialRequest {
+  string access_key_id = 1;
+}
+
+message LookupTempCredentialResponse {
+  string access_key_id = 1;
+  string secret_access_key = 2;
+  string session_token = 3;
+  int64 expiration_unix = 4;
+}
+
+message LookupUserRequest {
+  string user_name = 1;
+}
+
+message LookupUserResponse {
+  IAMUserProto user = 1;
+}
+
+message EvaluateAccessRequest {
+  string principal = 1;
+  string action = 2;
+  string resource = 3;
+  string source_ip = 4;
+  int64 request_time_unix = 5;
+  map<string, string> conditions = 6;
+}
+
+message EvaluateAccessResponse {
+  string decision = 1;     // "Allow", "Deny", "ImplicitDeny"
+  string matched_by = 2;
+  string policy_type = 3;  // "identity", "boundary", "scp", "resource"
+  string policy_name = 4;
+  string details = 5;
+}
+
+// Shared IAM type protos for lookup responses
+
+message AccessKeyProto {
+  string access_key_id = 1;
+  bytes secret_key_enc = 2;
+  string status = 3;
+  int64 created_at_unix = 4;
+  string description = 5;
+}
+
+message IAMUserProto {
+  string id = 1;
+  string name = 2;
+  string display_name = 3;
+  repeated AccessKeyProto access_keys = 4;
+  repeated string groups = 5;
+  repeated string attached_policies = 6;
+  string permission_boundary = 7;
+  int64 created_at_unix = 8;
+}
+
+// --- IAM Admin messages ---
+
+message AdminCreateUserRequest {
+  string name = 1;
+  string display_name = 2;
+}
+
+message AdminCreateUserResponse {
+  IAMUserProto user = 1;
+}
+
+message AdminDeleteUserRequest {
+  string user_name = 1;
+}
+
+message AdminDeleteUserResponse {}
+
+message AdminListUsersRequest {}
+
+message AdminListUsersResponse {
+  repeated IAMUserProto users = 1;
+}
+
+message AdminCreateAccessKeyRequest {
+  string user_name = 1;
+  string description = 2;
+}
+
+message AdminCreateAccessKeyResponse {
+  string access_key_id = 1;
+  string secret_access_key = 2;
+  string status = 3;
+  int64 created_at_unix = 4;
+}
+
+message AdminListAccessKeysRequest {
+  string user_name = 1;
+}
+
+message AdminListAccessKeysResponse {
+  repeated AccessKeyProto access_keys = 1;
+}
+
+message AdminDeleteAccessKeyRequest {
+  string user_name = 1;
+  string access_key_id = 2;
+}
+
+message AdminDeleteAccessKeyResponse {}
+
+message AdminListGroupsRequest {}
+
+message AdminListGroupResponse {
+  string name = 1;
+  string description = 2;
+  repeated string users = 3;
+  repeated string attached_policies = 4;
+  int64 created_at_unix = 5;
+}
+
+message AdminListGroupsResponse {
+  repeated AdminListGroupResponse groups = 1;
+}
+
+message AdminCreateGroupRequest {
+  string name = 1;
+  string description = 2;
+}
+
+message AdminCreateGroupResponse {
+  string name = 1;
+  string description = 2;
+  int64 created_at_unix = 3;
+}
+
+message AdminDeleteGroupRequest {
+  string group_name = 1;
+}
+
+message AdminDeleteGroupResponse {}
+
+message AdminAddUserToGroupRequest {
+  string user_name = 1;
+  string group_name = 2;
+}
+
+message AdminAddUserToGroupResponse {}
+
+message AdminRemoveUserFromGroupRequest {
+  string user_name = 1;
+  string group_name = 2;
+}
+
+message AdminRemoveUserFromGroupResponse {}
+
+message AdminListPoliciesRequest {}
+
+message AdminListPolicyItem {
+  string arn = 1;
+  string name = 2;
+  string description = 3;
+  string type = 4;
+  int64 created_at_unix = 5;
+  int64 updated_at_unix = 6;
+}
+
+message AdminListPoliciesResponse {
+  repeated AdminListPolicyItem policies = 1;
+}
+
+message AdminCreatePolicyRequest {
+  string name = 1;
+  string description = 2;
+  string document_json = 3;
+}
+
+message AdminCreatePolicyResponse {
+  string arn = 1;
+  string name = 2;
+}
+
+message AdminDeletePolicyRequest {
+  string policy_name = 1;
+}
+
+message AdminDeletePolicyResponse {}
+
+message AdminAttachUserPolicyRequest {
+  string user_name = 1;
+  string policy_name = 2;
+}
+
+message AdminAttachUserPolicyResponse {}
+
+message AdminDetachUserPolicyRequest {
+  string user_name = 1;
+  string policy_name = 2;
+}
+
+message AdminDetachUserPolicyResponse {}
+
+message AdminAttachGroupPolicyRequest {
+  string group_name = 1;
+  string policy_name = 2;
+}
+
+message AdminAttachGroupPolicyResponse {}
+
+message AdminListRolesRequest {}
+
+message AdminListRoleItem {
+  string name = 1;
+  string description = 2;
+  repeated string permission_policies = 3;
+  int64 created_at_unix = 4;
+}
+
+message AdminListRolesResponse {
+  repeated AdminListRoleItem roles = 1;
+}
+
+message AdminCreateRoleRequest {
+  string name = 1;
+  string description = 2;
+  string trust_policy_json = 3;
+  int32 max_session_duration = 4;
+}
+
+message AdminCreateRoleResponse {
+  string name = 1;
+}
+
+message AdminDeleteRoleRequest {
+  string role_name = 1;
+}
+
+message AdminDeleteRoleResponse {}
+
+message AdminAttachRolePolicyRequest {
+  string role_name = 1;
+  string policy_name = 2;
+}
+
+message AdminAttachRolePolicyResponse {}
+
+message AdminGetBucketPolicyRequest {
+  string bucket = 1;
+}
+
+message AdminGetBucketPolicyResponse {
+  string document_json = 1;
+}
+
+message AdminPutBucketPolicyRequest {
+  string bucket = 1;
+  string document_json = 2;
+}
+
+message AdminPutBucketPolicyResponse {}
+
+message AdminDeleteBucketPolicyRequest {
+  string bucket = 1;
+}
+
+message AdminDeleteBucketPolicyResponse {}
+
+message AdminSimulatePolicyRequest {
+  string principal = 1;
+  string action = 2;
+  string resource = 3;
+  string source_ip = 4;
+}
+
+message AdminSimulatePolicyResponse {
+  string decision = 1;
+  string matched_by = 2;
+  string policy_type = 3;
+  string details = 4;
 }

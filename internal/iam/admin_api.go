@@ -25,7 +25,10 @@ func NewAdminAPI(service *IAMService, jwtKey []byte) *AdminAPI {
 
 // ServeHTTP routes admin API requests
 func (a *AdminAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// After http.StripPrefix("/iam", ...), paths come in as /users, /groups, etc.
 	path := strings.TrimPrefix(r.URL.Path, "/admin/")
+	// Also handle paths without /admin/ prefix (from StripPrefix("/iam"))
+	path = strings.TrimPrefix(path, "/")
 
 	switch {
 	case r.Method == http.MethodGet && path == "users":
@@ -93,6 +96,8 @@ func (a *AdminAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodDelete && strings.HasPrefix(path, "bucket-policies/"):
 		bucket := strings.TrimPrefix(path, "bucket-policies/")
 		a.deleteBucketPolicy(w, r, bucket)
+	case r.Method == http.MethodPost && path == "iam/simulate":
+		a.simulatePolicy(w, r)
 	default:
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 	}
@@ -575,6 +580,37 @@ func (a *AdminAPI) deleteBucketPolicy(w http.ResponseWriter, r *http.Request, bu
 }
 
 // --- Helpers ---
+
+func (a *AdminAPI) simulatePolicy(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Principal string `json:"principal"`
+		Action    string `json:"action"`
+		Resource  string `json:"resource"`
+		SourceIP  string `json:"source_ip"`
+		UserAgent string `json:"user_agent"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	if req.Principal == "" || req.Action == "" || req.Resource == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "principal, action, and resource are required"})
+		return
+	}
+
+	ctx := &EvalContext{
+		Principal:  req.Principal,
+		Action:     req.Action,
+		Resource:   req.Resource,
+		SourceIP:   req.SourceIP,
+		UserAgent:  req.UserAgent,
+		Time:       time.Now(),
+	}
+
+	result := a.service.GetEvaluator().Simulate(ctx)
+	writeJSON(w, http.StatusOK, result)
+}
 
 func writeJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
