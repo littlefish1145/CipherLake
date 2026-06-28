@@ -16,10 +16,13 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
+
 	"nexus/internal/auth"
 	"nexus/internal/common"
 	"nexus/internal/events"
 	"nexus/internal/metadata"
+	"nexus/internal/pipeline"
 	"nexus/internal/s3"
 	"nexus/internal/services"
 	"nexus/internal/taskqueue"
@@ -517,6 +520,35 @@ func (s *ObjectService) handleGetObject(w http.ResponseWriter, r *http.Request, 
 			}
 		} else {
 			dataReader = decryptedReader
+		}
+	}
+
+	// Execute on_get pipelines (watermark, transformation, etc.)
+	if s.gateway.pipeline != nil {
+		onGetPipelines := s.gateway.pipeline.GetMatchingPipelines(r.Context(), pipeline.TriggerOnGet, objMetadata.ContentType, objMetadata.UserMetadata)
+		for _, p := range onGetPipelines {
+			input := &pipeline.ObjectInput{
+				Key:          key,
+				Bucket:       bucket,
+				Content:      dataReader,
+				Size:         contentLength,
+				ContentType:  objMetadata.ContentType,
+				UserMetadata: objMetadata.UserMetadata,
+			}
+			result, err := s.gateway.pipeline.Execute(r.Context(), p.Name, input)
+			if err != nil {
+				zap.L().Error("on_get pipeline failed", zap.String("pipeline", p.Name), zap.Error(err))
+				continue
+			}
+			if result != nil && len(result.Outputs) > 0 {
+				dataReader = result.Outputs[0].Content
+				if result.Outputs[0].Size > 0 {
+					contentLength = result.Outputs[0].Size
+				}
+				if result.Outputs[0].ContentType != "" {
+					objMetadata.ContentType = result.Outputs[0].ContentType
+				}
+			}
 		}
 	}
 

@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"nexus/internal/units"
@@ -264,8 +265,58 @@ type VectorConfig struct {
 	RequireAuth          bool          `mapstructure:"require_auth"`
 	AllowedContentTypes  []string     `mapstructure:"allowed_content_types"`
 	MaxIndexContentSize  int64         `mapstructure:"max_index_content_size"`
-	// Milvus 后端配置(全面转向 Milvus,自研 HNSW/IVFPQ/MMap 已退役)
+	// Milvus 后端配置(当 index_type = "milvus" 时使用)
 	Milvus               *MilvusConfig `mapstructure:"milvus"`
+	// VSE 后端配置(当 index_type = "vse" 时使用)
+	VSE                  *VSEMapConfig `mapstructure:"vse"`
+}
+
+type VSEMapConfig struct {
+	DataDir         string `mapstructure:"data_dir"`
+	MaxHotSegments  int    `mapstructure:"max_hot_segments"`
+	MaxColdSegments int    `mapstructure:"max_cold_segments"`
+	HotSegmentSize  int    `mapstructure:"hot_segment_size"`
+	ColdSegmentSize int    `mapstructure:"cold_segment_size"`
+	IVFCentroids    int    `mapstructure:"ivf_centroids"`
+	IVFNProbe       int    `mapstructure:"ivf_nprobe"`
+	PQSubQuantizers int    `mapstructure:"pq_sub_quantizers"`
+	PQBits          int    `mapstructure:"pq_bits"`
+	HNSWM           int    `mapstructure:"hnsw_m"`
+	HNSWEfSearch    int    `mapstructure:"hnsw_ef_search"`
+	SearchWorkers   int    `mapstructure:"search_workers"`
+	GPUAccel        bool   `mapstructure:"gpu_accel"`
+	GPUBatchMin     int    `mapstructure:"gpu_batch_min"`
+	QuantizerType   string `mapstructure:"quantizer_type"`
+	CacheSize       int    `mapstructure:"cache_size"`
+	AutoMerge       bool   `mapstructure:"auto_merge"`
+	MergeInterval   string `mapstructure:"merge_interval"`
+	EnableS3        bool   `mapstructure:"enable_s3"`
+	S3Endpoint      string `mapstructure:"s3_endpoint"`
+	S3Region        string `mapstructure:"s3_region"`
+	S3Bucket        string `mapstructure:"s3_bucket"`
+	S3AccessKey     string `mapstructure:"s3_access_key"`
+	S3SecretKey     string `mapstructure:"s3_secret_key"`
+	MergePolicy     *MergePolicyConfig     `mapstructure:"merge_policy"`
+	WarmupPolicy    *WarmupPolicyConfig    `mapstructure:"warmup_policy"`
+}
+
+type MergePolicyConfig struct {
+	HotTargetSize   int    `mapstructure:"hot_target_size"`
+	HotMaxSegments  int    `mapstructure:"hot_max_segments"`
+	ColdTargetSize  int    `mapstructure:"cold_target_size"`
+	ColdMaxSegments int    `mapstructure:"cold_max_segments"`
+	MinVectorsMerge int    `mapstructure:"min_vectors_merge"`
+	MergeInterval   string `mapstructure:"merge_interval"`
+	IdleThreshold   string `mapstructure:"idle_threshold"`
+}
+
+type WarmupPolicyConfig struct {
+	Enabled          bool   `mapstructure:"enabled"`
+	BatchSize        int    `mapstructure:"batch_size"`
+	BatchInterval    string `mapstructure:"batch_interval"`
+	PreloadCentroids bool   `mapstructure:"preload_centroids"`
+	PreloadPQ        bool   `mapstructure:"preload_pq"`
+	MaxPreloadBytes  int64  `mapstructure:"max_preload_bytes"`
 }
 
 // MilvusConfig 是 config 层的 Milvus 配置,映射到 vector.MilvusConfig。
@@ -366,6 +417,38 @@ func Load(configPath string) (*Config, error) {
 	viper.SetDefault("vector.index_data_dir", "data/vector")
 	viper.SetDefault("vector.rebuild_interval", "1h")
 	viper.SetDefault("vector.fallback_minutes", 5)
+	viper.SetDefault("vector.vse.data_dir", "data/vector")
+	viper.SetDefault("vector.vse.max_hot_segments", 10)
+	viper.SetDefault("vector.vse.max_cold_segments", 100)
+	viper.SetDefault("vector.vse.hot_segment_size", 10000)
+	viper.SetDefault("vector.vse.cold_segment_size", 100000)
+	viper.SetDefault("vector.vse.ivf_centroids", 256)
+	viper.SetDefault("vector.vse.ivf_nprobe", 16)
+	viper.SetDefault("vector.vse.pq_sub_quantizers", 8)
+	viper.SetDefault("vector.vse.pq_bits", 8)
+	viper.SetDefault("vector.vse.hnsw_m", 16)
+	viper.SetDefault("vector.vse.hnsw_ef_search", 64)
+viper.SetDefault("vector.vse.search_workers", 4)
+viper.SetDefault("vector.vse.gpu_accel", false)
+viper.SetDefault("vector.vse.gpu_batch_min", 50000)
+	viper.SetDefault("vector.vse.quantizer_type", "sq")
+	viper.SetDefault("vector.vse.cache_size", 10000)
+	viper.SetDefault("vector.vse.auto_merge", true)
+	viper.SetDefault("vector.vse.merge_interval", "10m")
+	viper.SetDefault("vector.vse.enable_s3", false)
+	viper.SetDefault("vector.vse.merge_policy.hot_target_size", 10000)
+	viper.SetDefault("vector.vse.merge_policy.hot_max_segments", 10)
+	viper.SetDefault("vector.vse.merge_policy.cold_target_size", 100000)
+	viper.SetDefault("vector.vse.merge_policy.cold_max_segments", 50)
+	viper.SetDefault("vector.vse.merge_policy.min_vectors_merge", 100)
+	viper.SetDefault("vector.vse.merge_policy.merge_interval", "5m")
+	viper.SetDefault("vector.vse.merge_policy.idle_threshold", "30m")
+	viper.SetDefault("vector.vse.warmup_policy.enabled", true)
+	viper.SetDefault("vector.vse.warmup_policy.batch_size", 5)
+	viper.SetDefault("vector.vse.warmup_policy.batch_interval", "100ms")
+	viper.SetDefault("vector.vse.warmup_policy.preload_centroids", true)
+	viper.SetDefault("vector.vse.warmup_policy.preload_pq", false)
+	viper.SetDefault("vector.vse.warmup_policy.max_preload_bytes", 536870912)
 	viper.SetDefault("cache.policy", "tinyLFU")
 	viper.SetDefault("cache.metadata_max_size", "10GB")
 	viper.SetDefault("cache.object_max_size", "30GB")
@@ -435,9 +518,14 @@ func Load(configPath string) (*Config, error) {
 	viper.SetDefault("task_queue.retry_base", "1s")
 	viper.SetDefault("task_queue.max_retry_delay", "5m")
 	viper.SetDefault("task_queue.default_retry", 3)
+	viper.SetDefault("pipelines.config_file", "pipelines.yaml")
+	viper.SetDefault("pipelines.max_concurrent", 100)
+	viper.SetDefault("pipelines.enabled", false)
 
 	if err := viper.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("failed to read config: %w", err)
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("failed to read config: %w", err)
+		}
 	}
 
 	var cfg Config

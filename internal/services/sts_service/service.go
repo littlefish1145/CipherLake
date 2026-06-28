@@ -13,12 +13,14 @@ import (
 // STSService implements the Security Token Service
 type STSService struct {
 	iamService *iam.IAMService
+	stopCh     chan struct{}
 }
 
 // NewSTSService creates a new STS service
 func NewSTSService(iamService *iam.IAMService) *STSService {
 	return &STSService{
 		iamService: iamService,
+		stopCh:     make(chan struct{}),
 	}
 }
 
@@ -93,8 +95,18 @@ func (s *STSService) StartCleanupLoop(interval time.Duration) {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
-		for range ticker.C {
-			s.CleanupExpired()
+		for {
+			select {
+			case <-s.stopCh:
+				return
+			case <-ticker.C:
+				s.CleanupExpired()
+			}
 		}
 	}()
+}
+
+// StopCleanupLoop signals the cleanup goroutine to exit
+func (s *STSService) StopCleanupLoop() {
+	close(s.stopCh)
 }

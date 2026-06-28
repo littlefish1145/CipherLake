@@ -467,7 +467,7 @@ var (
 // NewDistributedCoordinator – creates EncryptionCoordinator with gRPC clients
 // ===========================================================================
 
-func NewDistributedCoordinator(tokenAddr, keygenAddr, keyunwrapAddr, encryptAddr, decryptAddr, keystoreAddr string, opaClient *OPAClient, tlsCfg *tls.Config) (*EncryptionCoordinator, error) {
+func NewDistributedCoordinator(tokenAddr, keygenAddr, keyunwrapAddr, keystoreAddr string, opaClient *OPAClient, tlsCfg *tls.Config) (*EncryptionCoordinator, error) {
 	tokenSvc, err := NewGRPCTokenService(tokenAddr, tlsCfg)
 	if err != nil {
 		return nil, fmt.Errorf("token service: %w", err)
@@ -486,30 +486,11 @@ func NewDistributedCoordinator(tokenAddr, keygenAddr, keyunwrapAddr, encryptAddr
 		return nil, fmt.Errorf("keyunwrap service: %w", err)
 	}
 
-	encryptSvc, err := NewGRPCDataEncryptor(encryptAddr, tlsCfg)
-	if err != nil {
-		tokenSvc.Close()
-		keyGenSvc.Close()
-		keyUnwrapSvc.Close()
-		return nil, fmt.Errorf("encrypt service: %w", err)
-	}
-
-	decryptSvc, err := NewGRPCDataDecryptor(decryptAddr, tlsCfg)
-	if err != nil {
-		tokenSvc.Close()
-		keyGenSvc.Close()
-		keyUnwrapSvc.Close()
-		encryptSvc.Close()
-		return nil, fmt.Errorf("decrypt service: %w", err)
-	}
-
 	keyStoreSvc, err := NewGRPCKeyStorer(keystoreAddr, tlsCfg)
 	if err != nil {
 		tokenSvc.Close()
 		keyGenSvc.Close()
 		keyUnwrapSvc.Close()
-		encryptSvc.Close()
-		decryptSvc.Close()
 		return nil, fmt.Errorf("keystore service: %w", err)
 	}
 
@@ -517,8 +498,6 @@ func NewDistributedCoordinator(tokenAddr, keygenAddr, keyunwrapAddr, encryptAddr
 		TokenService:     tokenSvc,
 		KeyGenService:    keyGenSvc,
 		KeyUnwrapService: keyUnwrapSvc,
-		EncryptService:   encryptSvc,
-		DecryptService:   decryptSvc,
 		KeyStoreService:  keyStoreSvc,
 		OPAClient:        opaClient,
 	}), nil

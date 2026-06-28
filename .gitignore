@@ -37,10 +37,17 @@ master.key
 Thumbs.db
 
 # Build
+build/
 *.exe
 *.dll
 *.so
 *.dylib
+
+# CUDA build artifacts
+*.ptx
+*.obj
+*.cubin
+*.fatbin
 
 # Test
 *.test
@@ -64,3 +71,5 @@ venv/
 # Logs
 stdout.log
 stderr.log
+
+data/

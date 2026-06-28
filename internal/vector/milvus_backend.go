@@ -297,77 +297,103 @@ func (mb *MilvusBackend) createCollection() error {
 	return mb.createIndex()
 }
 
-// createIndex 在向量字段上创建索引。
+type indexFactory func(entity.MetricType) (entity.Index, error)
+
 func (mb *MilvusBackend) createIndex() error {
 	ctx := context.Background()
 
 	idxType := strings.ToUpper(mb.config.IndexType)
 	metricType := mb.milvusMetricType()
 
-	var idx entity.Index
-	switch idxType {
-	case "HNSW":
-		m := 16
-		efConstruction := 200
-		if v, ok := mb.config.IndexParams["M"]; ok {
-			if n, err := strconv.Atoi(v); err == nil {
-				m = n
-			}
+	factories := map[string]indexFactory{
+		"HNSW":    mb.hnswIndex,
+		"IVF_FLAT": mb.ivfFlatIndex,
+		"IVF_SQ8":  mb.ivfSQ8Index,
+		"DISKANN":  mb.diskannIndex,
+	}
+
+	fn, ok := factories[idxType]
+	if !ok {
+		if idxType == "FLAT" || idxType == "AUTO" {
+			fn = mb.flatIndex
+		} else {
+			return fmt.Errorf("unsupported milvus index type: %s", idxType)
 		}
-		if v, ok := mb.config.IndexParams["efConstruction"]; ok {
-			if n, err := strconv.Atoi(v); err == nil {
-				efConstruction = n
-			}
-		}
-		idx0, err := entity.NewIndexHNSW(metricType, m, efConstruction)
-		if err != nil {
-			return fmt.Errorf("new hnsw index failed: %w", err)
-		}
-		idx = idx0
-	case "IVF_FLAT":
-		nlist := 1024
-		if v, ok := mb.config.IndexParams["nlist"]; ok {
-			if n, err := strconv.Atoi(v); err == nil {
-				nlist = n
-			}
-		}
-		idx0, err := entity.NewIndexIvfFlat(metricType, nlist)
-		if err != nil {
-			return fmt.Errorf("new ivf flat index failed: %w", err)
-		}
-		idx = idx0
-	case "IVF_SQ8":
-		nlist := 1024
-		if v, ok := mb.config.IndexParams["nlist"]; ok {
-			if n, err := strconv.Atoi(v); err == nil {
-				nlist = n
-			}
-		}
-		idx0, err := entity.NewIndexIvfSQ8(metricType, nlist)
-		if err != nil {
-			return fmt.Errorf("new ivf sq8 index failed: %w", err)
-		}
-		idx = idx0
-	case "DISKANN":
-		idx0, err := entity.NewIndexDISKANN(metricType)
-		if err != nil {
-			return fmt.Errorf("new diskann index failed: %w", err)
-		}
-		idx = idx0
-	case "FLAT", "AUTO":
-		idx0, err := entity.NewIndexFlat(metricType)
-		if err != nil {
-			return fmt.Errorf("new flat index failed: %w", err)
-		}
-		idx = idx0
-	default:
-		return fmt.Errorf("unsupported milvus index type: %s", idxType)
+	}
+
+	idx, err := fn(metricType)
+	if err != nil {
+		return err
 	}
 
 	if err := mb.client.CreateIndex(ctx, mb.collection, "vector", idx, false); err != nil {
 		return fmt.Errorf("create index failed: %w", err)
 	}
 	return nil
+}
+
+func (mb *MilvusBackend) hnswIndex(metricType entity.MetricType) (entity.Index, error) {
+	m := 16
+	efConstruction := 200
+	if v, ok := mb.config.IndexParams["M"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			m = n
+		}
+	}
+	if v, ok := mb.config.IndexParams["efConstruction"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			efConstruction = n
+		}
+	}
+	idx, err := entity.NewIndexHNSW(metricType, m, efConstruction)
+	if err != nil {
+		return nil, fmt.Errorf("new hnsw index failed: %w", err)
+	}
+	return idx, nil
+}
+
+func (mb *MilvusBackend) ivfFlatIndex(metricType entity.MetricType) (entity.Index, error) {
+	nlist := 1024
+	if v, ok := mb.config.IndexParams["nlist"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			nlist = n
+		}
+	}
+	idx, err := entity.NewIndexIvfFlat(metricType, nlist)
+	if err != nil {
+		return nil, fmt.Errorf("new ivf flat index failed: %w", err)
+	}
+	return idx, nil
+}
+
+func (mb *MilvusBackend) ivfSQ8Index(metricType entity.MetricType) (entity.Index, error) {
+	nlist := 1024
+	if v, ok := mb.config.IndexParams["nlist"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			nlist = n
+		}
+	}
+	idx, err := entity.NewIndexIvfSQ8(metricType, nlist)
+	if err != nil {
+		return nil, fmt.Errorf("new ivf sq8 index failed: %w", err)
+	}
+	return idx, nil
+}
+
+func (mb *MilvusBackend) diskannIndex(metricType entity.MetricType) (entity.Index, error) {
+	idx, err := entity.NewIndexDISKANN(metricType)
+	if err != nil {
+		return nil, fmt.Errorf("new diskann index failed: %w", err)
+	}
+	return idx, nil
+}
+
+func (mb *MilvusBackend) flatIndex(metricType entity.MetricType) (entity.Index, error) {
+	idx, err := entity.NewIndexFlat(metricType)
+	if err != nil {
+		return nil, fmt.Errorf("new flat index failed: %w", err)
+	}
+	return idx, nil
 }
 
 // loadCollection 加载已存在的集合到内存。
@@ -616,36 +642,36 @@ func (mb *MilvusBackend) Search(ctx context.Context, query Vector, topK int, fil
 	scores := rs.Scores
 	fields := rs.Fields
 
-	results := make([]SearchResult, 0, len(scores))
-	for i := 0; i < len(scores); i++ {
-		sr := SearchResult{Score: scores[i]}
-
-		// 从结果列中提取字段值
-		if col := fields.GetColumn("id"); col != nil {
-			if v, err := col.GetAsString(i); err == nil {
-				sr.ID = v
-			}
-		}
-		if col := fields.GetColumn("bucket"); col != nil {
-			if v, err := col.GetAsString(i); err == nil {
-				sr.Bucket = v
-			}
-		}
-		if col := fields.GetColumn("object_key"); col != nil {
-			if v, err := col.GetAsString(i); err == nil {
-				sr.ObjectKey = v
-			}
-		}
-		if col := fields.GetColumn("metadata"); col != nil {
-			if v, err := col.GetAsString(i); err == nil {
-				sr.Metadata = jsonToMetadata(v)
-			}
-		}
-		results = append(results, sr)
-	}
+	results := mb.parseSearchResults(scores, fields)
 
 	mb.stats.QueryCount++
 	return results, nil
+}
+
+// parseSearchResults 从 Milvus 搜索结果列中提取字段值。
+func (mb *MilvusBackend) parseSearchResults(scores []float32, fields client.ResultSet) []SearchResult {
+	results := make([]SearchResult, 0, len(scores))
+	for i := 0; i < len(scores); i++ {
+		sr := SearchResult{Score: scores[i]}
+		sr.ID = mb.extractField(fields, "id", i)
+		sr.Bucket = mb.extractField(fields, "bucket", i)
+		sr.ObjectKey = mb.extractField(fields, "object_key", i)
+		if v := mb.extractField(fields, "metadata", i); v != "" {
+			sr.Metadata = jsonToMetadata(v)
+		}
+		results = append(results, sr)
+	}
+	return results
+}
+
+func (mb *MilvusBackend) extractField(fields client.ResultSet, name string, idx int) string {
+	if col := fields.GetColumn(name); col != nil {
+		v, err := col.GetAsString(idx)
+		if err == nil {
+			return v
+		}
+	}
+	return ""
 }
 
 // Delete 实现 VectorIndex.Delete,按 ID 删除向量。

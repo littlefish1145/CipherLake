@@ -232,8 +232,6 @@ func newTestEnvelopeCoordinator(t *testing.T) *EncryptionCoordinator {
 		TokenService:     newMockTokenIssuer(),
 		KeyGenService:    kg,
 		KeyUnwrapService: kg,
-		EncryptService:   nil,
-		DecryptService:   nil,
 		KeyStoreService:  newMockKeyStorer(),
 	})
 }

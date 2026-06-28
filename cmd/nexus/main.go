@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"nexus/internal/config"
 	"nexus/internal/gateway"
 	"nexus/internal/iam"
 	"nexus/internal/logger"
+	"nexus/internal/tiering"
 )
 
 var (
@@ -53,60 +53,9 @@ func main() {
 }
 
 func runServer() {
-	viper.SetConfigFile(configPath)
-	viper.SetConfigType("yaml")
-	viper.AutomaticEnv()
-	viper.SetEnvPrefix("NEXUS")
-
-	viper.SetDefault("version", "2.0")
-	viper.SetDefault("node.role", "all")
-	viper.SetDefault("node.listen_addr", ":8080")
-	viper.SetDefault("node.data_dir", "/var/lib/nexus")
-	viper.SetDefault("tiering.enabled", true)
-	viper.SetDefault("tiering.hot_max_size", "32GB")
-	viper.SetDefault("encryption.enable_dedup", true)
-	viper.SetDefault("vector.enabled", true)
-	viper.SetDefault("vector.dim", 768)
-	viper.SetDefault("vector.hot_index_size", "10GB")
-	viper.SetDefault("cache.policy", "tinyLFU")
-	viper.SetDefault("cache.metadata_max_size", "10GB")
-	viper.SetDefault("cache.object_max_size", "30GB")
-	viper.SetDefault("performance.max_upload_size", "100GB")
-	viper.SetDefault("performance.max_concurrent_uploads", 500)
-	viper.SetDefault("logging.level", "info")
-	viper.SetDefault("logging.format", "json")
-	viper.SetDefault("auth.require_auth", false)
-	viper.SetDefault("auth.anonymous_read", true)
-	viper.SetDefault("auth.token_expiry", "24h")
-	viper.SetDefault("auth.refresh_expiry", "168h")
-	viper.SetDefault("tls.enabled", false)
-	viper.SetDefault("tls.min_version", "1.2")
-	viper.SetDefault("ratelimit.enabled", false)
-	viper.SetDefault("iam.enabled", false)
-	viper.SetDefault("iam.db_path", "./data/iam.db")
-	viper.SetDefault("iam.master_key_path", "./data/master.key")
-	viper.SetDefault("iam.sts_service_addr", "")
-	viper.SetDefault("ratelimit.global_rps", 1000)
-	viper.SetDefault("ratelimit.global_burst", 100)
-	viper.SetDefault("ratelimit.ip_rps", 100)
-	viper.SetDefault("ratelimit.ip_burst", 20)
-	viper.SetDefault("ratelimit.user_rps", 50)
-	viper.SetDefault("ratelimit.user_burst", 10)
-	viper.SetDefault("ratelimit.bucket_rps", 200)
-	viper.SetDefault("ratelimit.bucket_burst", 30)
-	viper.SetDefault("ratelimit.upload_bytes_per_sec", 52428800)
-	viper.SetDefault("ratelimit.upload_burst_bytes", 104857600)
-
-	if err := viper.ReadInConfig(); err != nil {
-		if !os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "Failed to read config: %v\n", err)
-			os.Exit(1)
-		}
-	}
-
-	var cfg config.Config
-	if err := viper.Unmarshal(&cfg); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to unmarshal config: %v\n", err)
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -141,7 +90,7 @@ func runServer() {
 		zap.Bool("ratelimit", cfg.RateLimit.Enabled),
 	)
 
-	gw, err := gateway.NewS3Gateway(&cfg)
+	gw, err := gateway.NewS3Gateway(cfg)
 	if err != nil {
 		logger.Fatal("Failed to create gateway", zap.Error(err))
 	}
@@ -217,6 +166,9 @@ func runServer() {
 	mux.HandleFunc("/health", healthHandler(gw))
 	mux.HandleFunc("/ready", readyHandler(gw))
 
+	tieringCtx, tieringCancel := context.WithCancel(context.Background())
+	go runTieringScheduler(tieringCtx, gw.GetTieringManager())
+
 	var handler http.Handler = mux
 	handler = gateway.SecurityHeadersMiddleware(handler)
 
@@ -275,6 +227,8 @@ func runServer() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	tieringCancel()
+
 	if err := gw.Close(); err != nil {
 		logger.Error("Failed to close gateway", zap.Error(err))
 	}
@@ -288,6 +242,34 @@ func runServer() {
 	}
 
 	logger.Info("Server stopped")
+}
+
+func runTieringScheduler(ctx context.Context, tm *tiering.TieringManager) {
+	if tm == nil {
+		return
+	}
+	ticker := time.NewTicker(6 * time.Hour)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			logger.Info("Running tiering decision cycle")
+			decisions, err := tm.RunTieringDecision(ctx)
+			if err != nil {
+				logger.Error("Tiering decision failed", zap.Error(err))
+				continue
+			}
+			if len(decisions) > 0 {
+				logger.Info("Executing tiering migrations", zap.Int("count", len(decisions)))
+				if err := tm.ExecuteMigrations(ctx, decisions); err != nil {
+					logger.Error("Tiering migration failed", zap.Error(err))
+				}
+			}
+		}
+	}
 }
 
 func healthHandler(gw *gateway.S3Gateway) http.HandlerFunc {

@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -13,6 +14,7 @@ type ResumableCleanup struct {
 	interval time.Duration
 	stopCh   chan struct{}
 	stopped  bool
+	startOnce sync.Once
 }
 
 // NewResumableCleanup creates a new cleanup manager.
@@ -29,7 +31,9 @@ func NewResumableCleanup(handler *ResumableUploadHandler, interval time.Duration
 
 // Start begins the background cleanup loop.
 func (c *ResumableCleanup) Start() {
-	go c.run()
+	c.startOnce.Do(func() {
+		go c.run()
+	})
 }
 
 // Stop signals the cleanup loop to exit.
