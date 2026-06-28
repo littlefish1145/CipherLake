@@ -59,6 +59,10 @@ type gpuSegData struct {
 	dClusterOffsets  unsafe.Pointer // [nc+1] int32
 	dClusterMembers   unsafe.Pointer // [total] int32, flattened vector indices
 
+	// Vamana graph data (CSR format)
+	dNbrOffsets unsafe.Pointer // [nv+1] int32
+	dNbrData    unsafe.Pointer // [totalNbrs] int32
+
 	// host-side cache for rerank
 	hostGids  []uint64  // [nv], cached global IDs
 	hostNorms []float32 // [nv], cached vector norms² (optional)
@@ -91,6 +95,8 @@ type cudaKernels struct {
 	batchedTopKSelectGids C.CUfunction
 	mergeTopKPositions   C.CUfunction
 	centroidSelectTopK   C.CUfunction
+	vamanaExpand         C.CUfunction
+	vamanaMergeFrontier  C.CUfunction
 }
 
 // ---------------------------------------------------------------------------
@@ -359,6 +365,8 @@ func loadKernels(ptxPath string) (*cudaKernels, error) {
 		{"batched_topk_select_gids", &kn.batchedTopKSelectGids},
 		{"merge_topk_positions", &kn.mergeTopKPositions},
 		{"centroid_select_topk", &kn.centroidSelectTopK},
+		{"vamana_expand", &kn.vamanaExpand},
+		{"vamana_merge_frontier", &kn.vamanaMergeFrontier},
 	} {
 		cName := C.CString(f.name)
 		if err := cuCheck(C.cuModuleGetFunction(f.dst, mod, cName)); err != nil {
@@ -568,7 +576,7 @@ func (m *cudaManager) unpinSegment(segID vse.SegmentID) error {
 }
 
 func (m *cudaManager) freeSegData(d *gpuSegData) {
-	for _, p := range []unsafe.Pointer{d.dCodes, d.dCodebook, d.dCentroids, d.dVectors, d.dNorms, d.dGlobalIDs, d.dClusterOffsets, d.dClusterMembers} {
+	for _, p := range []unsafe.Pointer{d.dCodes, d.dCodebook, d.dCentroids, d.dVectors, d.dNorms, d.dGlobalIDs, d.dClusterOffsets, d.dClusterMembers, d.dNbrOffsets, d.dNbrData} {
 		if p != nil { C.cuMemFree(C.CUdeviceptr(uintptr(p))) }
 	}
 }
@@ -1055,6 +1063,198 @@ func (m *cudaManager) flatSearch(d *gpuSegData, query []float32, topK int, metri
 	// Dot product: 直接 GPU topK
 	return m.gpuTopKResults(dDists, d, topK)
 }
+
+// ---------------------------------------------------------------------------
+// Vamana GPU support
+// ---------------------------------------------------------------------------
+
+// pinVamanaGraph uploads Vamana graph data (CSR neighbor offsets + data) to GPU.
+func (m *cudaManager) pinVamanaGraph(segID vse.SegmentID, nbrOffsets, nbrData []int32) error {
+	m.mu.Lock()
+	unlock := m.cudaLock()
+	defer unlock()
+	defer m.mu.Unlock()
+
+	d, ok := m.segments[uint32(segID)]
+	if !ok {
+		return fmt.Errorf("segment %d not found", segID)
+	}
+	if d.dNbrOffsets != nil {
+		return nil // already pinned
+	}
+
+	if err := cuMalloc(&d.dNbrOffsets, len(nbrOffsets)*4); err != nil {
+		return fmt.Errorf("alloc nbrOffsets: %w", err)
+	}
+	if err := cuMalloc(&d.dNbrData, len(nbrData)*4); err != nil {
+		return fmt.Errorf("alloc nbrData: %w", err)
+	}
+	if err := cuMemcpyH2D(d.dNbrOffsets, unsafe.Pointer(&nbrOffsets[0]), len(nbrOffsets)*4); err != nil {
+		return fmt.Errorf("copy nbrOffsets: %w", err)
+	}
+	if err := cuMemcpyH2D(d.dNbrData, unsafe.Pointer(&nbrData[0]), len(nbrData)*4); err != nil {
+		return fmt.Errorf("copy nbrData: %w", err)
+	}
+	return nil
+}
+
+// hasVamanaGraph 检查 GPU 上是否存在 Vamana 图数据。
+func (m *cudaManager) hasVamanaGraph(segID vse.SegmentID) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	d, ok := m.segments[uint32(segID)]
+	if !ok {
+		return false
+	}
+	return d.dNbrOffsets != nil && d.dNbrData != nil
+}
+
+// vamanaSearchGPU performs GPU-accelerated Vamana search for a single query.
+// Iteratively expands frontier on GPU, returns candidate IDs for CPU rerank.
+func (m *cudaManager) vamanaSearchGPU(segID vse.SegmentID, query []float32, topK, beamL int) (candIDs []int32, candDists []float32, _ error) {
+	m.mu.Lock()
+	threadUnlock := m.cudaLock()
+	d, ok := m.segments[uint32(segID)]
+	m.mu.Unlock()
+	if !ok {
+		threadUnlock()
+		return nil, nil, fmt.Errorf("segment %d not on GPU", segID)
+	}
+	defer threadUnlock()
+
+	if d.dNbrOffsets == nil || d.dNbrData == nil {
+		return nil, nil, fmt.Errorf("vamana graph not pinned for segment %d", segID)
+	}
+	if beamL <= 0 {
+		beamL = 64
+	}
+	if beamL > 64 {
+		beamL = 64
+	}
+
+	// Upload query to GPU
+	if err := m.queryPool.ensureCapacity(d.dim, d.nv, d.M, 1); err != nil {
+		return nil, nil, err
+	}
+	qBuf := make([]float32, d.dim)
+	copy(qBuf, query)
+	if err := cuMemcpyH2DAsync(m.queryPool.dQ, unsafe.Pointer(&qBuf[0]), d.dim*4, m.stream); err != nil {
+		return nil, nil, err
+	}
+
+	// Build PQ distance table on GPU
+	if err := m.fastLaunch(m.kernels.pqDistTable,
+		1, uint32(d.M), 256, 2,
+		ptrArg(m.queryPool.dQ), ptrArg(d.dCodebook), ptrArg(m.queryPool.dTable),
+		intArg((*C.int)(unsafe.Pointer(&dq1))),
+		intArg((*C.int)(unsafe.Pointer(&d.dim))),
+		intArg((*C.int)(unsafe.Pointer(&d.M))),
+		intArg((*C.int)(unsafe.Pointer(&d.subdim))),
+	); err != nil {
+		return nil, nil, err
+	}
+
+	// Allocate frontier buffers
+	const maxCand = 64 * 4096 // beamL * maxDegree per node
+	dFrontierW := C.int(1)
+	dFrontierIDs := make([]int32, beamL)
+	dFrontierDists := make([]float32, beamL)
+
+	var dFIDs, dFDists, dNewIDs, dNewDists, dCount unsafe.Pointer
+	alloc := func(p *unsafe.Pointer, size int) error {
+		if err := cuMalloc(p, size); err != nil {
+			return fmt.Errorf("alloc %d: %w", size, err)
+		}
+		return nil
+	}
+	if err := alloc(&dFIDs, beamL*4); err != nil { return nil, nil, err }
+	defer C.cuMemFree(C.CUdeviceptr(uintptr(dFIDs)))
+	if err := alloc(&dFDists, beamL*4); err != nil { return nil, nil, err }
+	defer C.cuMemFree(C.CUdeviceptr(uintptr(dFDists)))
+	if err := alloc(&dNewIDs, maxCand*4); err != nil { return nil, nil, err }
+	defer C.cuMemFree(C.CUdeviceptr(uintptr(dNewIDs)))
+	if err := alloc(&dNewDists, maxCand*4); err != nil { return nil, nil, err }
+	defer C.cuMemFree(C.CUdeviceptr(uintptr(dNewDists)))
+	if err := alloc(&dCount, 4); err != nil { return nil, nil, err }
+	defer C.cuMemFree(C.CUdeviceptr(uintptr(dCount)))
+
+	dFrontierIDs[0] = 0 // start from node 0 (medoid)
+	dFrontierDists[0] = 0
+	if err := cuMemcpyH2D(dFIDs, unsafe.Pointer(&dFrontierIDs[0]), beamL*4); err != nil {
+		return nil, nil, err
+	}
+	if err := cuMemcpyH2D(dFDists, unsafe.Pointer(&dFrontierDists[0]), beamL*4); err != nil {
+		return nil, nil, err
+	}
+
+	// Iterative frontier expansion
+	dNv := C.int(d.nv)
+	dM := C.int(d.M)
+	dBeamL := C.int(beamL)
+	dMaxOut := C.int(maxCand)
+	dFrontierW = C.int(1)
+
+	maxIter := 6
+	for iter := 0; iter < maxIter; iter++ {
+		// Expand frontier on GPU: gather neighbors, compute PQ-ADC
+		if err := m.fastLaunchSmem(m.kernels.vamanaExpand,
+			1, 1, 256, 1, 0,
+			ptrArg(dFIDs), ptrArg(d.dNbrOffsets), ptrArg(d.dNbrData),
+			ptrArg(d.dCodes), ptrArg(m.queryPool.dTable),
+			ptrArg(dNewIDs), ptrArg(dNewDists), ptrArg(dCount),
+			intArg(&dFrontierW), intArg(&dNv), intArg(&dM), intArg(&dMaxOut),
+		); err != nil {
+			return nil, nil, err
+		}
+
+		// Read back count
+		var newCount int32
+		if err := cuMemcpyD2H(unsafe.Pointer(&newCount), dCount, 4); err != nil {
+			return nil, nil, err
+		}
+		if newCount == 0 {
+			break
+		}
+
+		// Merge old frontier with new candidates on GPU
+		if err := m.fastLaunchSmem(m.kernels.vamanaMergeFrontier,
+			1, 1, 256, 1, uint32(beamL*(4+4)),
+			ptrArg(dFIDs), ptrArg(dFDists),
+			ptrArg(dNewIDs), ptrArg(dNewDists),
+			ptrArg(dFIDs), ptrArg(dFDists), ptrArg(dCount),
+			intArg(&dFrontierW), intArg(&dFrontierW), intArg(&dBeamL),
+		); err != nil {
+			return nil, nil, err
+		}
+
+		// Read back merged count for next iteration
+		var mergedCount int32
+		if err := cuMemcpyD2H(unsafe.Pointer(&mergedCount), dCount, 4); err != nil {
+			return nil, nil, err
+		}
+		dFrontierW = C.int(mergedCount)
+		if dFrontierW == 0 {
+			break
+		}
+	}
+
+	// Final frontier readback
+	finalCount := int(dFrontierW)
+	if finalCount > topK*2 {
+		finalCount = topK * 2
+	}
+	finalIDs := make([]int32, finalCount)
+	finalDists := make([]float32, finalCount)
+	if err := cuMemcpyD2H(unsafe.Pointer(&finalIDs[0]), dFIDs, finalCount*4); err != nil {
+		return nil, nil, err
+	}
+	if err := cuMemcpyD2H(unsafe.Pointer(&finalDists[0]), dFDists, finalCount*4); err != nil {
+		return nil, nil, err
+	}
+	return finalIDs, finalDists, nil
+}
+
+var dq1 C.int = 1 // single query constant
 
 // ---------------------------------------------------------------------------
 // Helpers

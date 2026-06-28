@@ -22,3 +22,8 @@ func (*cudaManager) search(vse.SegmentID, SearchRequest) ([]vse.SearchResult, er
 	return nil, ErrNoGPU
 }
 func (*cudaManager) batchSearch(vse.SegmentID, []SearchRequest) []BatchResult { return nil }
+func (*cudaManager) pinVamanaGraph(vse.SegmentID, []int32, []int32) error   { return ErrNoGPU }
+func (*cudaManager) hasVamanaGraph(vse.SegmentID) bool                      { return false }
+func (*cudaManager) vamanaSearchGPU(vse.SegmentID, []float32, int, int) ([]int32, []float32, error) {
+	return nil, nil, ErrNoGPU
+}

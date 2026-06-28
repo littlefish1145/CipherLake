@@ -740,3 +740,231 @@ extern "C" __global__ void centroid_select_topk(
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Vamana frontier expand: given frontier node IDs, gather all unique
+// neighbors from the Vamana graph (CSR format) and compute PQ-ADC distances.
+//
+// Input:
+//   frontierIDs [frontierW] — current beam frontier
+//   nbrOffsets [nv + 1]    — CSR offsets into nbrData
+//   nbrData [totalNbrs]     — flattened neighbor lists (int32)
+//   pqCodes [nv, M]        — PQ codes for all nodes
+//   pqTable [M, 256]       — PQ distance table for this query
+//   frontierW, nv, M
+//
+// Output:
+//   outCandIDs [maxOut]   — unique neighbor node IDs
+//   outCandDists [maxOut] — PQ-ADC distances
+//   outCount [1]           — valid count in outCand*
+//
+//   grid  = (1, 1, 1), block = (256, 1, 1)
+//   Shared memory: frontierW * 4 + maxOut * (4 + 4) bytes
+// ---------------------------------------------------------------------------
+#define VAMANA_MAX_FRONTIER 64
+#define VAMANA_MAX_CAND 4096
+
+extern "C" __global__ void vamana_expand(
+    const int*    __restrict__ frontierIDs,       // [frontierW]
+    const int*    __restrict__ nbrOffsets,         // [nv + 1]
+    const int*    __restrict__ nbrData,            // [totalNbrs]
+    const unsigned char* __restrict__ pqCodes,     // [nv, M]
+    const float*  __restrict__ pqTable,            // [M, 256]
+    int*          __restrict__ outCandIDs,         // [maxOut]
+    float*        __restrict__ outCandDists,       // [maxOut]
+    int*          __restrict__ outCount,           // [1]
+    int frontierW, int nv, int M, int maxOut)
+{
+    __shared__ int sFrontier[VAMANA_MAX_FRONTIER];
+    __shared__ int sCandCount;
+    __shared__ int sCandIDs[VAMANA_MAX_CAND];
+    __shared__ bool sMarked[VAMANA_MAX_CAND];
+    __shared__ int sLocalOff[VAMANA_MAX_FRONTIER];
+    __shared__ int sLocalLen[VAMANA_MAX_FRONTIER];
+
+    int tid = threadIdx.x;
+
+    // Phase 1: load frontier into shared memory
+    if (tid < frontierW && tid < VAMANA_MAX_FRONTIER) {
+        sFrontier[tid] = frontierIDs[tid];
+    }
+    __syncthreads();
+
+    // Phase 2: each thread loads one frontier node's neighbor range
+    if (tid < frontierW) {
+        int node = sFrontier[tid];
+        if (node >= 0 && node < nv) {
+            sLocalOff[tid] = nbrOffsets[node];
+            sLocalLen[tid] = nbrOffsets[node + 1] - nbrOffsets[node];
+        } else {
+            sLocalOff[tid] = 0;
+            sLocalLen[tid] = 0;
+        }
+    }
+    __syncthreads();
+
+    // Phase 3: calculate prefix sum for output positions (thread 0)
+    if (tid == 0) {
+        int total = 0;
+        for (int i = 0; i < frontierW; i++) {
+            int off = total;
+            total += sLocalLen[i];
+            sLocalOff[i] = off;
+        }
+        if (total > maxOut) total = maxOut;
+        sCandCount = total;
+        *outCount = total;
+    }
+    __syncthreads();
+
+    int totalCand = sCandCount;
+    if (totalCand == 0) return;
+
+    // Phase 4: gather neighbor IDs, deduplicate, and clear marks
+    for (int i = tid; i < totalCand; i += blockDim.x) {
+        sCandIDs[i] = -1;
+        sCandDists[i] = INFINITY;
+        sMarked[i] = false;
+    }
+    __syncthreads();
+
+    // Each thread copies neighbor IDs for one frontier node
+    if (tid < frontierW) {
+        int start = sLocalOff[tid];
+        int len = sLocalLen[tid];
+        if (start + len > maxOut) len = maxOut - start;
+        if (len > 0) {
+            int node = sFrontier[tid];
+            int nbrBase = nbrOffsets[node];
+            for (int j = 0; j < len; j++) {
+                sCandIDs[start + j] = nbrData[nbrBase + j];
+            }
+        }
+    }
+    __syncthreads();
+
+    // Phase 5: deduplicate and compute PQ-ADC distances
+    __shared__ int dedupCount;
+    if (tid == 0) {
+        int writePos = 0;
+        for (int i = 0; i < totalCand; i++) {
+            int cid = sCandIDs[i];
+            if (cid < 0 || cid >= nv) continue;
+
+            // Check dedup
+            bool dup = false;
+            for (int j = 0; j < writePos; j++) {
+                if (sCandIDs[j] == cid) { dup = true; break; }
+            }
+            if (dup) continue;
+
+            // Compute PQ-ADC distance
+            const unsigned char* code = pqCodes + cid * M;
+            float dist = 0.0f;
+            for (int m = 0; m < M; m++) {
+                dist += pqTable[m * 256 + code[m]];
+            }
+
+            outCandIDs[writePos] = cid;
+            outCandDists[writePos] = dist;
+            writePos++;
+        }
+        *outCount = writePos;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Vamana frontier merge: merge old frontier candidates with expanded
+// candidates, select top-L by distance.
+//
+// Input:
+//   oldIDs [oldW], oldDists [oldW]     — previous frontier
+//   newIDs [newW], newDists [newW]     — expanded candidates (from vamana_expand)
+//   oldW, newW, L                       — beam width
+//
+// Output:
+//   outIDs [L], outDists [L]           — merged top-L candidates
+//   outCount [1]                       — valid count
+//
+//   grid = (1, 1, 1), block = (256, 1, 1)
+// ---------------------------------------------------------------------------
+extern "C" __global__ void vamana_merge_frontier(
+    const int*   __restrict__ oldIDs,     // [oldW]
+    const float* __restrict__ oldDists,   // [oldW]
+    const int*   __restrict__ newIDs,     // [newW]
+    const float* __restrict__ newDists,   // [newW]
+    int*         __restrict__ outIDs,     // [L]
+    float*       __restrict__ outDists,   // [L]
+    int*         __restrict__ outCount,   // [1]
+    int oldW, int newW, int L)
+{
+    extern __shared__ char smem[];
+    float* sDists = (float*)smem;
+    int* sIDs = (int*)(sDists + L);
+
+    if (threadIdx.x < L) {
+        sDists[threadIdx.x] = INFINITY;
+        sIDs[threadIdx.x] = -1;
+    }
+    __syncthreads();
+
+    if (threadIdx.x == 0) {
+        int count = 0;
+
+        // Insert old frontier
+        for (int i = 0; i < oldW && i < L; i++) {
+            float d = oldDists[i];
+            int id = oldIDs[i];
+            int ins = count;
+            for (int j = 0; j < count; j++) {
+                if (d < sDists[j]) { ins = j; break; }
+            }
+            for (int j = count; j > ins; j--) {
+                sDists[j] = sDists[j - 1];
+                sIDs[j] = sIDs[j - 1];
+            }
+            sDists[ins] = d;
+            sIDs[ins] = id;
+            count++;
+        }
+
+        // Insert new candidates (limit to 2*L to control scan cost)
+        int maxNew = newW < L * 2 ? newW : L * 2;
+        for (int i = 0; i < maxNew; i++) {
+            float d = newDists[i];
+            int id = newIDs[i];
+            if (count < L) {
+                int ins = count;
+                for (int j = 0; j < count; j++) {
+                    if (d < sDists[j]) { ins = j; break; }
+                }
+                for (int j = count; j > ins; j--) {
+                    sDists[j] = sDists[j - 1];
+                    sIDs[j] = sIDs[j - 1];
+                }
+                sDists[ins] = d;
+                sIDs[ins] = id;
+                count++;
+            } else if (d < sDists[L - 1]) {
+                int ins = L - 1;
+                for (int j = 0; j < L - 1; j++) {
+                    if (d < sDists[j]) { ins = j; break; }
+                }
+                for (int j = L - 1; j > ins; j--) {
+                    sDists[j] = sDists[j - 1];
+                    sIDs[j] = sIDs[j - 1];
+                }
+                sDists[ins] = d;
+                sIDs[ins] = id;
+            }
+        }
+
+        // Write output (limit to L)
+        int outW = count < L ? count : L;
+        *outCount = outW;
+        for (int j = 0; j < outW; j++) {
+            outDists[j] = sDists[j];
+            outIDs[j] = sIDs[j];
+        }
+    }
+}

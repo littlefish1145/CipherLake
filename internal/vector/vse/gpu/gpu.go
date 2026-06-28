@@ -60,6 +60,9 @@ type gpuImpl interface {
 	unpinSegment(segID vse.SegmentID) error
 	search(segID vse.SegmentID, req SearchRequest) ([]vse.SearchResult, error)
 	batchSearch(segID vse.SegmentID, reqs []SearchRequest) []BatchResult
+	pinVamanaGraph(segID vse.SegmentID, nbrOffsets, nbrData []int32) error
+	hasVamanaGraph(segID vse.SegmentID) bool
+	vamanaSearchGPU(segID vse.SegmentID, query []float32, topK, beamL int) ([]int32, []float32, error)
 }
 
 func NewManager(cfg Config) *Manager {
@@ -102,5 +105,17 @@ func (m *Manager) Search(segID vse.SegmentID, req SearchRequest) ([]vse.SearchRe
 
 func (m *Manager) BatchSearch(segID vse.SegmentID, reqs []SearchRequest) []BatchResult {
 	return m.impl.batchSearch(segID, reqs)
+}
+
+func (m *Manager) PinVamanaGraph(segID vse.SegmentID, nbrOffsets, nbrData []int32) error {
+	return m.impl.pinVamanaGraph(segID, nbrOffsets, nbrData)
+}
+
+func (m *Manager) HasVamanaGraph(segID vse.SegmentID) bool {
+	return m.impl.hasVamanaGraph(segID)
+}
+
+func (m *Manager) VamanaSearchGPU(segID vse.SegmentID, query []float32, topK, beamL int) ([]int32, []float32, error) {
+	return m.impl.vamanaSearchGPU(segID, query, topK, beamL)
 }
 

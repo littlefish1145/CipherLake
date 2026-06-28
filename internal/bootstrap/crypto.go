@@ -11,8 +11,6 @@ import (
 	"nexus/internal/services/token_service"
 	"nexus/internal/services/keygen_service"
 	"nexus/internal/services/keyunwrap_service"
-	"nexus/internal/services/encrypt_service"
-	"nexus/internal/services/decrypt_service"
 	"nexus/internal/services/keystore_service"
 )
 
@@ -141,14 +139,6 @@ func initializeLocal(cfg *config.Config) (*services.EncryptionCoordinator, error
 		return nil, fmt.Errorf("failed to initialize keyunwrap service: %w", err)
 	}
 
-	encryptSvc := encrypt_service.NewEncryptService(encrypt_service.EncryptServiceConfig{
-		AuditSize: auditSize,
-	})
-
-	decryptSvc := decrypt_service.NewDecryptService(decrypt_service.DecryptServiceConfig{
-		AuditSize: auditSize,
-	})
-
 	keyStoreSvc, err := keystore_service.NewKeyStoreService(keystore_service.KeyStoreServiceConfig{
 		DataPath:  keyStorePath,
 		AuditSize: auditSize,
@@ -168,8 +158,6 @@ func initializeLocal(cfg *config.Config) (*services.EncryptionCoordinator, error
 		TokenService:     tokenSvc,
 		KeyGenService:    keyGenSvc,
 		KeyUnwrapService: keyUnwrapSvc,
-		EncryptService:   encryptSvc,
-		DecryptService:   decryptSvc,
 		KeyStoreService:  keyStoreSvc,
 		OPAClient:        opaClient,
 	}), nil
@@ -196,14 +184,6 @@ func initializeDistributed(cfg *config.Config) (*services.EncryptionCoordinator,
 	if keyunwrapAddr == "" {
 		keyunwrapAddr = "localhost:50053"
 	}
-	encryptAddr := cfg.CryptoServices.EncryptServiceAddr
-	if encryptAddr == "" {
-		encryptAddr = "localhost:50054"
-	}
-	decryptAddr := cfg.CryptoServices.DecryptServiceAddr
-	if decryptAddr == "" {
-		decryptAddr = "localhost:50055"
-	}
 	keystoreAddr := cfg.CryptoServices.KeyStoreServiceAddr
 	if keystoreAddr == "" {
 		keystoreAddr = "localhost:50056"
@@ -213,8 +193,6 @@ func initializeDistributed(cfg *config.Config) (*services.EncryptionCoordinator,
 		tokenAddr,
 		keygenAddr,
 		keyunwrapAddr,
-		encryptAddr,
-		decryptAddr,
 		keystoreAddr,
 		opaClient,
 		nil,
