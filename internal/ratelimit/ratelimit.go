@@ -3,6 +3,7 @@ package ratelimit
 import (
 	"context"
 	"errors"
+	"hash/fnv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -14,12 +15,18 @@ var (
 	ErrBandwidthLimit = errors.New("bandwidth limit exceeded")
 )
 
-type SlidingWindowCounter struct {
+const slidingWindowShards = 64
+
+type slidingWindowShard struct {
 	mu       sync.Mutex
 	windows  map[string]*windowState
-	duration time.Duration
+}
+
+type SlidingWindowCounter struct {
+	shards    [slidingWindowShards]*slidingWindowShard
+	duration  time.Duration
 	precision time.Duration
-	limit    int64
+	limit     int64
 }
 
 type windowState struct {
@@ -29,24 +36,36 @@ type windowState struct {
 }
 
 func NewSlidingWindowCounter(duration time.Duration, precision time.Duration, limit int64) *SlidingWindowCounter {
-	return &SlidingWindowCounter{
-		windows:   make(map[string]*windowState),
+	sw := &SlidingWindowCounter{
 		duration:  duration,
 		precision: precision,
 		limit:     limit,
 	}
+	for i := 0; i < slidingWindowShards; i++ {
+		sw.shards[i] = &slidingWindowShard{
+			windows: make(map[string]*windowState),
+		}
+	}
+	return sw
+}
+
+func (s *SlidingWindowCounter) shard(key string) *slidingWindowShard {
+	h := fnv.New32a()
+	h.Write([]byte(key))
+	return s.shards[int(h.Sum32())%slidingWindowShards]
 }
 
 func (s *SlidingWindowCounter) Allow(key string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	shard := s.shard(key)
+	shard.mu.Lock()
+	defer shard.mu.Unlock()
 
 	now := time.Now()
 	nowNano := now.UnixNano()
 	bucketIdx := int((nowNano % s.duration.Nanoseconds()) / s.precision.Nanoseconds())
 	currentBucket := nowNano / s.precision.Nanoseconds()
 
-	ws, exists := s.windows[key]
+	ws, exists := shard.windows[key]
 	if !exists || currentBucket-ws.bucketTime > int64(s.duration/s.precision) {
 		numBuckets := int(s.duration / s.precision)
 		if numBuckets == 0 {
@@ -57,7 +76,7 @@ func (s *SlidingWindowCounter) Allow(key string) bool {
 			bucketTime: currentBucket - int64(numBuckets),
 			count:      0,
 		}
-		s.windows[key] = ws
+		shard.windows[key] = ws
 	}
 
 	for ws.bucketTime < currentBucket {
@@ -80,10 +99,11 @@ func (s *SlidingWindowCounter) Allow(key string) bool {
 }
 
 func (s *SlidingWindowCounter) Count(key string) int64 {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	shard := s.shard(key)
+	shard.mu.Lock()
+	defer shard.mu.Unlock()
 
-	ws, exists := s.windows[key]
+	ws, exists := shard.windows[key]
 	if !exists {
 		return 0
 	}
@@ -91,9 +111,10 @@ func (s *SlidingWindowCounter) Count(key string) int64 {
 }
 
 func (s *SlidingWindowCounter) Reset(key string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.windows, key)
+	shard := s.shard(key)
+	shard.mu.Lock()
+	defer shard.mu.Unlock()
+	delete(shard.windows, key)
 }
 
 type TokenBucketLimiter struct {
@@ -261,10 +282,7 @@ func (b *BandwidthLimiter) Allow(key string, bytes int64) bool {
 }
 
 func (b *BandwidthLimiter) Wait(key string, bytes int64) {
-	for {
-		if b.Allow(key, bytes) {
-			return
-		}
+	for !b.Allow(key, bytes) {
 		time.Sleep(10 * time.Millisecond)
 	}
 }
@@ -723,54 +741,53 @@ func (cb *CircuitBreaker) GetState(name string) CircuitState {
 type ConcurrencyLimiter struct {
 	mu       sync.RWMutex
 	limits   map[string]int
-	counters map[string]*int64
+	semas    map[string]chan struct{}
 	maxTotal int
 }
 
 func NewConcurrencyLimiter(maxTotal int) *ConcurrencyLimiter {
 	return &ConcurrencyLimiter{
 		limits:   make(map[string]int),
-		counters: make(map[string]*int64),
+		semas:    make(map[string]chan struct{}),
 		maxTotal: maxTotal,
 	}
 }
 
-func (c *ConcurrencyLimiter) Acquire(ctx context.Context, key string) (release func(), err error) {
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
+func (c *ConcurrencyLimiter) getOrCreateSemaphore(key string, limit int) chan struct{} {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if sema, exists := c.semas[key]; exists {
+		return sema
 	}
 
-	c.mu.Lock()
+	sema := make(chan struct{}, limit)
+	// Fill all slots
+	for i := 0; i < limit; i++ {
+		sema <- struct{}{}
+	}
+	c.semas[key] = sema
+	return sema
+}
+
+func (c *ConcurrencyLimiter) Acquire(ctx context.Context, key string) (release func(), err error) {
+	c.mu.RLock()
 	limit, exists := c.limits[key]
+	c.mu.RUnlock()
+
 	if !exists {
 		limit = c.maxTotal
 	}
-	counter, exists := c.counters[key]
-	if !exists {
-		var val int64
-		counter = &val
-		c.counters[key] = counter
-	}
-	c.mu.Unlock()
 
-	for {
-		current := atomic.LoadInt64(counter)
-		if current >= int64(limit) {
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(100 * time.Millisecond):
-				continue
-			}
-		}
+	sema := c.getOrCreateSemaphore(key, limit)
 
-		if atomic.CompareAndSwapInt64(counter, current, current+1) {
-			return func() {
-				atomic.AddInt64(counter, -1)
-			}, nil
-		}
+	select {
+	case <-sema:
+		return func() {
+			sema <- struct{}{}
+		}, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 }
 
@@ -778,14 +795,25 @@ func (c *ConcurrencyLimiter) SetLimit(key string, limit int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.limits[key] = limit
+
+	// Rebuild semaphore with new limit
+	if sema, exists := c.semas[key]; exists {
+		// Drain the old semaphore
+		close(sema)
+	}
+	newSema := make(chan struct{}, limit)
+	for i := 0; i < limit; i++ {
+		newSema <- struct{}{}
+	}
+	c.semas[key] = newSema
 }
 
 func (c *ConcurrencyLimiter) GetCount(key string) int64 {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	if counter, exists := c.counters[key]; exists {
-		return atomic.LoadInt64(counter)
+	if sema, exists := c.semas[key]; exists {
+		return int64(cap(sema) - len(sema))
 	}
 	return 0
 }
