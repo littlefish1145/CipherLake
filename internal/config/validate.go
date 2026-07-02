@@ -135,12 +135,12 @@ func Validate(cfg *Config) []ValidationError {
 	}
 
 	// 11. tls.min_version
-	validTLSVersions := map[string]bool{"1.0": true, "1.1": true, "1.2": true, "1.3": true}
+	validTLSVersions := map[string]bool{"1.2": true, "1.3": true}
 	if cfg.TLS.MinVersion != "" && !validTLSVersions[cfg.TLS.MinVersion] {
 		errs = append(errs, ValidationError{
 			Field:    "tls.min_version",
 			Message:  fmt.Sprintf("invalid TLS version %q", cfg.TLS.MinVersion),
-			Expected: `must be one of: "1.0", "1.1", "1.2", "1.3"`,
+			Expected: `must be one of: "1.2", "1.3" (TLS 1.0 and 1.1 are deprecated)`,
 			Severity: "error",
 		})
 	}

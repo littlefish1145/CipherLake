@@ -42,6 +42,9 @@ type InvertedIndex struct {
 
 	compaction *CompactionManager
 	closed     bool
+
+	maxDocs    int           // maximum number of documents before eviction
+	evictList  []uint64      // FIFO eviction order
 }
 
 // NewInvertedIndex creates a new inverted index backed by BoltDB.
@@ -75,12 +78,14 @@ func NewInvertedIndex(dbPath string) (*InvertedIndex, error) {
 	scorer := NewBM25Scorer(1.2, 0.75)
 
 	idx := &InvertedIndex{
-		db:       db,
-		dbPath:   dbPath,
-		segments: segManager,
-		scorer:   scorer,
-		docs:     make(map[uint64]*DocInfo),
-		termDF:   make(map[string]int),
+		db:        db,
+		dbPath:    dbPath,
+		segments:  segManager,
+		scorer:    scorer,
+		docs:      make(map[uint64]*DocInfo),
+		termDF:    make(map[string]int),
+		maxDocs:   100000,
+		evictList: make([]uint64, 0, 1000),
 	}
 
 	// Load existing document info from BoltDB
@@ -151,6 +156,31 @@ func (idx *InvertedIndex) loadDocsFromDB() error {
 	})
 }
 
+// evictExcessDocs removes the oldest documents when the index exceeds maxDocs.
+// Must be called with idx.mu write lock held.
+func (idx *InvertedIndex) evictExcessDocs() {
+	for len(idx.docs) > idx.maxDocs && len(idx.evictList) > 0 {
+		evictID := idx.evictList[0]
+		idx.evictList = idx.evictList[1:]
+
+		if _, ok := idx.docs[evictID]; ok {
+			idx.segments.DeleteDocument(evictID)
+			delete(idx.docs, evictID)
+
+			docCount, avgDL := idx.segments.GetStats()
+			idx.scorer.UpdateStats(docCount, avgDL)
+		}
+	}
+}
+
+// SetMaxDocs sets the maximum number of documents in the index before eviction.
+func (idx *InvertedIndex) SetMaxDocs(max int) {
+	idx.mu.Lock()
+	defer idx.mu.Unlock()
+	idx.maxDocs = max
+	idx.evictExcessDocs()
+}
+
 // ComputeDocID generates a document ID from bucket, key, and versionID using SHA-256.
 func ComputeDocID(bucket, key, versionID string) uint64 {
 	h := sha256.New()
@@ -197,8 +227,18 @@ func (idx *InvertedIndex) AddDocumentWithInfo(bucket, key, versionID, text strin
 	docID := ComputeDocID(bucket, key, versionID)
 	tokens := Tokenize(text)
 
-	// Store doc info
 	idx.mu.Lock()
+	defer idx.mu.Unlock()
+
+	if idx.closed {
+		return fmt.Errorf("index is closed")
+	}
+
+	// Check disk quota
+	if idx.compaction != nil && idx.compaction.IsQuotaExceeded() {
+		return fmt.Errorf("FTS index disk quota exceeded")
+	}
+
 	idx.docs[docID] = &DocInfo{
 		DocID:   docID,
 		Bucket:  bucket,
@@ -206,14 +246,33 @@ func (idx *InvertedIndex) AddDocumentWithInfo(bucket, key, versionID, text strin
 		Version: versionID,
 		Length:  len(tokens),
 	}
-	idx.mu.Unlock()
+	idx.evictList = append(idx.evictList, docID)
+
+	// Add to segment manager
+	idx.segments.AddDocument(docID, tokens)
+
+	// Update term document frequencies
+	seen := make(map[string]bool)
+	for _, t := range tokens {
+		if !seen[t.Term] {
+			idx.termDF[t.Term]++
+			seen[t.Term] = true
+		}
+	}
+
+	// Update scorer stats
+	docCount, avgDL := idx.segments.GetStats()
+	idx.scorer.UpdateStats(docCount, avgDL)
+
+	// Evict oldest documents if over limit
+	idx.evictExcessDocs()
 
 	// Persist doc info to BoltDB
 	if err := idx.persistDocInfo(docID, bucket, key, versionID, len(tokens)); err != nil {
 		return fmt.Errorf("failed to persist doc info: %w", err)
 	}
 
-	return idx.AddDocument(docID, tokens)
+	return nil
 }
 
 // persistDocInfo stores document metadata in BoltDB.
