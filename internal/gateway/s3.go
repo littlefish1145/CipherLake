@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"path/filepath"
 	"regexp"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -43,7 +42,6 @@ var (
 )
 
 type S3Gateway struct {
-	mu                sync.RWMutex
 	config            *config.Config
 	metadata          *metadata.BoltDBMetadataStore
 	store             *storage.TieredObjectStore

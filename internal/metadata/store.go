@@ -201,7 +201,6 @@ type WALEntry struct {
 }
 
 type BoltDBMetadataStore struct {
-	mu       sync.RWMutex
 	db       *bolt.DB
 	path     string
 	walPath  string
@@ -335,10 +334,6 @@ func (s *BoltDBMetadataStore) PutObject(ctx context.Context, bucket, key string,
 	if bucket == "" || key == "" {
 		return ErrInvalidKey
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if metadata.VersionID == "" {
 		metadata.VersionID = uuid.New().String()
 	}
@@ -416,9 +411,6 @@ func extractPrefix(key string) string {
 }
 
 func (s *BoltDBMetadataStore) GetObject(ctx context.Context, bucket, key string) (*ObjectMetadata, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	var metadata *ObjectMetadata
 	err := s.db.View(func(tx *bolt.Tx) error {
 		objBucket := tx.Bucket([]byte("objects"))
@@ -436,9 +428,6 @@ func (s *BoltDBMetadataStore) GetObject(ctx context.Context, bucket, key string)
 }
 
 func (s *BoltDBMetadataStore) DeleteObject(ctx context.Context, bucket, key string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	return s.db.Update(func(tx *bolt.Tx) error {
 		objBucket := tx.Bucket([]byte("objects"))
 		data := objBucket.Get(s.objectKey(bucket, key))
@@ -472,9 +461,6 @@ func (s *BoltDBMetadataStore) DeleteObject(ctx context.Context, bucket, key stri
 }
 
 func (s *BoltDBMetadataStore) ListObjects(ctx context.Context, bucket, prefix string, maxKeys int) ([]*ObjectMetadata, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	var results []*ObjectMetadata
 	searchPrefix := bucket + "/" + prefix
 
@@ -503,9 +489,6 @@ func (s *BoltDBMetadataStore) ListObjects(ctx context.Context, bucket, prefix st
 }
 
 func (s *BoltDBMetadataStore) ListObjectsWithDelimiter(ctx context.Context, bucket, prefix, delimiter string, maxKeys int) (*ListResult, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	result := &ListResult{
 		Objects:        make([]*ObjectMetadata, 0),
 		CommonPrefixes: make([]string, 0),
@@ -575,10 +558,6 @@ func (s *BoltDBMetadataStore) CreateBucket(ctx context.Context, bucket string, i
 	if bucket == "" {
 		return ErrInvalidKey
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if info == nil {
 		info = &BucketInfo{
 			CreatedAt: time.Now(),
@@ -606,9 +585,6 @@ func (s *BoltDBMetadataStore) CreateBucket(ctx context.Context, bucket string, i
 }
 
 func (s *BoltDBMetadataStore) GetBucket(ctx context.Context, bucket string) (*BucketInfo, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	var info *BucketInfo
 	err := s.db.View(func(tx *bolt.Tx) error {
 		bucketBucket := tx.Bucket([]byte("buckets"))
@@ -623,9 +599,6 @@ func (s *BoltDBMetadataStore) GetBucket(ctx context.Context, bucket string) (*Bu
 }
 
 func (s *BoltDBMetadataStore) DeleteBucket(ctx context.Context, bucket string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	return s.db.Update(func(tx *bolt.Tx) error {
 		objBucket := tx.Bucket([]byte("objects"))
 		prefix := []byte(bucket + "/")
@@ -665,9 +638,6 @@ func bytesHasPrefix(b, prefix []byte) bool {
 }
 
 func (s *BoltDBMetadataStore) ListBuckets(ctx context.Context) ([]*BucketInfo, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	var results []*BucketInfo
 	err := s.db.View(func(tx *bolt.Tx) error {
 		bucketBucket := tx.Bucket([]byte("buckets"))
@@ -684,9 +654,6 @@ func (s *BoltDBMetadataStore) ListBuckets(ctx context.Context) ([]*BucketInfo, e
 }
 
 func (s *BoltDBMetadataStore) UpdateBucket(ctx context.Context, bucket string, info *BucketInfo) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	data, err := json.Marshal(info)
 	if err != nil {
 		return fmt.Errorf("failed to marshal bucket info: %w", err)
@@ -711,10 +678,6 @@ func (s *BoltDBMetadataStore) PutObjectVersion(ctx context.Context, bucket, key 
 	if err != nil {
 		return err
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	return s.db.Update(func(tx *bolt.Tx) error {
 		verBucket := tx.Bucket([]byte("object_versions"))
 		versionKey := []byte(fmt.Sprintf("%s/%s/%s", bucket, key, metadata.VersionID))
@@ -723,9 +686,6 @@ func (s *BoltDBMetadataStore) PutObjectVersion(ctx context.Context, bucket, key 
 }
 
 func (s *BoltDBMetadataStore) GetObjectVersion(ctx context.Context, bucket, key, versionID string) (*ObjectMetadata, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	var metadata *ObjectMetadata
 	err := s.db.View(func(tx *bolt.Tx) error {
 		verBucket := tx.Bucket([]byte("object_versions"))
@@ -741,9 +701,6 @@ func (s *BoltDBMetadataStore) GetObjectVersion(ctx context.Context, bucket, key,
 }
 
 func (s *BoltDBMetadataStore) ListObjectVersions(ctx context.Context, bucket, key string, maxVersions int) ([]*ObjectMetadata, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	var results []*ObjectMetadata
 	prefix := fmt.Sprintf("%s/%s/", bucket, key)
 
@@ -782,10 +739,6 @@ func (s *BoltDBMetadataStore) PutUpload(ctx context.Context, upload *MultipartUp
 	if err != nil {
 		return err
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	return s.db.Update(func(tx *bolt.Tx) error {
 		uploadBucket := tx.Bucket([]byte("uploads"))
 		uploadKey := []byte(fmt.Sprintf("%s/%s/%s", upload.Bucket, upload.Key, upload.UploadID))
@@ -799,9 +752,6 @@ func (s *BoltDBMetadataStore) PutUpload(ctx context.Context, upload *MultipartUp
 }
 
 func (s *BoltDBMetadataStore) GetUpload(ctx context.Context, bucket, key, uploadID string) (*MultipartUpload, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	var upload *MultipartUpload
 	err := s.db.View(func(tx *bolt.Tx) error {
 		uploadBucket := tx.Bucket([]byte("uploads"))
@@ -817,9 +767,6 @@ func (s *BoltDBMetadataStore) GetUpload(ctx context.Context, bucket, key, upload
 }
 
 func (s *BoltDBMetadataStore) DeleteUpload(ctx context.Context, bucket, key, uploadID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	return s.db.Update(func(tx *bolt.Tx) error {
 		uploadBucket := tx.Bucket([]byte("uploads"))
 		uploadKey := []byte(fmt.Sprintf("%s/%s/%s", bucket, key, uploadID))
@@ -848,9 +795,6 @@ func (s *BoltDBMetadataStore) DeleteUpload(ctx context.Context, bucket, key, upl
 }
 
 func (s *BoltDBMetadataStore) ListUploads(ctx context.Context, bucket string) ([]*MultipartUpload, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	var results []*MultipartUpload
 	prefix := bucket + "/"
 
@@ -884,10 +828,6 @@ func (s *BoltDBMetadataStore) AddPart(ctx context.Context, uploadID string, part
 	if err != nil {
 		return err
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	return s.db.Update(func(tx *bolt.Tx) error {
 		partsBucket := tx.Bucket([]byte("upload_parts"))
 		partKey := []byte(fmt.Sprintf("%s/%d", uploadID, part.PartNumber))
@@ -896,9 +836,6 @@ func (s *BoltDBMetadataStore) AddPart(ctx context.Context, uploadID string, part
 }
 
 func (s *BoltDBMetadataStore) GetParts(ctx context.Context, uploadID string) ([]*UploadPart, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	var parts []*UploadPart
 
 	err := s.db.View(func(tx *bolt.Tx) error {
@@ -925,18 +862,12 @@ func (s *BoltDBMetadataStore) GetParts(ctx context.Context, uploadID string) ([]
 }
 
 func (s *BoltDBMetadataStore) Close() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if err := s.flushWAL(); err != nil {
 	}
 	return s.db.Close()
 }
 
 func (s *BoltDBMetadataStore) GetStats() *MetadataStats {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	return &MetadataStats{
 		ObjectCount:    atomic.LoadInt64(&s.stats.ObjectCount),
 		BucketCount:    atomic.LoadInt64(&s.stats.BucketCount),
@@ -966,10 +897,6 @@ func (s *BoltDBMetadataStore) PutResumableSession(ctx context.Context, session *
 	if err != nil {
 		return fmt.Errorf("failed to marshal resumable session: %w", err)
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	return s.db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("resumable_uploads"))
 		return bucket.Put([]byte(session.UploadID), data)
@@ -977,9 +904,6 @@ func (s *BoltDBMetadataStore) PutResumableSession(ctx context.Context, session *
 }
 
 func (s *BoltDBMetadataStore) GetResumableSession(ctx context.Context, uploadID string) (*ResumableSession, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	var session *ResumableSession
 	err := s.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("resumable_uploads"))
@@ -994,9 +918,6 @@ func (s *BoltDBMetadataStore) GetResumableSession(ctx context.Context, uploadID 
 }
 
 func (s *BoltDBMetadataStore) DeleteResumableSession(ctx context.Context, uploadID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	return s.db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("resumable_uploads"))
 		return bucket.Delete([]byte(uploadID))
@@ -1004,9 +925,6 @@ func (s *BoltDBMetadataStore) DeleteResumableSession(ctx context.Context, upload
 }
 
 func (s *BoltDBMetadataStore) ListExpiredSessions(ctx context.Context) ([]*ResumableSession, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	var results []*ResumableSession
 	now := time.Now()
 

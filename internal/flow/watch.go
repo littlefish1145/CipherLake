@@ -39,9 +39,6 @@ func (w *Watcher) Feed(e Event) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	for _, ch := range w.subscribers {
-		select {
-		case ch <- e:
-		default:
-		}
+		ch <- e
 	}
 }

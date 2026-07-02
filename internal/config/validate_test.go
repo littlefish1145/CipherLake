@@ -303,8 +303,8 @@ func TestValidateTLSMinVersion(t *testing.T) {
 		version   string
 		wantError bool
 	}{
-		{"1.0", false},
-		{"1.1", false},
+		{"1.0", true},
+		{"1.1", true},
 		{"1.2", false},
 		{"1.3", false},
 		{"2.0", true},
