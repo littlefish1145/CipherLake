@@ -1,0 +1,36 @@
+// Nexus Plugin System — Host Route Interface
+//
+// HTTP response writing + SSE event push (spec §3.4, §3.13).
+
+package nexus:plugin@1.0.0;
+
+interface route {
+    use nexus:plugin/types.{capability-token, capability-error, req-handle};
+
+    // response-write writes the HTTP response for the current request.
+    // Called from on-request. Body may be empty for 204/304 responses.
+    //
+    // After response-write the request is complete; the loader returns
+    // the instance to the pool.
+    response-write: func(
+        token: capability-token,
+        req: req-handle,
+        status: u16,
+        headers: list<tuple<string, string>>,
+        body: list<u8>,
+    ) -> result<_, capability-error>;
+
+    // event-publish pushes an SSE event to the client owning the
+    // current request. The request must have been initiated as an
+    // SSE connection (i.e. Accept: text/event-stream).
+    //
+    // This is the per-request variant of event:publish — it pushes
+    // to the SSE client that initiated the current on-request call,
+    // so the plugin doesn't need to track session-id explicitly.
+    event-publish: func(
+        token: capability-token,
+        req: req-handle,
+        event-type: string,
+        payload: list<u8>,
+    ) -> result<_, capability-error>;
+}

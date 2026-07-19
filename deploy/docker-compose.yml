@@ -1,44 +1,44 @@
 version: "3.8"
 
-# Production deployment docker-compose for Nexus Object Storage
+# Production deployment docker-compose for CipherLake Object Storage
 # Usage: docker compose -f deploy/docker-compose.yml up -d
 
-x-nexus-common: &nexus-common
-  image: nexus:latest
+x-cipherlake-common: &cipherlake-common
+  image: cipherlake:latest
   restart: unless-stopped
   networks:
-    - nexus-net
+    - cipherlake-net
 
 services:
-  nexus:
-    <<: *nexus-common
+  cipherlake:
+    <<: *cipherlake-common
     ports:
-      - "${NEXUS_PORT:-9000}:9000"
-      - "${NEXUS_ADMIN_PORT:-9001}:9001"
-      - "${NEXUS_METRICS_PORT:-9091}:9091"
+      - "${CIPHERLAKE_PORT:-9000}:9000"
+      - "${CIPHERLAKE_ADMIN_PORT:-9001}:9001"
+      - "${CIPHERLAKE_METRICS_PORT:-9091}:9091"
     environment:
-      NEXUS_CONFIG: /etc/nexus/config.yaml
-      NEXUS_GATEWAY_ADDRESS: ":9000"
-      NEXUS_GATEWAY_ADMIN_ADDRESS: ":9001"
-      NEXUS_GATEWAY_ACCESS_KEY: "${NEXUS_ACCESS_KEY:-nexus}"
-      NEXUS_GATEWAY_SECRET_KEY: "${NEXUS_SECRET_KEY:-nexus-secret}"
-      NEXUS_STORAGE_BACKEND: "local"
-      NEXUS_STORAGE_LOCAL_DATA_DIR: "/var/lib/nexus/data"
-      NEXUS_METADATA_BACKEND: "boltdb"
-      NEXUS_METADATA_PATH: "/var/lib/nexus/metadata/metadata.db"
-      NEXUS_OBSERVABILITY_LOGGING_LEVEL: "${NEXUS_LOG_LEVEL:-info}"
-      NEXUS_OBSERVABILITY_METRICS_ENABLED: "true"
-      NEXUS_SERVICES_ENCRYPT_ADDRESS: "encrypt-service:50051"
-      NEXUS_SERVICES_DECRYPT_ADDRESS: "decrypt-service:50052"
-      NEXUS_SERVICES_KEYGEN_ADDRESS: "keygen-service:50053"
-      NEXUS_SERVICES_KEYSTORE_ADDRESS: "keystore-service:50054"
-      NEXUS_SERVICES_KEYUNWRAP_ADDRESS: "keyunwrap-service:50055"
-      NEXUS_SERVICES_TOKEN_ADDRESS: "token-service:50056"
-      NEXUS_SERVICES_STS_ADDRESS: "sts-service:50057"
+      CIPHERLAKE_CONFIG: /etc/cipherlake/config.yaml
+      CIPHERLAKE_GATEWAY_ADDRESS: ":9000"
+      CIPHERLAKE_GATEWAY_ADMIN_ADDRESS: ":9001"
+      CIPHERLAKE_GATEWAY_ACCESS_KEY: "${CIPHERLAKE_ACCESS_KEY:-cipherlake}"
+      CIPHERLAKE_GATEWAY_SECRET_KEY: "${CIPHERLAKE_SECRET_KEY:-cipherlake-secret}"
+      CIPHERLAKE_STORAGE_BACKEND: "local"
+      CIPHERLAKE_STORAGE_LOCAL_DATA_DIR: "/var/lib/cipherlake/data"
+      CIPHERLAKE_METADATA_BACKEND: "boltdb"
+      CIPHERLAKE_METADATA_PATH: "/var/lib/cipherlake/metadata/metadata.db"
+      CIPHERLAKE_OBSERVABILITY_LOGGING_LEVEL: "${CIPHERLAKE_LOG_LEVEL:-info}"
+      CIPHERLAKE_OBSERVABILITY_METRICS_ENABLED: "true"
+      CIPHERLAKE_SERVICES_ENCRYPT_ADDRESS: "encrypt-service:50051"
+      CIPHERLAKE_SERVICES_DECRYPT_ADDRESS: "decrypt-service:50052"
+      CIPHERLAKE_SERVICES_KEYGEN_ADDRESS: "keygen-service:50053"
+      CIPHERLAKE_SERVICES_KEYSTORE_ADDRESS: "keystore-service:50054"
+      CIPHERLAKE_SERVICES_KEYUNWRAP_ADDRESS: "keyunwrap-service:50055"
+      CIPHERLAKE_SERVICES_TOKEN_ADDRESS: "token-service:50056"
+      CIPHERLAKE_SERVICES_STS_ADDRESS: "sts-service:50057"
     volumes:
-      - nexus-data:/var/lib/nexus/data
-      - nexus-metadata:/var/lib/nexus/metadata
-      - ./config.yaml:/etc/nexus/config.yaml:ro
+      - cipherlake-data:/var/lib/cipherlake/data
+      - cipherlake-metadata:/var/lib/cipherlake/metadata
+      - ./config.yaml:/etc/cipherlake/config.yaml:ro
     depends_on:
       encrypt-service:
         condition: service_healthy
@@ -62,11 +62,11 @@ services:
       start_period: 15s
 
   encrypt-service:
-    <<: *nexus-common
+    <<: *cipherlake-common
     command: ["/usr/local/bin/encrypt-service"]
     environment:
-      NEXUS_SERVICE_ADDRESS: ":50051"
-      NEXUS_OBSERVABILITY_LOGGING_LEVEL: "${NEXUS_LOG_LEVEL:-info}"
+      CIPHERLAKE_SERVICE_ADDRESS: ":50051"
+      CIPHERLAKE_OBSERVABILITY_LOGGING_LEVEL: "${CIPHERLAKE_LOG_LEVEL:-info}"
     healthcheck:
       test: ["CMD", "grpc_health_probe", "-addr=:50051"]
       interval: 10s
@@ -75,11 +75,11 @@ services:
       start_period: 5s
 
   decrypt-service:
-    <<: *nexus-common
+    <<: *cipherlake-common
     command: ["/usr/local/bin/decrypt-service"]
     environment:
-      NEXUS_SERVICE_ADDRESS: ":50052"
-      NEXUS_OBSERVABILITY_LOGGING_LEVEL: "${NEXUS_LOG_LEVEL:-info}"
+      CIPHERLAKE_SERVICE_ADDRESS: ":50052"
+      CIPHERLAKE_OBSERVABILITY_LOGGING_LEVEL: "${CIPHERLAKE_LOG_LEVEL:-info}"
     healthcheck:
       test: ["CMD", "grpc_health_probe", "-addr=:50052"]
       interval: 10s
@@ -88,11 +88,11 @@ services:
       start_period: 5s
 
   keygen-service:
-    <<: *nexus-common
+    <<: *cipherlake-common
     command: ["/usr/local/bin/keygen-service"]
     environment:
-      NEXUS_SERVICE_ADDRESS: ":50053"
-      NEXUS_OBSERVABILITY_LOGGING_LEVEL: "${NEXUS_LOG_LEVEL:-info}"
+      CIPHERLAKE_SERVICE_ADDRESS: ":50053"
+      CIPHERLAKE_OBSERVABILITY_LOGGING_LEVEL: "${CIPHERLAKE_LOG_LEVEL:-info}"
     healthcheck:
       test: ["CMD", "grpc_health_probe", "-addr=:50053"]
       interval: 10s
@@ -101,14 +101,14 @@ services:
       start_period: 5s
 
   keystore-service:
-    <<: *nexus-common
+    <<: *cipherlake-common
     command: ["/usr/local/bin/keystore-service"]
     environment:
-      NEXUS_SERVICE_ADDRESS: ":50054"
-      NEXUS_KEYSTORE_PATH: "/var/lib/nexus/keystore/keystore.db"
-      NEXUS_OBSERVABILITY_LOGGING_LEVEL: "${NEXUS_LOG_LEVEL:-info}"
+      CIPHERLAKE_SERVICE_ADDRESS: ":50054"
+      CIPHERLAKE_KEYSTORE_PATH: "/var/lib/cipherlake/keystore/keystore.db"
+      CIPHERLAKE_OBSERVABILITY_LOGGING_LEVEL: "${CIPHERLAKE_LOG_LEVEL:-info}"
     volumes:
-      - nexus-keystore:/var/lib/nexus/keystore
+      - cipherlake-keystore:/var/lib/cipherlake/keystore
     healthcheck:
       test: ["CMD", "grpc_health_probe", "-addr=:50054"]
       interval: 10s
@@ -117,11 +117,11 @@ services:
       start_period: 5s
 
   keyunwrap-service:
-    <<: *nexus-common
+    <<: *cipherlake-common
     command: ["/usr/local/bin/keyunwrap-service"]
     environment:
-      NEXUS_SERVICE_ADDRESS: ":50055"
-      NEXUS_OBSERVABILITY_LOGGING_LEVEL: "${NEXUS_LOG_LEVEL:-info}"
+      CIPHERLAKE_SERVICE_ADDRESS: ":50055"
+      CIPHERLAKE_OBSERVABILITY_LOGGING_LEVEL: "${CIPHERLAKE_LOG_LEVEL:-info}"
     healthcheck:
       test: ["CMD", "grpc_health_probe", "-addr=:50055"]
       interval: 10s
@@ -130,11 +130,11 @@ services:
       start_period: 5s
 
   token-service:
-    <<: *nexus-common
+    <<: *cipherlake-common
     command: ["/usr/local/bin/token-service"]
     environment:
-      NEXUS_SERVICE_ADDRESS: ":50056"
-      NEXUS_OBSERVABILITY_LOGGING_LEVEL: "${NEXUS_LOG_LEVEL:-info}"
+      CIPHERLAKE_SERVICE_ADDRESS: ":50056"
+      CIPHERLAKE_OBSERVABILITY_LOGGING_LEVEL: "${CIPHERLAKE_LOG_LEVEL:-info}"
     healthcheck:
       test: ["CMD", "grpc_health_probe", "-addr=:50056"]
       interval: 10s
@@ -143,11 +143,11 @@ services:
       start_period: 5s
 
   sts-service:
-    <<: *nexus-common
+    <<: *cipherlake-common
     command: ["/usr/local/bin/sts-service"]
     environment:
-      NEXUS_SERVICE_ADDRESS: ":50057"
-      NEXUS_OBSERVABILITY_LOGGING_LEVEL: "${NEXUS_LOG_LEVEL:-info}"
+      CIPHERLAKE_SERVICE_ADDRESS: ":50057"
+      CIPHERLAKE_OBSERVABILITY_LOGGING_LEVEL: "${CIPHERLAKE_LOG_LEVEL:-info}"
     healthcheck:
       test: ["CMD", "grpc_health_probe", "-addr=:50057"]
       interval: 10s
@@ -155,16 +155,43 @@ services:
       retries: 3
       start_period: 5s
 
+  plugin-loader-service:
+    <<: *cipherlake-common
+    command: ["/usr/local/bin/plugin-loader-service", "-config", "/etc/cipherlake/config.yaml"]
+    ports:
+      - "${PLUGIN_LOADER_PORT:-50060}:50060"
+    environment:
+      CIPHERLAKE_OBSERVABILITY_LOGGING_LEVEL: "${CIPHERLAKE_LOG_LEVEL:-info}"
+      # Plugin loader uses its own Raft instance (separate data dir) so its
+      # state machine evolution does not affect the main cipherlake FSM.
+      # See .trae/specs/plugin-system/spec.txt §2.2.
+    volumes:
+      - cipherlake-plugin-loader:/var/lib/cipherlake/plugin-loader
+      - ./config.yaml:/etc/cipherlake/config.yaml:ro
+    depends_on:
+      encrypt-service:
+        condition: service_healthy
+      decrypt-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:50060/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
 volumes:
-  nexus-data:
+  cipherlake-data:
     driver: local
-  nexus-metadata:
+  cipherlake-metadata:
     driver: local
-  nexus-keystore:
+  cipherlake-keystore:
+    driver: local
+  cipherlake-plugin-loader:
     driver: local
 
 networks:
-  nexus-net:
+  cipherlake-net:
     driver: bridge
     ipam:
       config:

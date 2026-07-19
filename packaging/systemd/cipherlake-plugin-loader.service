@@ -1,0 +1,36 @@
+[Unit]
+Description=CipherLake Plugin Loader Microservice
+After=network-online.target cipherlake-encrypt.service cipherlake-decrypt.service
+Wants=network-online.target
+Requires=cipherlake-encrypt.service cipherlake-decrypt.service
+PartOf=cipherlake.target
+
+[Service]
+Type=simple
+User=cipherlake
+Group=cipherlake
+ExecStart=/usr/local/bin/plugin-loader-service -config /etc/cipherlake/config.yaml
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+# Hardening. The plugin loader runs untrusted WASM code; in addition to
+# the wazero in-process sandbox, the systemd unit drops privileges and
+# restricts filesystem access. The loader's data dir (/var/lib/cipherlake/
+# plugin-loader) must be writable, but the main cipherlake data dir
+# (/var/lib/cipherlake/data) must NOT be readable by this service — see
+# spec §2.2 A2 (Loader cannot bypass encrypt/decrypt by reading raw data).
+ReadWritePaths=/var/lib/cipherlake/plugin-loader
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+# Plugin loader has its own Raft instance on a separate port; isolating
+# the network namespace would prevent the leader election traffic.
+# PrivateNetwork is intentionally NOT set.
+# Capabilities: the loader does not need any ambient capabilities.
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=cipherlake.target

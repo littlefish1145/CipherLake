@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package cipherlake.plugin;
+
+option go_package = "cipherlake/proto/plugin";
+
+// PluginLoaderService is the Gateway-facing API of the plugin-loader
+// microservice. It exposes plugin route dispatch and (in later phases)
+// hook invocation and admin operations.
+service PluginLoaderService {
+  // InvokeRoute dispatches an HTTP request that arrived at the Gateway
+  // under /_plugins/<plugin_name>/* to the named plugin's on_request
+  // entry point. The loader handles sub-routing inside the plugin.
+  rpc InvokeRoute(InvokeRouteRequest) returns (InvokeRouteResponse);
+
+  // Health check.
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+message InvokeRouteRequest {
+  // Plugin name (must match an installed plugin).
+  string plugin_name = 1;
+
+  // HTTP method of the incoming request.
+  string method = 2;
+
+  // Path under the plugin prefix, e.g. for /_plugins/foo/bar/baz this
+  // is "bar/baz". The leading plugin prefix is stripped by the Gateway.
+  string path = 3;
+
+  // Original Host header (used for virtual-hosted-style reconstruction).
+  string host = 4;
+
+  // Serialized HTTP headers. Multiple values for the same key are
+  // joined with commas per RFC 7230.
+  map<string, string> headers = 5;
+
+  // Request body. For streaming bodies larger than the configured gRPC
+  // message limit, the Gateway will buffer or reject; Phase 1 keeps it
+  // simple and in-memory.
+  bytes body = 6;
+
+  // Identity of the original caller (from Gateway auth). Passed to the
+  // plugin as x-nexus-original-user and forwarded to backend services
+  // (spec §2.2 A14).
+  string original_user = 7;
+}
+
+message InvokeRouteResponse {
+  // HTTP status code to return to the client.
+  int32 status_code = 1;
+
+  // Response headers.
+  map<string, string> headers = 2;
+
+  // Response body.
+  bytes body = 3;
+
+  // Human-readable error message when status_code >= 500.
+  string error_message = 4;
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  bool healthy = 1;
+  string service_name = 2;
+  string version = 3;
+  int64 uptime_seconds = 4;
+}

@@ -1,0 +1,61 @@
+// Nexus Plugin System — Host Storage Interface
+//
+// Object storage operations. All go through the encrypt/decrypt
+// microservices (spec §2.2 A2); the loader cannot bypass them.
+//
+// Spec: .trae/specs/plugin-system/spec.txt §3.9, §5
+
+package nexus:plugin@1.0.0;
+
+interface storage {
+    use nexus:plugin/types.{capability-token, capability-error, object-meta, stream-handle};
+
+    // get retrieves object metadata + opens a stream for body access.
+    //
+    // The plugin must call stream:read-chunk to actually read body
+    // bytes; the body does NOT enter WASM linear memory unless the
+    // plugin explicitly reads it (spec §3.9).
+    //
+    // range is optional ("bytes=0-1023" syntax). If absent, the entire
+    // object is accessible via the stream.
+    //
+    // Returns ErrUnauthorized if the token lacks storage:get, or
+    // ErrForbidden if the token's scope does not cover this bucket.
+    get: func(
+        token: capability-token,
+        bucket: string,
+        key: string,
+        range: option<string>,
+    ) -> result<tuple<object-meta, stream-handle>, capability-error>;
+
+    // put writes an object. The plugin provides body via a stream
+    // (opened via stream:open with the body bytes).
+    //
+    // Returns the new etag on success.
+    put: func(
+        token: capability-token,
+        bucket: string,
+        key: string,
+        content-type: string,
+        user-metadata: list<tuple<string, string>>,
+        body: stream-handle,
+    ) -> result<string, capability-error>;
+
+    // list enumerates objects under a prefix. Returns an opaque
+    // iterator handle the plugin iterates via repeated list-next calls
+    // (future host import; for MVP the entire list is returned inline).
+    list: func(
+        token: capability-token,
+        bucket: string,
+        prefix: string,
+        max-keys: u32,
+    ) -> result<list<object-meta>, capability-error>;
+
+    // delete removes an object. Idempotent (deleting a non-existent
+    // key returns success).
+    delete: func(
+        token: capability-token,
+        bucket: string,
+        key: string,
+    ) -> result<_, capability-error>;
+}

@@ -1,0 +1,82 @@
+// Nexus Plugin System — WIT IDL Top-Level World
+//
+// This is the entry point for wit-bindgen: it declares the contract between
+// a Nexus plugin (the WASM guest) and the plugin loader (the host).
+//
+// Spec: .trae/specs/plugin-system/spec.txt §8
+//
+// Two versioning numbers apply (spec §3.15 A15):
+//   - The package version below (@1.0.0) is the host API version. Plugins
+//     declare `api_version: "^1.0.0"` in their manifest and the loader
+//     checks the semver range covers this version. Minor bumps add imports
+//     backward-compatibly; major bumps require plugins to recompile.
+//   - The manifest schema version (`manifest_version: "1.0"`) is separate
+//     and lives in the manifest YAML, not in WIT.
+
+package nexus:plugin@1.0.0;
+
+// The `nexus-plugin` world composes:
+//   - host imports the plugin is allowed to call (granted per capability
+//     token at instance init time — see capability model spec §3.3)
+//   - exports the plugin must provide (entry points the loader invokes
+//     — see spec §4 WASM Module Entry Points)
+world nexus-plugin {
+
+    // ----- Plugin exports (mandatory) -----
+    //
+    // A plugin must export all three of these. The loader refuses to
+    // instantiate a module missing any of them (spec §4).
+    export nexus:plugin/exports.{wasm-init, on-hook, on-request};
+
+    // ----- Plugin exports (optional) -----
+    //
+    // A plugin may export any subset of these. Missing exports are
+    // treated as "not interested in this event" and the loader skips
+    // dispatch for them.
+    export nexus:plugin/exports.{on-install, on-uninstall, on-suspend, on-resume};
+    export nexus:plugin/exports.{on-event, on-sse-close, on-task};
+
+    // ----- Host imports -----
+    //
+    // All host imports take a capability token (u64) as the first
+    // argument. The loader verifies the token grants the requested
+    // capability + scope before fulfilling the call (spec §3.3 A6).
+    //
+    // Imports are grouped by interface; a plugin only sees the imports
+    // it was granted capabilities for. An ungranted import is a
+    // link-time error at instance creation.
+
+    // Storage (spec §3.9, §5). Reads/writes flow through encrypt/decrypt
+    // microservices — the loader cannot bypass them (spec §2.2 A2).
+    import nexus:plugin/storage.{get, put, list, delete};
+
+    // Vector search (spec §5).
+    import nexus:plugin/vector.{search, index};
+
+    // State KV (spec §3.14). CAS via expected-version; the loader
+    // returns ErrVersionConflict on mismatch.
+    import nexus:plugin/state.{get, put, cas, batch};
+
+    // Event subscribe/publish (spec §3.13). publish is scoped to the
+    // plugin's own sessions (spec §3.13 A12).
+    import nexus:plugin/event.{subscribe, unsubscribe, publish};
+
+    // Observability: log/metric/trace (spec §3.17).
+    import nexus:plugin/observability.{log-emit, metric-record, trace-span-start, trace-span-end};
+
+    // Network egress (spec §3.10). Tier 0 plugins do not get this import
+    // at all; Tier 1+ get it with URL whitelist enforcement.
+    import nexus:plugin/http.{fetch};
+
+    // Streaming body access (spec §3.9). Around hooks can wrap body
+    // I/O via opaque stream handles; the body never enters WASM linear
+    // memory unless the plugin explicitly reads chunks.
+    import nexus:plugin/stream.{open, read-chunk, write-chunk, close};
+
+    // Route response + SSE event publish (spec §3.4, §3.13).
+    import nexus:plugin/route.{response-write, event-publish};
+
+    // Task scheduling (spec §3.13). Cron-triggered callbacks invoke
+    // the plugin's on-task entry point.
+    import nexus:plugin/task.{schedule, cancel};
+}

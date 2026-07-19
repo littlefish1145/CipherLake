@@ -1,0 +1,46 @@
+// Nexus Plugin System — Host Event Interface
+//
+// Subscribe to Nexus internal events (s3:ObjectCreated:Put, etc.) and
+// publish SSE events to sessions the plugin owns.
+//
+// Spec: .trae/specs/plugin-system/spec.txt §3.13
+
+package nexus:plugin@1.0.0;
+
+interface event {
+    use nexus:plugin/types.{capability-token, capability-error, subscription-handle};
+
+    // subscribe registers interest in an event type. When matching
+    // events fire, the loader borrows an instance from the pool and
+    // calls the plugin's on-event entry point with the payload.
+    //
+    // event-type is a string like "s3:ObjectCreated:Put". The loader
+    // maps it to a small integer (event-type-id) for on-event calls.
+    //
+    // Returns a subscription-handle that can be passed to unsubscribe.
+    subscribe: func(
+        token: capability-token,
+        event-type: string,
+    ) -> result<subscription-handle, capability-error>;
+
+    // unsubscribe cancels a subscription. Idempotent.
+    unsubscribe: func(
+        token: capability-token,
+        handle: subscription-handle,
+    ) -> result<_, capability-error>;
+
+    // publish pushes an SSE event to a session the plugin owns.
+    //
+    // session-id must be one that this plugin created (i.e. received
+    // via on-request on its SSE route). Publishing to another plugin's
+    // session returns ErrForbidden (spec §3.13 A12).
+    //
+    // event-type is a string label that the SSE client receives in
+    // the "event:" field. payload is sent as the data field.
+    publish: func(
+        token: capability-token,
+        session-id: u32,
+        event-type: string,
+        payload: list<u8>,
+    ) -> result<_, capability-error>;
+}

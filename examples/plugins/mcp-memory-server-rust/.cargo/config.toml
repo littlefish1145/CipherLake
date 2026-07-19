@@ -1,0 +1,6 @@
+[build]
+# Phase 1 uses wasm32-wasip1 (core module with manual host bindings) because
+# the loader exposes raw wazero host functions rather than WIT component
+# interfaces. wasm32-wasip2 will be enabled once the SDK is generated from
+# the WIT files in nexus/sdk/wit/ (P4-2).
+target = "wasm32-wasip1"

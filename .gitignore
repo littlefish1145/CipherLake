@@ -1,18 +1,18 @@
 # Binaries
-/nexus
-/nexus.exe
-/nexus-linux
-/nexus-linux-amd64
-/nexus-linux-arm64
-/nexus-darwin-amd64
-/nexus-darwin-arm64
-/nexusctl
-/nexusctl.exe
-/nexusctl-linux
-/nexusctl-linux-amd64
-/nexusctl-linux-arm64
-/nexusctl-darwin-amd64
-/nexusctl-darwin-arm64
+/cipherlake
+/cipherlake.exe
+/cipherlake-linux
+/cipherlake-linux-amd64
+/cipherlake-linux-arm64
+/cipherlake-darwin-amd64
+/cipherlake-darwin-arm64
+/cipherlakectl
+/cipherlakectl.exe
+/cipherlakectl-linux
+/cipherlakectl-linux-amd64
+/cipherlakectl-linux-arm64
+/cipherlakectl-darwin-amd64
+/cipherlakectl-darwin-arm64
 
 # Data
 data/
@@ -64,3 +64,9 @@ venv/
 # Logs
 stdout.log
 stderr.log
+
+# Rust plugin build artifacts
+examples/plugins/*/target/
+examples/plugins/*/plugin.wasm
+examples/plugins/*/Cargo.lock
+

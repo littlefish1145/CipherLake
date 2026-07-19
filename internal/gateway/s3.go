@@ -5,38 +5,41 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"net"
 	"net/http"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"nexus/internal/auth"
-	"nexus/internal/bootstrap"
-	"nexus/internal/cache"
-	"nexus/internal/common"
-	"nexus/internal/config"
-	"nexus/internal/events"
-	"nexus/internal/fts"
-	"nexus/internal/logger"
-	"nexus/internal/metadata"
-	"nexus/internal/observability"
-	"nexus/internal/pipeline"
-	"nexus/internal/ratelimit"
-	"nexus/internal/services"
-	"nexus/internal/storage"
-	"nexus/internal/taskqueue"
-	"nexus/internal/tiering"
-	"nexus/internal/units"
-	"nexus/internal/vector"
+	"cipherlake/internal/auth"
+	"cipherlake/internal/bootstrap"
+	"cipherlake/internal/cache"
+	"cipherlake/internal/common"
+	"cipherlake/internal/config"
+	"cipherlake/internal/events"
+	"cipherlake/internal/fts"
+	"cipherlake/internal/logger"
+	"cipherlake/internal/metadata"
+	"cipherlake/internal/observability"
+	"cipherlake/internal/pipeline"
+	"cipherlake/internal/ratelimit"
+	"cipherlake/internal/services"
+	"cipherlake/internal/storage"
+	"cipherlake/internal/taskqueue"
+	"cipherlake/internal/tiering"
+	"cipherlake/internal/units"
+	"cipherlake/internal/vector"
+	pluginpb "cipherlake/proto/plugin"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var (
@@ -74,11 +77,17 @@ type S3Gateway struct {
 	healthHandler     *observability.HealthHandler
 	resumableHandler  *ResumableUploadHandler
 	resumableCleanup  *ResumableCleanup
+	multipartCleanup  *MultipartCleanup
 	bucketSvc         *BucketService
 	objectSvc         *ObjectService
 	searchSvc         *SearchService
 	multipartSvc      *MultipartService
 	taskQueue         *taskqueue.Queue
+	writeTasks        objectWriteTaskScheduler
+	loaderClient      pluginpb.PluginLoaderServiceClient
+	loaderConn        *grpc.ClientConn
+	closeOnce         sync.Once
+	closeErr          error
 }
 
 type BucketState struct {
@@ -164,7 +173,7 @@ func NewS3Gateway(cfg *config.Config) (*S3Gateway, error) {
 	}
 
 	if err := gateway.initializeComponents(cfg); err != nil {
-		return nil, fmt.Errorf("failed to initialize components: %w", err)
+		return nil, errors.Join(fmt.Errorf("failed to initialize components: %w", err), gateway.Close())
 	}
 
 	accessLogDir := cfg.Logging.AccessLogDir
@@ -173,7 +182,7 @@ func NewS3Gateway(cfg *config.Config) (*S3Gateway, error) {
 	}
 	accessLogger, err := NewAccessLogger(accessLogDir, 0)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create access logger: %w", err)
+		return nil, errors.Join(fmt.Errorf("failed to create access logger: %w", err), gateway.Close())
 	}
 	gateway.accessLog = accessLogger
 
@@ -181,50 +190,12 @@ func NewS3Gateway(cfg *config.Config) (*S3Gateway, error) {
 }
 
 func (g *S3Gateway) initializeStores(cfg *config.Config) error {
-	metadataStore, err := metadata.NewBoltDBMetadataStore(cfg.Node.DataDir + "/metadata.db")
+	stores, err := newGatewayStores(cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create metadata store: %w", err)
+		return err
 	}
-	g.metadata = metadataStore
-
-	store := storage.NewTieredObjectStore(metadataStore)
-
-	hotDir := cfg.Node.DataDir + "/hot"
-	hotBackend, err := storage.NewFileBackend(hotDir)
-	if err != nil {
-		return fmt.Errorf("failed to create hot storage backend: %w", err)
-	}
-	store.RegisterTier(common.TierHot, hotBackend, cfg.Tiering.HotMaxBytes)
-
-	warmDir := cfg.Node.DataDir + "/warm"
-	warmBackend, err := storage.NewFileBackend(warmDir)
-	if err != nil {
-		return fmt.Errorf("failed to create warm storage backend: %w", err)
-	}
-	warmMaxSize := cfg.Tiering.WarmMaxBytes()
-	store.RegisterTier(common.TierWarm, warmBackend, warmMaxSize)
-
-	coldDir := cfg.Node.DataDir + "/cold"
-	coldBackend, err := storage.NewFileBackend(coldDir)
-	if err != nil {
-		return fmt.Errorf("failed to create cold storage backend: %w", err)
-	}
-	coldMaxSize := cfg.Tiering.ColdMaxBytes()
-	store.RegisterTier(common.TierCold, coldBackend, coldMaxSize)
-
-	archiveDir := cfg.Node.DataDir + "/archive"
-	if cfg.Tiering.ArchivePath != "" {
-		archiveDir = cfg.Tiering.ArchivePath
-	}
-	archiveBackend, err := storage.NewFileBackend(archiveDir)
-	if err != nil {
-		return fmt.Errorf("failed to create archive storage backend: %w", err)
-	}
-	archiveMaxSize := cfg.Tiering.ArchiveMaxBytes()
-	store.RegisterTier(common.TierArchive, archiveBackend, archiveMaxSize)
-
-	g.store = store
-
+	g.metadata = stores.metadata
+	g.store = stores.store
 	return nil
 }
 
@@ -308,51 +279,12 @@ func (g *S3Gateway) initializeComponents(cfg *config.Config) error {
 	}
 	g.pipeline = pipelineExecutor
 
-	authConfig := &AuthConfig{
-		RequireAuth:   cfg.Auth.RequireAuth,
-		AnonymousRead: cfg.Auth.AnonymousRead,
-		JWTSecret:     cfg.Auth.JWTSecret,
-	}
-	if cfg.Auth.TokenExpiry != "" {
-		if d, err := time.ParseDuration(cfg.Auth.TokenExpiry); err == nil {
-			authConfig.TokenExpiry = d
-		}
-	}
-	if cfg.Auth.RefreshExpiry != "" {
-		if d, err := time.ParseDuration(cfg.Auth.RefreshExpiry); err == nil {
-			authConfig.RefreshExpiry = d
-		}
-	}
-	g.auth = NewAuthHandlerWithConfig(authConfig)
-	provider := newGatewayAuthProvider(g.auth, g.iamBridge)
-	g.authProvider = provider
-	g.permChecker = provider
+	authRuntime := newGatewayAuthRuntime(cfg, g.iamBridge)
+	g.auth = authRuntime.handler
+	g.authProvider = authRuntime.provider
+	g.permChecker = authRuntime.permissions
 
-	if cfg.RateLimit.Enabled {
-		apiLimits := make(map[string]ratelimit.APILimit)
-		for name, limit := range cfg.RateLimit.APILimits {
-			apiLimits[name] = ratelimit.APILimit{
-				RPS:   limit.RPS,
-				Burst: limit.Burst,
-			}
-		}
-
-		mlCfg := &ratelimit.MultiLevelConfig{
-			GlobalRPS:         cfg.RateLimit.GlobalRPS,
-			GlobalBurst:       cfg.RateLimit.GlobalBurst,
-			IPRPS:             cfg.RateLimit.IPRPS,
-			IPBurst:           cfg.RateLimit.IPBurst,
-			UserRPS:           cfg.RateLimit.UserRPS,
-			UserBurst:         cfg.RateLimit.UserBurst,
-			BucketRPS:         cfg.RateLimit.BucketRPS,
-			BucketBurst:       cfg.RateLimit.BucketBurst,
-			UploadBytesPerSec: cfg.RateLimit.UploadBytesPerSec,
-			UploadBurstBytes:  cfg.RateLimit.UploadBurstBytes,
-			APILimits:         apiLimits,
-			Whitelist:         cfg.RateLimit.Whitelist,
-		}
-		g.rateLimiter = ratelimit.NewMultiLevelLimiter(mlCfg)
-	}
+	g.rateLimiter = newGatewayRateLimiter(cfg)
 
 	if cfg.Cache.ObjectMaxBytes > 0 {
 		objectCache, err := cache.NewObjectCache(cfg.Cache.ObjectMaxBytes, cfg.Cache.TTL)
@@ -428,58 +360,45 @@ func (g *S3Gateway) initializeComponents(cfg *config.Config) error {
 		g.resumableCleanup.Start()
 	}
 
+	g.writeTasks = newGatewayObjectWriteTaskScheduler(g)
+
 	// Initialize domain services (must be done before task queue,
 	// because task queue handlers reference these services).
 	g.bucketSvc = NewBucketService(g)
 	g.objectSvc = NewObjectService(g)
 	g.searchSvc = NewSearchService(g)
 	g.multipartSvc = NewMultipartService(g)
+	g.multipartCleanup = NewMultipartCleanup(g.multipartSvc.handler, 5*time.Minute)
 
 	// Initialize background task queue.
 	if err := g.initializeTaskQueue(cfg); err != nil {
 		return fmt.Errorf("failed to initialize task queue: %w", err)
+	}
+	g.multipartCleanup.Start()
+
+	// Initialize plugin-loader gRPC client if configured.
+	if cfg.PluginLoader.GRPCListenAddr != "" {
+		conn, err := grpc.NewClient(cfg.PluginLoader.GRPCListenAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return fmt.Errorf("failed to connect to plugin loader: %w", err)
+		}
+		g.loaderConn = conn
+		g.loaderClient = pluginpb.NewPluginLoaderServiceClient(conn)
 	}
 
 	return nil
 }
 
 func (g *S3Gateway) initializeTaskQueue(cfg *config.Config) error {
-	if !cfg.TaskQueue.Enabled {
-		return nil
-	}
-
-	storePath := cfg.TaskQueue.StorePath
-	if storePath == "" {
-		storePath = cfg.Node.DataDir + "/tasks.db"
-	}
-	if !filepath.IsAbs(storePath) {
-		storePath = filepath.Join(cfg.Node.DataDir, storePath)
-	}
-
-	store, err := taskqueue.NewBoltStore(storePath)
+	queue, err := newGatewayTaskQueue(cfg, gatewayTaskQueueHandlers{
+		vectorize: g.searchSvc.handleVectorizeTask,
+		fts:       g.searchSvc.handleFTSTask,
+		pipeline:  g.handlePipelineTask,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to create task store: %w", err)
+		return err
 	}
-
-	workers := cfg.TaskQueue.Workers
-	if workers <= 0 {
-		workers = 4
-	}
-
-	queueOpts := []taskqueue.QueueOption{
-		taskqueue.WithPollInterval(parseDuration(cfg.TaskQueue.PollInterval, 500*time.Millisecond)),
-		taskqueue.WithRetryBase(parseDuration(cfg.TaskQueue.RetryBase, time.Second)),
-		taskqueue.WithMaxRetryDelay(parseDuration(cfg.TaskQueue.MaxRetryDelay, 5*time.Minute)),
-	}
-
-	g.taskQueue = taskqueue.NewQueue(store, workers, queueOpts...)
-
-	// Register background handlers.
-	g.taskQueue.Register(taskqueue.KindVectorize, g.searchSvc.handleVectorizeTask)
-	g.taskQueue.Register(taskqueue.KindFTS, g.searchSvc.handleFTSTask)
-	g.taskQueue.Register(taskqueue.KindPipeline, g.handlePipelineTask)
-
-	g.taskQueue.Start()
+	g.taskQueue = queue
 	return nil
 }
 
@@ -553,6 +472,12 @@ func (g *S3Gateway) Handler() http.Handler {
 
 	// FTS search endpoint
 	mux.HandleFunc("/admin/fts/search", g.searchSvc.handleAdminFTSSearch)
+
+	// Plugin routes: /_plugins/<plugin_name>/* are dispatched to the
+	// plugin-loader microservice (spec §3.4).
+	if g.loaderClient != nil {
+		mux.HandleFunc("/_plugins/", g.handlePluginRoute)
+	}
 
 	mux.HandleFunc("/", g.handleRequest)
 
@@ -691,12 +616,23 @@ func (g *S3Gateway) handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := handler(w, r); err != nil {
-		g.writeError(w, http.StatusInternalServerError, "InternalError", "An internal error occurred")
+	recorder := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+	if err := handler(recorder, r); err != nil {
+		// If the handler already wrote a response (e.g. via writeError inside
+		// the handler before returning a wrapped error), do not attempt to
+		// write another status — just log.
+		if !recorder.written {
+			status, code, message := g.classifyHandlerError(err)
+			g.writeError(w, status, code, message)
+			recorder.status = status
+			recorder.written = true
+		} else {
+			zap.L().Warn("handler returned error after writing response",
+				zap.String("method", method),
+				zap.String("path", path),
+				zap.Error(err))
+		}
 	}
-
-	latency := time.Since(startTime)
-	_ = latency
 
 	if g.accessLog != nil {
 		parts := strings.SplitN(strings.TrimPrefix(path, "/"), "/", 2)
@@ -714,10 +650,81 @@ func (g *S3Gateway) handleRequest(w http.ResponseWriter, r *http.Request) {
 			Operation:  method,
 			Bucket:     bucket,
 			Key:        key,
-			StatusCode: 200,
-			BytesSent:  0,
+			StatusCode: recorder.status,
+			BytesSent:  recorder.bytesWritten,
 			RequestID:  requestID,
+			Latency:    time.Since(startTime),
 		})
+	}
+}
+
+// statusRecorder wraps http.ResponseWriter to capture the status code and
+// bytes written for access logging. It is safe for use as the ResponseWriter
+// passed into handlers.
+type statusRecorder struct {
+	http.ResponseWriter
+	status       int
+	written      bool
+	bytesWritten int64
+}
+
+func (r *statusRecorder) WriteHeader(code int) {
+	if r.written {
+		return
+	}
+	r.status = code
+	r.written = true
+	r.ResponseWriter.WriteHeader(code)
+}
+
+func (r *statusRecorder) Write(b []byte) (int, error) {
+	if !r.written {
+		r.WriteHeader(http.StatusOK)
+	}
+	n, err := r.ResponseWriter.Write(b)
+	if n > 0 {
+		r.bytesWritten += int64(n)
+	}
+	return n, err
+}
+
+// classifyHandlerError maps a handler-returned error to the appropriate S3
+// HTTP status, error code, and user-visible message. Metadata sentinel
+// errors are unwrapped via errors.Is so that handlers can wrap them with
+// additional context without losing the semantic classification.
+func (g *S3Gateway) classifyHandlerError(err error) (int, string, string) {
+	switch {
+	case errors.Is(err, metadata.ErrKeyNotFound):
+		return http.StatusNotFound, "NoSuchKey", "The specified key does not exist."
+	case errors.Is(err, metadata.ErrBucketNotFound):
+		return http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist."
+	case errors.Is(err, metadata.ErrBucketAlreadyExists):
+		return http.StatusConflict, "BucketAlreadyExists", "The requested bucket name is not available."
+	case errors.Is(err, metadata.ErrBucketNotEmpty):
+		return http.StatusConflict, "BucketNotEmpty", "The bucket you tried to delete is not empty."
+	case errors.Is(err, metadata.ErrInvalidKey):
+		return http.StatusBadRequest, "InvalidKey", "The specified key is not valid."
+	case errors.Is(err, metadata.ErrVersionNotFound):
+		return http.StatusNotFound, "NoSuchVersion", "The specified version does not exist."
+	case errors.Is(err, metadata.ErrQuotaExceeded):
+		return http.StatusTooManyRequests, "QuotaExceeded", "The bucket quota has been exceeded."
+	case errors.Is(err, metadata.ErrTransactionFailed):
+		return http.StatusServiceUnavailable, "TransactionFailed", "The metadata transaction could not be committed."
+	default:
+		// Heuristics for handler-returned errors that don't use sentinel
+		// wrapping but follow established prefix conventions.
+		msg := err.Error()
+		if strings.HasPrefix(msg, "access denied") {
+			return http.StatusForbidden, "AccessDenied", msg
+		}
+		if strings.HasPrefix(msg, "method not allowed") {
+			return http.StatusMethodNotAllowed, "MethodNotAllowed", "The specified method is not allowed against this resource."
+		}
+		if strings.HasPrefix(msg, "uploadId is required") || strings.HasPrefix(msg, "missing") {
+			return http.StatusBadRequest, "InvalidRequest", msg
+		}
+		zap.L().Error("unclassified handler error", zap.Error(err))
+		return http.StatusInternalServerError, "InternalError", "An internal error occurred"
 	}
 }
 
@@ -742,9 +749,9 @@ func (g *S3Gateway) setCORSHeaders(w http.ResponseWriter, r *http.Request, bucke
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	}
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, HEAD, OPTIONS, PATCH")
-	w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Content-Length, x-amz-content-sha256, x-amz-date, x-amz-security-token, x-amz-user-agent, x-amz-meta-*, x-amz-acl, x-amz-copy-source, x-amz-tagging, x-amz-server-side-encryption, x-amz-server-side-encryption-customer-algorithm, x-amz-server-side-encryption-customer-key, x-amz-server-side-encryption-customer-key-MD5, x-amz-checksum-crc32c, x-amz-checksum-sha256, x-amz-checksum-md5, x-amz-checksum-mode, X-Amz-Algorithm, X-Amz-Credential, X-Amz-Date, X-Amz-Expires, X-Amz-SignedHeaders, X-Amz-Signature, amz-sdk-invocation-id, amz-sdk-request, amz-sdk-retry, X-Nexus-Resumable, X-Nexus-Finalize, Upload-Offset, Upload-Length, Upload-Checksum")
+	w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Content-Length, x-amz-content-sha256, x-amz-date, x-amz-security-token, x-amz-user-agent, x-amz-meta-*, x-amz-acl, x-amz-copy-source, x-amz-tagging, x-amz-server-side-encryption, x-amz-server-side-encryption-customer-algorithm, x-amz-server-side-encryption-customer-key, x-amz-server-side-encryption-customer-key-MD5, x-amz-checksum-crc32c, x-amz-checksum-sha256, x-amz-checksum-md5, x-amz-checksum-mode, X-Amz-Algorithm, X-Amz-Credential, X-Amz-Date, X-Amz-Expires, X-Amz-SignedHeaders, X-Amz-Signature, amz-sdk-invocation-id, amz-sdk-request, amz-sdk-retry, X-CipherLake-Resumable, X-CipherLake-Finalize, Upload-Offset, Upload-Length, Upload-Checksum")
 	w.Header().Set("Access-Control-Max-Age", "3600")
-	w.Header().Set("Access-Control-Expose-Headers", "ETag, X-Amz-Version-Id, X-Amz-Request-Id, X-Amz-Expiration, X-Amz-Checksum-CRC32C, X-Amz-Checksum-SHA256, X-Amz-Checksum-MD5, x-amz-server-side-encryption-customer-algorithm, x-amz-server-side-encryption-customer-key-MD5, X-Nexus-Upload-Id, Upload-Offset, Upload-Length, Upload-Checksum")
+	w.Header().Set("Access-Control-Expose-Headers", "ETag, X-Amz-Version-Id, X-Amz-Request-Id, X-Amz-Expiration, X-Amz-Checksum-CRC32C, X-Amz-Checksum-SHA256, X-Amz-Checksum-MD5, x-amz-server-side-encryption-customer-algorithm, x-amz-server-side-encryption-customer-key-MD5, X-CipherLake-Upload-Id, Upload-Offset, Upload-Length, Upload-Checksum")
 }
 
 func (g *S3Gateway) validateBucketName(name string) bool {
@@ -968,9 +975,9 @@ func (g *S3Gateway) handleObjectOperations(bucket, key, method string) func(w ht
 		query := r.URL.Query()
 
 		// Resumable upload routing: when uploadId is present and resumable handler is active,
-		// route to resumable flow. When X-Nexus-Resumable header is set, also use resumable flow.
+		// route to resumable flow. When X-CipherLake-Resumable header is set, also use resumable flow.
 		// Otherwise, fall through to standard S3 multipart upload flow.
-		if query.Has("uploadId") && g.resumableHandler != nil && r.Header.Get("X-Nexus-Resumable") == "1" {
+		if query.Has("uploadId") && g.resumableHandler != nil && r.Header.Get("X-CipherLake-Resumable") == "1" {
 			switch method {
 			case "PATCH":
 				return g.resumableHandler.HandlePatch(w, r, bucket, key)
@@ -1202,27 +1209,58 @@ func (g *S3Gateway) Stop() error {
 }
 
 func (g *S3Gateway) Close() error {
-	if g.taskQueue != nil {
-		if err := g.taskQueue.Stop(context.Background()); err != nil {
-			zap.L().Warn("failed to stop task queue gracefully", zap.Error(err))
-		}
+	g.closeOnce.Do(func() {
+		g.closeErr = g.close()
+	})
+	return g.closeErr
+}
+
+func (g *S3Gateway) close() error {
+	var closeErr error
+	if err := stopGatewayTaskQueue(context.Background(), g.taskQueue); err != nil {
+		zap.L().Warn("failed to stop task queue gracefully", zap.Error(err))
+		closeErr = errors.Join(closeErr, err)
 	}
 	if g.resumableCleanup != nil {
 		g.resumableCleanup.Stop()
 	}
+	if g.multipartCleanup != nil {
+		g.multipartCleanup.Stop()
+	}
+	if g.cryptoCoordinator != nil {
+		if err := g.cryptoCoordinator.Close(); err != nil {
+			closeErr = errors.Join(closeErr, err)
+		}
+	}
+	if g.vector != nil {
+		if err := g.vector.Close(); err != nil {
+			closeErr = errors.Join(closeErr, err)
+		}
+	}
 	if g.tracerShutdown != nil {
-		g.tracerShutdown(context.Background())
+		if err := g.tracerShutdown(context.Background()); err != nil {
+			closeErr = errors.Join(closeErr, err)
+		}
 	}
 	if g.eventBus != nil {
 		g.eventBus.Stop()
 	}
 	if g.ftsIndex != nil {
-		g.ftsIndex.Close()
+		if err := g.ftsIndex.Close(); err != nil {
+			closeErr = errors.Join(closeErr, err)
+		}
 	}
 	if g.accessLog != nil {
-		return g.accessLog.Close()
+		if err := g.accessLog.Close(); err != nil {
+			closeErr = errors.Join(closeErr, err)
+		}
 	}
-	return nil
+	if g.metadata != nil {
+		if err := g.metadata.Close(); err != nil {
+			closeErr = errors.Join(closeErr, err)
+		}
+	}
+	return closeErr
 }
 
 func (g *S3Gateway) GetMetadataStore() *metadata.BoltDBMetadataStore {

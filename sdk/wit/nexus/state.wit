@@ -1,0 +1,61 @@
+// Nexus Plugin System — Host State KV Interface
+//
+// Persistent key-value storage scoped per plugin (spec §3.14).
+// All operations are replicated through Raft (spec §2.2).
+//
+// The plugin's state lives in BoltDB bucket "plugin_state/{plugin_name}/"
+// and is naturally isolated from other plugins. Cross-plugin reads
+// require an explicit `state:cross_plugin:<peer>` capability
+// (spec §3.14 A13, Phase 5).
+
+package nexus:plugin@1.0.0;
+
+interface state {
+    use nexus:plugin/types.{capability-token, capability-error, state-value, state-batch-op};
+
+    // get reads a single key. Returns option<state-value>:
+    //   - ok(some(value)) on hit
+    //   - ok(none) on miss (NOT an error)
+    //   - err(...) on storage failure
+    get: func(
+        token: capability-token,
+        key: string,
+    ) -> result<option<state-value>, capability-error>;
+
+    // put writes a key. If expected-version is provided, the write
+    // is conditional on the current version matching; mismatch returns
+    // ErrVersionConflict.
+    //
+    // On success, returns the new version (monotonically increasing).
+    put: func(
+        token: capability-token,
+        key: string,
+        value: list<u8>,
+        expected-version: option<u64>,
+    ) -> result<u64, capability-error>;
+
+    // cas is a pure compare-and-swap: writes only if current version
+    // matches expected-version. Returns the new version on success,
+    // ErrVersionConflict on mismatch.
+    //
+    // Equivalent to put with expected-version set, but makes the
+    // intent explicit at the call site.
+    cas: func(
+        token: capability-token,
+        key: string,
+        expected-version: u64,
+        value: list<u8>,
+    ) -> result<u64, capability-error>;
+
+    // batch atomically applies a list of operations. All-or-nothing:
+    // either every op succeeds, or none do. Returns the list of new
+    // versions (one per put op; none for delete ops, represented as
+    // option<u64>).
+    //
+    // Implementation note: uses BoltDB's single-writer transaction,
+    // which is naturally ACID (spec §3.14).
+    batch: func(
+        token: capability-token,
+        ops: list<state-batch-op>,
+    ) -> result<list<option<u64>>, capability-error>;
+}

@@ -19,7 +19,7 @@ encryption:
   kms_type: "local"
   vault_addr: ""
   vault_token_file: ""
-  vault_transit_key: "nexus"
+  vault_transit_key: "cipherlake"
   aws_kms_key_id: ""
   aws_region: "us-east-1"
   kms_degradation_mode: "reject_writes"
@@ -78,7 +78,7 @@ vector:
     username: ""
     password: ""
     db_name: "default"
-    collection_name: "nexus_vectors"
+    collection_name: "cipherlake_vectors"
     shards_num: 2               # 分片数,水平扩展能力
     replica_number: 1           # 副本数,高可用场景设为 2+
     index_type: "HNSW"          # FLAT | HNSW | IVF_FLAT | IVF_SQ8 | DISKANN
@@ -186,3 +186,36 @@ ratelimit:
 
 replication:
   allow_private_endpoint: false
+
+plugin_loader:
+  enabled: true
+  grpc_listen_addr: "localhost:50060"
+  admin_listen_addr: "localhost:50061"
+  raft:
+    enabled: true
+    node_id: "plugin-loader-1"
+    data_dir: "./data/plugin-loader"
+    listen_addr: "localhost:50062"
+  instance_pool_size: 16
+  call_timeout: "500ms"
+  resource_limits:
+    global:
+      memory_mb: 512
+      fuel_per_sec: 100000000
+      call_timeout_ms: 5000
+      concurrent: 64
+    tier_0:
+      memory_mb: 128
+      fuel_per_sec: 10000000
+      call_timeout_ms: 1000
+      concurrent: 8
+    tier_1:
+      memory_mb: 256
+      fuel_per_sec: 50000000
+      call_timeout_ms: 3000
+      concurrent: 16
+    tier_2:
+      memory_mb: 512
+      fuel_per_sec: 100000000
+      call_timeout_ms: 5000
+      concurrent: 32

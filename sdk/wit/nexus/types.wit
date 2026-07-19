@@ -1,0 +1,170 @@
+// Nexus Plugin System — Common Types
+//
+// Shared types used across host imports and plugin exports.
+// Spec: .trae/specs/plugin-system/spec.txt §8.4
+
+package nexus:plugin@1.0.0;
+
+interface types {
+    // Capability token. Opaque u64 issued by the loader at instance
+    // init. Every host import takes one as its first argument; the
+    // loader verifies the token grants the requested capability +
+    // scope before fulfilling the call (spec §3.3 A6).
+    //
+    // Tokens are scoped to a single instance; borrowing an instance
+    // from the pool gives the plugin that instance's token. Tokens
+    // are revoked when the instance is destroyed.
+    type capability-token = u64;
+
+    // Result type used across host imports. Variant with explicit
+    // error categories so the plugin can branch without parsing
+    // error strings.
+    variant capability-error {
+        // Caller's token does not grant this capability (e.g. a Tier 0
+        // plugin calling storage:get).
+        unauthorized,
+        // Caller has the capability but not for this scope (e.g.
+        // storage:get:memories/* called on bucket "secrets").
+        forbidden,
+        // Caller has exceeded a resource limit (fuel, memory, I/O).
+        quota-exceeded,
+        // Underlying operation timed out.
+        timeout,
+        // CAS version mismatch (only state:cas / state:put with
+        // expected_version).
+        version-conflict,
+        // Other error; carries a human-readable string.
+        other(string),
+    }
+
+    // Standard result wrapper for host imports.
+    type result<T> = result<T, capability-error>;
+
+    // Object metadata returned by storage:get and passed to hooks.
+    // Body is intentionally NOT included — see spec §3.9 (Hook I/O
+    // model: metadata default + streaming body optional).
+    record object-meta {
+        bucket: string,
+        key: string,
+        size: u64,
+        content-type: string,
+        // user-metadata is a list of key/value pairs (S3 allows
+        // duplicate keys, so we don't use a map).
+        user-metadata: list<tuple<string, string>>,
+        // etag of the object (for conditional requests in future).
+        etag: string,
+    }
+
+    // Single vector search result.
+    record vector-result {
+        key: string,
+        score: f32,
+    }
+
+    // Single full-text search result.
+    record fts-result {
+        key: string,
+        score: f32,
+        snippet: string,
+    }
+
+    // State KV value with version for CAS (spec §3.14).
+    record state-value {
+        value: list<u8>,
+        version: u64,
+    }
+
+    // A single atomic operation in a state:batch (spec §3.14).
+    variant state-batch-op {
+        put {
+            key: string,
+            value: list<u8>,
+            expected-version: option<u64>,
+        },
+        delete {
+            key: string,
+        },
+    }
+
+    // Resource handles. The WASM guest receives these as opaque u64
+    // values from host imports and passes them back to other imports.
+    // The loader maintains the handle→resource mapping; a handle from
+    // one plugin instance is invalid in another.
+
+    // Stream handle for body I/O (spec §3.9).
+    type stream-handle = u64;
+
+    // Request handle (passed to on-request).
+    type req-handle = u64;
+
+    // Context handle (passed to on-hook, carries hook input).
+    type ctx-handle = u64;
+
+    // Payload handle (passed to on-event / on-task).
+    type payload-handle = u64;
+
+    // Subscription handle returned by event:subscribe.
+    type subscription-handle = u64;
+
+    // Trace span handle returned by observability:trace-span-start.
+    type span-handle = u64;
+
+    // Hook return codes (spec §4).
+    enum hook-result {
+        ok = 0,
+        err = 1,
+        // Around hook did not call proceed(); vanilla + downstream
+        // hooks are skipped (spec §3.2 A11 limits short-circuit body).
+        short-circuit = 2,
+        // Before hook denied the operation (spec §3.11 — deny wins).
+        deny = 3,
+    }
+
+    // HTTP method for http:fetch.
+    enum http-method {
+        get,
+        post,
+        put,
+        delete,
+        head,
+        patch,
+    }
+
+    // HTTP response (for http:fetch).
+    record http-response {
+        status: u16,
+        headers: list<tuple<string, string>>,
+        body: list<u8>,
+    }
+
+    // HTTP request headers for http:fetch.
+    record http-request {
+        url: string,
+        method: http-method,
+        headers: list<tuple<string, string>>,
+        body: option<list<u8>>,
+    }
+
+    // Log level for observability:log-emit.
+    enum log-level {
+        debug,
+        info,
+        warn,
+        error,
+    }
+
+    // CEL-evaluated hook condition context (passed to on-hook).
+    // The loader populates whichever fields are relevant for the
+    // operation; missing fields are left at their zero value.
+    record hook-context {
+        operation: string,        // "s3:GetObject", ...
+        bucket: option<string>,
+        key: option<string>,
+        size: option<u64>,
+        content-type: option<string>,
+        user-arn: option<string>,
+        source-ip: option<string>,
+        // Opaque user metadata (mirror of object-meta.user-metadata).
+        user-metadata: list<tuple<string, string>>,
+    }
+}
