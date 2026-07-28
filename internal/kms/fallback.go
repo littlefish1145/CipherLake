@@ -38,6 +38,8 @@ type FallbackKMS struct {
 	mu          sync.RWMutex
 	available   bool
 	cachedKeys  map[string][]byte // encrypted_key_hex -> plaintext_key
+	cacheOrder  []string          // FIFO eviction order
+	maxCache    int
 	lastFailure time.Time
 
 	cancelCtx  context.Context
@@ -82,6 +84,8 @@ func NewFallbackKMS(cfg FallbackConfig) (*FallbackKMS, error) {
 		healthCheck: healthCheck,
 		available:   true, // assume available initially
 		cachedKeys:  make(map[string][]byte),
+		cacheOrder:  make([]string, 0, 100),
+		maxCache:    1000,
 		cancelCtx:   ctx,
 		cancelFunc:  cancel,
 	}
@@ -213,14 +217,31 @@ func (f *FallbackKMS) markAvailable() {
 }
 
 // cacheKey stores a plaintext key indexed by its encrypted form.
+// Evicts oldest entries when the cache exceeds maxCache.
 func (f *FallbackKMS) cacheKey(encrypted, plaintext []byte) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
 	key := string(encrypted)
+	if _, exists := f.cachedKeys[key]; exists {
+		// Update in place - no eviction needed
+		cached := make([]byte, len(plaintext))
+		copy(cached, plaintext)
+		f.cachedKeys[key] = cached
+		return
+	}
+
+	// Evict oldest if over limit
+	for len(f.cachedKeys) >= f.maxCache && len(f.cacheOrder) > 0 {
+		oldest := f.cacheOrder[0]
+		f.cacheOrder = f.cacheOrder[1:]
+		delete(f.cachedKeys, oldest)
+	}
+
 	cached := make([]byte, len(plaintext))
 	copy(cached, plaintext)
 	f.cachedKeys[key] = cached
+	f.cacheOrder = append(f.cacheOrder, key)
 }
 
 // lookupCachedKey looks up a plaintext key by its encrypted form.

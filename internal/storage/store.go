@@ -56,7 +56,6 @@ type BackendStorage interface {
 }
 
 type FileBackend struct {
-	mu      sync.RWMutex
 	rootDir string
 }
 
@@ -74,9 +73,6 @@ func (f *FileBackend) Name() string {
 }
 
 func (f *FileBackend) Put(ctx context.Context, path string, data io.Reader, size int64) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
 	fullPath := filepath.Join(f.rootDir, path)
 
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
@@ -124,9 +120,6 @@ func (f *FileBackend) Put(ctx context.Context, path string, data io.Reader, size
 }
 
 func (f *FileBackend) Get(ctx context.Context, path string) (io.ReadCloser, error) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-
 	fullPath := filepath.Join(f.rootDir, path)
 
 	file, err := os.Open(fullPath)
@@ -141,9 +134,6 @@ func (f *FileBackend) Get(ctx context.Context, path string) (io.ReadCloser, erro
 }
 
 func (f *FileBackend) Delete(ctx context.Context, path string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
 	fullPath := filepath.Join(f.rootDir, path)
 
 	err := os.Remove(fullPath)
@@ -155,9 +145,6 @@ func (f *FileBackend) Delete(ctx context.Context, path string) error {
 }
 
 func (f *FileBackend) Exists(ctx context.Context, path string) (bool, error) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-
 	fullPath := filepath.Join(f.rootDir, path)
 
 	_, err := os.Stat(fullPath)
@@ -172,9 +159,6 @@ func (f *FileBackend) Exists(ctx context.Context, path string) (bool, error) {
 }
 
 func (f *FileBackend) Size(ctx context.Context, path string) (int64, error) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-
 	fullPath := filepath.Join(f.rootDir, path)
 
 	info, err := os.Stat(fullPath)
@@ -189,10 +173,7 @@ func (f *FileBackend) Size(ctx context.Context, path string) (int64, error) {
 }
 
 func (f *FileBackend) List(ctx context.Context, prefix string) ([]string, error) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-
-	var files []string
+	files := make([]string, 0)
 	searchPath := filepath.Join(f.rootDir, prefix)
 
 	if _, err := os.Stat(searchPath); err != nil {
@@ -227,9 +208,6 @@ func (f *FileBackend) Close() error {
 }
 
 func (f *FileBackend) PutReader(ctx context.Context, path string, reader io.Reader) (string, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
 	fullPath := filepath.Join(f.rootDir, path)
 
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
@@ -267,9 +245,6 @@ func (f *FileBackend) PutReader(ctx context.Context, path string, reader io.Read
 }
 
 func (f *FileBackend) GetRange(ctx context.Context, path string, offset, length int64) (io.ReadCloser, error) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-
 	fullPath := filepath.Join(f.rootDir, path)
 
 	file, err := os.Open(fullPath)
@@ -289,9 +264,6 @@ func (f *FileBackend) GetRange(ctx context.Context, path string, offset, length 
 }
 
 func (f *FileBackend) AtomicRename(ctx context.Context, oldPath, newPath string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
 	fullOldPath := filepath.Join(f.rootDir, oldPath)
 	fullNewPath := filepath.Join(f.rootDir, newPath)
 
@@ -512,13 +484,10 @@ func (s *TieredObjectStore) GetTierSize(tier common.StorageTier) (int64, error) 
 func (s *TieredObjectStore) lockObject(bucket, key string) {
 	objKey := bucket + "/" + key
 
+	actual, _ := s.objLocks.LoadOrStore(objKey, &objectLock{})
+	ol := actual.(*objectLock)
+
 	s.locksMu.Lock()
-	lock, ok := s.objLocks.Load(objKey)
-	if !ok {
-		lock = &objectLock{}
-		s.objLocks.Store(objKey, lock)
-	}
-	ol := lock.(*objectLock)
 	ol.refs++
 	s.locksMu.Unlock()
 
@@ -528,11 +497,11 @@ func (s *TieredObjectStore) lockObject(bucket, key string) {
 func (s *TieredObjectStore) unlockObject(bucket, key string) {
 	objKey := bucket + "/" + key
 
-	lock, ok := s.objLocks.Load(objKey)
+	actual, ok := s.objLocks.Load(objKey)
 	if !ok {
 		return
 	}
-	ol := lock.(*objectLock)
+	ol := actual.(*objectLock)
 
 	ol.mu.Unlock()
 

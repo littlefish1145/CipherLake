@@ -546,10 +546,29 @@ func (g *S3Gateway) handlePipelineTask(ctx context.Context, task *taskqueue.Task
 	}
 
 	pipelines := g.pipeline.GetMatchingPipelines(ctx, pipeline.TriggerOnUpload, payload.ContentType, payload.Metadata)
+	if len(pipelines) == 0 {
+		return nil
+	}
+
+	objMeta, err := g.metadata.GetObject(ctx, payload.Bucket, payload.Key)
+	if err != nil {
+		return fmt.Errorf("failed to get object metadata: %w", err)
+	}
+
+	storageTier := common.StorageTier(objMeta.StorageTier)
+	reader, _, err := g.store.Get(ctx, payload.Bucket, payload.Key, storageTier)
+	if err != nil {
+		return fmt.Errorf("failed to get object content: %w", err)
+	}
+	defer reader.Close()
+
 	for _, p := range pipelines {
+		// Reset reader for each pipeline
 		input := &pipeline.ObjectInput{
 			Key:          payload.Key,
 			Bucket:       payload.Bucket,
+			Content:      reader,
+			Size:         objMeta.Size,
 			ContentType:  payload.ContentType,
 			UserMetadata: payload.Metadata,
 		}

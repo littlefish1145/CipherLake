@@ -77,14 +77,7 @@ func (w *eventWorker) stop() {
 }
 
 func (w *eventWorker) enqueue(delivery *eventDelivery) {
-	select {
-	case w.ch <- delivery:
-	default:
-		// Worker is overwhelmed - track the dropped event for monitoring
-		w.metrics.IncDropped()
-		// Decrement drainWg since this event will never be delivered
-		w.drainWg.Done()
-	}
+	w.ch <- delivery
 }
 
 func (w *eventWorker) processLoop() {

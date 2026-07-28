@@ -52,10 +52,9 @@ func (p *gatewayAuthProvider) Authenticate(r *http.Request) (*auth.Identity, err
 }
 
 func anonymousIdentity(anonymousRead bool) *auth.Identity {
-	perms := []string{auth.ActionRead, auth.ActionWrite, auth.ActionDelete}
-	if !anonymousRead {
-		// Restrict anonymous to read-only when AnonymousRead is explicitly false.
-		perms = []string{auth.ActionRead}
+	perms := []string{auth.ActionRead}
+	if anonymousRead {
+		perms = []string{auth.ActionRead, auth.ActionWrite, auth.ActionDelete}
 	}
 	return &auth.Identity{
 		ID:          "anonymous",
@@ -93,8 +92,19 @@ func looksLikeIAMRequest(r *http.Request) bool {
 }
 
 func containsAKIAOrASIA(s string) bool {
-	// Simple heuristic; the IAM bridge performs real credential lookup.
-	return len(s) >= 4 && (s[:4] == "AKIA" || s[:4] == "ASIA")
+	return containsPrefix(s, "AKIA") || containsPrefix(s, "ASIA")
+}
+
+func containsPrefix(s, prefix string) bool {
+	if len(s) < len(prefix) {
+		return false
+	}
+	for i := 0; i <= len(s)-len(prefix); i++ {
+		if s[i:i+len(prefix)] == prefix {
+			return true
+		}
+	}
+	return false
 }
 
 func isIAMAccessKey(accessKey string) bool {
