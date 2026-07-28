@@ -1,15 +1,9 @@
-<div align="center">
-
-<img src="Logo.png" alt="CipherLake" width="120" />
-
 # CipherLake
 
 **高性能 · S3 兼容 · 存算一体 · 零信任加密 · 智能对象存储**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.21%2B-00ADD8.svg)](https://go.dev/)
-
-</div>
 
 ---
 
