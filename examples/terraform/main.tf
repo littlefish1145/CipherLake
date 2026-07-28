@@ -13,7 +13,7 @@ provider "aws" {
 }
 
 # VPC and networking
-resource "aws_vpc" "nexus" {
+resource "aws_vpc" "cipherlake" {
   count                = var.create_vpc ? 1 : 0
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
@@ -24,9 +24,9 @@ resource "aws_vpc" "nexus" {
   })
 }
 
-resource "aws_subnet" "nexus" {
+resource "aws_subnet" "cipherlake" {
   count             = var.create_vpc ? length(var.availability_zones) : 0
-  vpc_id            = aws_vpc.nexus[0].id
+  vpc_id            = aws_vpc.cipherlake[0].id
   cidr_block        = cidrsubnet(var.vpc_cidr, 4, count.index)
   availability_zone = var.availability_zones[count.index]
 
@@ -36,10 +36,10 @@ resource "aws_subnet" "nexus" {
 }
 
 # Security group
-resource "aws_security_group" "nexus" {
+resource "aws_security_group" "cipherlake" {
   name_prefix = "${var.name}-"
-  description = "Security group for Nexus Object Storage"
-  vpc_id      = var.create_vpc ? aws_vpc.nexus[0].id : var.vpc_id
+  description = "Security group for CipherLake Object Storage"
+  vpc_id      = var.create_vpc ? aws_vpc.cipherlake[0].id : var.vpc_id
 
   ingress {
     from_port   = 9000
@@ -70,7 +70,7 @@ resource "aws_security_group" "nexus" {
 }
 
 # ECS task definition
-resource "aws_ecs_task_definition" "nexus" {
+resource "aws_ecs_task_definition" "cipherlake" {
   family                   = var.name
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
@@ -79,7 +79,7 @@ resource "aws_ecs_task_definition" "nexus" {
 
   container_definitions = jsonencode([
     {
-      name      = "nexus"
+      name      = "cipherlake"
       image     = var.container_image
       essential = true
       portMappings = [
@@ -87,14 +87,14 @@ resource "aws_ecs_task_definition" "nexus" {
         { containerPort = 9001, protocol = "tcp" }
       ]
       environment = [
-        { name = "NEXUS_GATEWAY_ADDRESS", value = ":9000" },
-        { name = "NEXUS_GATEWAY_ADMIN_ADDRESS", value = ":9001" },
-        { name = "NEXUS_STORAGE_BACKEND", value = var.storage_backend },
-        { name = "NEXUS_OBSERVABILITY_LOGGING_LEVEL", value = var.log_level }
+        { name = "CIPHERLAKE_GATEWAY_ADDRESS", value = ":9000" },
+        { name = "CIPHERLAKE_GATEWAY_ADMIN_ADDRESS", value = ":9001" },
+        { name = "CIPHERLAKE_STORAGE_BACKEND", value = var.storage_backend },
+        { name = "CIPHERLAKE_OBSERVABILITY_LOGGING_LEVEL", value = var.log_level }
       ]
       secrets = [
-        { name = "NEXUS_GATEWAY_ACCESS_KEY", valueFrom = aws_secretsmanager_secret.access_key.arn },
-        { name = "NEXUS_GATEWAY_SECRET_KEY", valueFrom = aws_secretsmanager_secret.secret_key.arn }
+        { name = "CIPHERLAKE_GATEWAY_ACCESS_KEY", valueFrom = aws_secretsmanager_secret.access_key.arn },
+        { name = "CIPHERLAKE_GATEWAY_SECRET_KEY", valueFrom = aws_secretsmanager_secret.secret_key.arn }
       ]
       healthCheck = {
         command     = ["CMD-SHELL", "curl -f http://localhost:9000/health || exit 1"]
@@ -106,9 +106,9 @@ resource "aws_ecs_task_definition" "nexus" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.nexus.name
+          awslogs-group         = aws_cloudwatch_log_group.cipherlake.name
           awslogs-region        = var.region
-          awslogs-stream-prefix = "nexus"
+          awslogs-stream-prefix = "cipherlake"
         }
       }
     }
@@ -118,51 +118,51 @@ resource "aws_ecs_task_definition" "nexus" {
 }
 
 # ECS service
-resource "aws_ecs_service" "nexus" {
+resource "aws_ecs_service" "cipherlake" {
   name            = var.name
-  cluster         = aws_ecs_cluster.nexus.id
-  task_definition = aws_ecs_task_definition.nexus.arn
+  cluster         = aws_ecs_cluster.cipherlake.id
+  task_definition = aws_ecs_task_definition.cipherlake.arn
   desired_count   = var.service_count
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = var.create_vpc ? aws_subnet.nexus[*].id : var.subnet_ids
-    security_groups = [aws_security_group.nexus.id]
+    subnets         = var.create_vpc ? aws_subnet.cipherlake[*].id : var.subnet_ids
+    security_groups = [aws_security_group.cipherlake.id]
   }
 
   load_balancer {
-    target_group_arn = aws_lb_target_group.nexus.arn
-    container_name   = "nexus"
+    target_group_arn = aws_lb_target_group.cipherlake.arn
+    container_name   = "cipherlake"
     container_port   = 9000
   }
 
-  depends_on = [aws_lb_listener.nexus]
+  depends_on = [aws_lb_listener.cipherlake]
 }
 
 # ECS cluster
-resource "aws_ecs_cluster" "nexus" {
+resource "aws_ecs_cluster" "cipherlake" {
   name = "${var.name}-cluster"
   tags = var.tags
 }
 
 # Load balancer
-resource "aws_lb" "nexus" {
+resource "aws_lb" "cipherlake" {
   name               = "${var.name}-alb"
   internal           = var.internal
   load_balancer_type = "application"
-  subnets            = var.create_vpc ? aws_subnet.nexus[*].id : var.subnet_ids
-  security_groups    = [aws_security_group.nexus.id]
+  subnets            = var.create_vpc ? aws_subnet.cipherlake[*].id : var.subnet_ids
+  security_groups    = [aws_security_group.cipherlake.id]
 
   tags = merge(var.tags, {
     Name = "${var.name}-alb"
   })
 }
 
-resource "aws_lb_target_group" "nexus" {
+resource "aws_lb_target_group" "cipherlake" {
   name        = "${var.name}-tg"
   port        = 9000
   protocol    = "HTTP"
-  vpc_id      = var.create_vpc ? aws_vpc.nexus[0].id : var.vpc_id
+  vpc_id      = var.create_vpc ? aws_vpc.cipherlake[0].id : var.vpc_id
   target_type = "ip"
 
   health_check {
@@ -172,14 +172,14 @@ resource "aws_lb_target_group" "nexus" {
   tags = var.tags
 }
 
-resource "aws_lb_listener" "nexus" {
-  load_balancer_arn = aws_lb.nexus.arn
+resource "aws_lb_listener" "cipherlake" {
+  load_balancer_arn = aws_lb.cipherlake.arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.nexus.arn
+    target_group_arn = aws_lb_target_group.cipherlake.arn
   }
 }
 
@@ -207,27 +207,27 @@ resource "aws_secretsmanager_secret_version" "secret_key" {
 }
 
 # CloudWatch logs
-resource "aws_cloudwatch_log_group" "nexus" {
-  name              = "/nexus/${var.name}"
+resource "aws_cloudwatch_log_group" "cipherlake" {
+  name              = "/cipherlake/${var.name}"
   retention_in_days = var.log_retention_days
   tags              = var.tags
 }
 
 # Auto scaling
-resource "aws_appautoscaling_target" "nexus" {
+resource "aws_appautoscaling_target" "cipherlake" {
   max_capacity       = var.max_capacity
   min_capacity       = var.min_capacity
-  resource_id        = "service/${aws_ecs_cluster.nexus.name}/${aws_ecs_service.nexus.name}"
+  resource_id        = "service/${aws_ecs_cluster.cipherlake.name}/${aws_ecs_service.cipherlake.name}"
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
 }
 
-resource "aws_appautoscaling_policy" "nexus_cpu" {
+resource "aws_appautoscaling_policy" "cipherlake_cpu" {
   name               = "${var.name}-cpu-autoscaling"
   policy_type        = "TargetTrackingScaling"
-  resource_id        = aws_appautoscaling_target.nexus.resource_id
-  scalable_dimension = aws_appautoscaling_target.nexus.scalable_dimension
-  service_namespace  = aws_appautoscaling_target.nexus.service_namespace
+  resource_id        = aws_appautoscaling_target.cipherlake.resource_id
+  scalable_dimension = aws_appautoscaling_target.cipherlake.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.cipherlake.service_namespace
 
   target_tracking_scaling_policy_configuration {
     predefined_metric_specification {

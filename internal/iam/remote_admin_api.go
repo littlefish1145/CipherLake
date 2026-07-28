@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	pb "nexus/proto/sts"
+	pb "cipherlake/proto/sts"
 )
 
 // RemoteAdminAPI provides the same HTTP endpoints as AdminAPI but proxies
 // all operations to sts-service via gRPC. This is used in distributed mode
-// where nexus does not have direct access to the IAM BoltDB database.
+// where cipherlake does not have direct access to the IAM BoltDB database.
 type RemoteAdminAPI struct {
 	client pb.STSServiceClient
 	jwtKey []byte
@@ -159,10 +159,10 @@ func (a *RemoteAdminAPI) createUser(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"user": map[string]interface{}{
-			"id":          resp.User.Id,
-			"name":        resp.User.Name,
+			"id":           resp.User.Id,
+			"name":         resp.User.Name,
 			"display_name": resp.User.DisplayName,
-			"created_at":  time.Unix(resp.User.CreatedAtUnix, 0).Format(time.RFC3339),
+			"created_at":   time.Unix(resp.User.CreatedAtUnix, 0).Format(time.RFC3339),
 		},
 	})
 }
@@ -377,12 +377,12 @@ func (a *RemoteAdminAPI) listPolicies(w http.ResponseWriter, r *http.Request) {
 	var policies []interface{}
 	for _, p := range resp.Policies {
 		policies = append(policies, map[string]interface{}{
-			"arn":        p.Arn,
-			"name":       p.Name,
+			"arn":         p.Arn,
+			"name":        p.Name,
 			"description": p.Description,
-			"type":       p.Type,
-			"created_at": time.Unix(p.CreatedAtUnix, 0).Format(time.RFC3339),
-			"updated_at": time.Unix(p.UpdatedAtUnix, 0).Format(time.RFC3339),
+			"type":        p.Type,
+			"created_at":  time.Unix(p.CreatedAtUnix, 0).Format(time.RFC3339),
+			"updated_at":  time.Unix(p.UpdatedAtUnix, 0).Format(time.RFC3339),
 		})
 	}
 
@@ -391,9 +391,9 @@ func (a *RemoteAdminAPI) listPolicies(w http.ResponseWriter, r *http.Request) {
 
 func (a *RemoteAdminAPI) createPolicy(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name        string          `json:"name"`
-		Description string          `json:"description"`
-		Document    PolicyDocument  `json:"document"`
+		Name        string         `json:"name"`
+		Description string         `json:"description"`
+		Document    PolicyDocument `json:"document"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
@@ -543,9 +543,9 @@ func (a *RemoteAdminAPI) createRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, err := a.client.AdminCreateRole(r.Context(), &pb.AdminCreateRoleRequest{
-		Name:              req.Name,
-		Description:       req.Description,
-		TrustPolicyJson:   string(trustJSON),
+		Name:               req.Name,
+		Description:        req.Description,
+		TrustPolicyJson:    string(trustJSON),
 		MaxSessionDuration: int32(req.MaxSessionDuration),
 	})
 	if err != nil {

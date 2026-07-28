@@ -3,9 +3,10 @@ package sts_service
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
-	"nexus/internal/iam"
+	"cipherlake/internal/iam"
 
 	"go.uber.org/zap"
 )
@@ -14,6 +15,8 @@ import (
 type STSService struct {
 	iamService *iam.IAMService
 	stopCh     chan struct{}
+	wg         sync.WaitGroup
+	stopOnce   sync.Once
 }
 
 // NewSTSService creates a new STS service
@@ -91,7 +94,9 @@ func (s *STSService) CleanupExpired() {
 
 // StartCleanupLoop starts a background goroutine to clean up expired credentials
 func (s *STSService) StartCleanupLoop(interval time.Duration) {
+	s.wg.Add(1)
 	go func() {
+		defer s.wg.Done()
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
@@ -106,7 +111,11 @@ func (s *STSService) StartCleanupLoop(interval time.Duration) {
 	}()
 }
 
-// StopCleanupLoop signals the cleanup goroutine to exit
+// StopCleanupLoop signals the cleanup goroutine to exit and waits for it.
+// Safe to call multiple times.
 func (s *STSService) StopCleanupLoop() {
-	close(s.stopCh)
+	s.stopOnce.Do(func() {
+		close(s.stopCh)
+	})
+	s.wg.Wait()
 }

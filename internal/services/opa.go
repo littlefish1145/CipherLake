@@ -35,12 +35,12 @@ type PolicyRequest struct {
 
 // UserContext contains user-related information
 type UserContext struct {
-	ID                string            `json:"id"`
-	Name              string            `json:"name"`
-	Role              string            `json:"role"`
-	Permissions       []string          `json:"permissions"`
+	ID                string              `json:"id"`
+	Name              string              `json:"name"`
+	Role              string              `json:"role"`
+	Permissions       []string            `json:"permissions"`
 	BucketPermissions map[string][]string `json:"bucket_permissions,omitempty"`
-	Attributes        map[string]string `json:"attributes,omitempty"`
+	Attributes        map[string]string   `json:"attributes,omitempty"`
 }
 
 // ObjectContext contains object-related information
@@ -63,12 +63,12 @@ type ActionContext struct {
 
 // RequestContext contains request-related information
 type RequestContext struct {
-	SourceIP    string    `json:"source_ip"`
-	Time        time.Time `json:"time"`
-	Method      string    `json:"method"`
-	Path        string    `json:"path"`
-	Headers     map[string]string `json:"headers,omitempty"`
-	TraceID     string    `json:"trace_id,omitempty"`
+	SourceIP string            `json:"source_ip"`
+	Time     time.Time         `json:"time"`
+	Method   string            `json:"method"`
+	Path     string            `json:"path"`
+	Headers  map[string]string `json:"headers,omitempty"`
+	TraceID  string            `json:"trace_id,omitempty"`
 }
 
 // PolicyResponse represents OPA policy decision
@@ -152,7 +152,7 @@ func (o *OPAClient) EvaluateAccess(ctx context.Context, user UserContext, object
 		Context: requestCtx,
 	}
 
-	resp, err := o.Evaluate(ctx, "nexus/access/allow", input)
+	resp, err := o.Evaluate(ctx, "cipherlake/access/allow", input)
 	if err != nil {
 		return false, err
 	}
@@ -170,7 +170,7 @@ func (o *OPAClient) EvaluateEncryption(ctx context.Context, object ObjectContext
 		},
 	}
 
-	resp, err := o.Evaluate(ctx, "nexus/encryption/required", input)
+	resp, err := o.Evaluate(ctx, "cipherlake/encryption/required", input)
 	if err != nil {
 		return false, err
 	}

@@ -1,10 +1,10 @@
 # Cluster Deployment
 
-Deploy Nexus in a clustered configuration for high availability and horizontal scaling.
+Deploy CipherLake in a clustered configuration for high availability and horizontal scaling.
 
 ## Architecture
 
-A Nexus cluster consists of:
+A CipherLake cluster consists of:
 
 - **Gateway nodes**: Stateless S3 API endpoints (scale horizontally)
 - **Metadata cluster**: Raft-based consensus group (3 or 5 nodes recommended)
@@ -47,10 +47,10 @@ On each metadata node, configure the Raft cluster:
 ```yaml
 metadata:
   backend: "boltdb"
-  path: "/var/lib/nexus/metadata.db"
+  path: "/var/lib/cipherlake/metadata.db"
   raft:
     enabled: true
-    data_dir: "/var/lib/nexus/raft"
+    data_dir: "/var/lib/cipherlake/raft"
     bind_address: ":9090"
     peers:
       - "node1:9090"
@@ -61,14 +61,14 @@ metadata:
 Bootstrap the first node:
 
 ```bash
-nexusctl cluster bootstrap --node-id node1 --address node1:9090
+cipherlakectl cluster bootstrap --node-id node1 --address node1:9090
 ```
 
 Join additional nodes:
 
 ```bash
-nexusctl cluster join --node-id node2 --address node2:9090 --leader node1:9090
-nexusctl cluster join --node-id node3 --address node3:9090 --leader node1:9090
+cipherlakectl cluster join --node-id node2 --address node2:9090 --leader node1:9090
+cipherlakectl cluster join --node-id node3 --address node3:9090 --leader node1:9090
 ```
 
 ## Step 2: Configure Gateway Nodes
@@ -103,11 +103,11 @@ comma-separated list (e.g. `"s3.example.com,localhost"`).
 Example HAProxy configuration:
 
 ```
-frontend nexus_s3
+frontend cipherlake_s3
     bind *:9000
-    default_backend nexus_gateways
+    default_backend cipherlake_gateways
 
-backend nexus_gateways
+backend cipherlake_gateways
     balance roundrobin
     option httpchk GET /health
     server gw1 gateway1:9000 check
@@ -145,10 +145,10 @@ Monitor cluster health:
 
 ```bash
 # Check Raft leader
-nexusctl cluster status
+cipherlakectl cluster status
 
 # Check node health
-nexusctl cluster health
+cipherlakectl cluster health
 
 # View metrics
 curl http://gateway1:9091/metrics

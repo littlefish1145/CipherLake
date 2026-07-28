@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"nexus/internal/s3"
+	"cipherlake/internal/s3"
 
 	"github.com/stretchr/testify/assert"
 )

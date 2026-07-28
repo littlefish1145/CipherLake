@@ -1,0 +1,28 @@
+[Unit]
+Description=CipherLake Object Storage - Main Service
+After=network-online.target cipherlake-encrypt.service cipherlake-decrypt.service cipherlake-keygen.service cipherlake-keystore.service cipherlake-keyunwrap.service cipherlake-token.service cipherlake-sts.service
+Wants=network-online.target
+PartOf=cipherlake.target
+
+[Service]
+Type=simple
+User=cipherlake
+Group=cipherlake
+ExecStart=/usr/local/bin/cipherlake --config /etc/cipherlake/config.yaml
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/cipherlake /var/log/cipherlake
+
+# Environment
+Environment=CIPHERLAKE_GATEWAY_ADDRESS=:9000
+Environment=CIPHERLAKE_GATEWAY_ADMIN_ADDRESS=:9001
+
+[Install]
+WantedBy=cipherlake.target

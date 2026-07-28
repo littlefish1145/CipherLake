@@ -14,12 +14,12 @@ import (
 )
 
 type sigV4Params struct {
-	AccessKey    string
-	Date         string
-	Region       string
-	Service      string
+	AccessKey     string
+	Date          string
+	Region        string
+	Service       string
 	SignedHeaders []string
-	Signature    string
+	Signature     string
 }
 
 func parseAuthorizationHeader(auth string) (*sigV4Params, error) {

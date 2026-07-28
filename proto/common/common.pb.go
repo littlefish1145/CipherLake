@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.33.2
-// source: common.proto
+// source: cipherlake/common.proto
 
 package common
 
@@ -55,11 +55,11 @@ func (x TokenType) String() string {
 }
 
 func (TokenType) Descriptor() protoreflect.EnumDescriptor {
-	return file_common_proto_enumTypes[0].Descriptor()
+	return file_cipherlake_common_proto_enumTypes[0].Descriptor()
 }
 
 func (TokenType) Type() protoreflect.EnumType {
-	return &file_common_proto_enumTypes[0]
+	return &file_cipherlake_common_proto_enumTypes[0]
 }
 
 func (x TokenType) Number() protoreflect.EnumNumber {
@@ -68,14 +68,14 @@ func (x TokenType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use TokenType.Descriptor instead.
 func (TokenType) EnumDescriptor() ([]byte, []int) {
-	return file_common_proto_rawDescGZIP(), []int{0}
+	return file_cipherlake_common_proto_rawDescGZIP(), []int{0}
 }
 
 // Delegation token signed by TokenService
 type DelegationToken struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TokenId       string                 `protobuf:"bytes,1,opt,name=token_id,json=tokenId,proto3" json:"token_id,omitempty"`
-	TokenType     TokenType              `protobuf:"varint,2,opt,name=token_type,json=tokenType,proto3,enum=nexus.common.TokenType" json:"token_type,omitempty"`
+	TokenType     TokenType              `protobuf:"varint,2,opt,name=token_type,json=tokenType,proto3,enum=cipherlake.common.TokenType" json:"token_type,omitempty"`
 	UserId        string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Bucket        string                 `protobuf:"bytes,4,opt,name=bucket,proto3" json:"bucket,omitempty"`
 	ObjectKey     string                 `protobuf:"bytes,5,opt,name=object_key,json=objectKey,proto3" json:"object_key,omitempty"`
@@ -90,7 +90,7 @@ type DelegationToken struct {
 
 func (x *DelegationToken) Reset() {
 	*x = DelegationToken{}
-	mi := &file_common_proto_msgTypes[0]
+	mi := &file_cipherlake_common_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -102,7 +102,7 @@ func (x *DelegationToken) String() string {
 func (*DelegationToken) ProtoMessage() {}
 
 func (x *DelegationToken) ProtoReflect() protoreflect.Message {
-	mi := &file_common_proto_msgTypes[0]
+	mi := &file_cipherlake_common_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -115,7 +115,7 @@ func (x *DelegationToken) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DelegationToken.ProtoReflect.Descriptor instead.
 func (*DelegationToken) Descriptor() ([]byte, []int) {
-	return file_common_proto_rawDescGZIP(), []int{0}
+	return file_cipherlake_common_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *DelegationToken) GetTokenId() string {
@@ -201,7 +201,7 @@ type EncryptedDEK struct {
 
 func (x *EncryptedDEK) Reset() {
 	*x = EncryptedDEK{}
-	mi := &file_common_proto_msgTypes[1]
+	mi := &file_cipherlake_common_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -213,7 +213,7 @@ func (x *EncryptedDEK) String() string {
 func (*EncryptedDEK) ProtoMessage() {}
 
 func (x *EncryptedDEK) ProtoReflect() protoreflect.Message {
-	mi := &file_common_proto_msgTypes[1]
+	mi := &file_cipherlake_common_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -226,7 +226,7 @@ func (x *EncryptedDEK) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EncryptedDEK.ProtoReflect.Descriptor instead.
 func (*EncryptedDEK) Descriptor() ([]byte, []int) {
-	return file_common_proto_rawDescGZIP(), []int{1}
+	return file_cipherlake_common_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *EncryptedDEK) GetEncryptedKey() []byte {
@@ -268,7 +268,7 @@ type ECDHPublicKey struct {
 
 func (x *ECDHPublicKey) Reset() {
 	*x = ECDHPublicKey{}
-	mi := &file_common_proto_msgTypes[2]
+	mi := &file_cipherlake_common_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -280,7 +280,7 @@ func (x *ECDHPublicKey) String() string {
 func (*ECDHPublicKey) ProtoMessage() {}
 
 func (x *ECDHPublicKey) ProtoReflect() protoreflect.Message {
-	mi := &file_common_proto_msgTypes[2]
+	mi := &file_cipherlake_common_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -293,7 +293,7 @@ func (x *ECDHPublicKey) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ECDHPublicKey.ProtoReflect.Descriptor instead.
 func (*ECDHPublicKey) Descriptor() ([]byte, []int) {
-	return file_common_proto_rawDescGZIP(), []int{2}
+	return file_cipherlake_common_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ECDHPublicKey) GetPublicKey() []byte {
@@ -322,7 +322,7 @@ type ECDHEncryptedDEK struct {
 
 func (x *ECDHEncryptedDEK) Reset() {
 	*x = ECDHEncryptedDEK{}
-	mi := &file_common_proto_msgTypes[3]
+	mi := &file_cipherlake_common_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -334,7 +334,7 @@ func (x *ECDHEncryptedDEK) String() string {
 func (*ECDHEncryptedDEK) ProtoMessage() {}
 
 func (x *ECDHEncryptedDEK) ProtoReflect() protoreflect.Message {
-	mi := &file_common_proto_msgTypes[3]
+	mi := &file_cipherlake_common_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -347,7 +347,7 @@ func (x *ECDHEncryptedDEK) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ECDHEncryptedDEK.ProtoReflect.Descriptor instead.
 func (*ECDHEncryptedDEK) Descriptor() ([]byte, []int) {
-	return file_common_proto_rawDescGZIP(), []int{3}
+	return file_cipherlake_common_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ECDHEncryptedDEK) GetCiphertext() []byte {
@@ -387,7 +387,7 @@ type ServiceMetadata struct {
 
 func (x *ServiceMetadata) Reset() {
 	*x = ServiceMetadata{}
-	mi := &file_common_proto_msgTypes[4]
+	mi := &file_cipherlake_common_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -399,7 +399,7 @@ func (x *ServiceMetadata) String() string {
 func (*ServiceMetadata) ProtoMessage() {}
 
 func (x *ServiceMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_common_proto_msgTypes[4]
+	mi := &file_cipherlake_common_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -412,7 +412,7 @@ func (x *ServiceMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceMetadata.ProtoReflect.Descriptor instead.
 func (*ServiceMetadata) Descriptor() ([]byte, []int) {
-	return file_common_proto_rawDescGZIP(), []int{4}
+	return file_cipherlake_common_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ServiceMetadata) GetServiceName() string {
@@ -477,7 +477,7 @@ type HealthStatus struct {
 
 func (x *HealthStatus) Reset() {
 	*x = HealthStatus{}
-	mi := &file_common_proto_msgTypes[5]
+	mi := &file_cipherlake_common_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -489,7 +489,7 @@ func (x *HealthStatus) String() string {
 func (*HealthStatus) ProtoMessage() {}
 
 func (x *HealthStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_common_proto_msgTypes[5]
+	mi := &file_cipherlake_common_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -502,7 +502,7 @@ func (x *HealthStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthStatus.ProtoReflect.Descriptor instead.
 func (*HealthStatus) Descriptor() ([]byte, []int) {
-	return file_common_proto_rawDescGZIP(), []int{5}
+	return file_cipherlake_common_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *HealthStatus) GetServiceId() string {
@@ -545,7 +545,7 @@ type Error struct {
 
 func (x *Error) Reset() {
 	*x = Error{}
-	mi := &file_common_proto_msgTypes[6]
+	mi := &file_cipherlake_common_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -557,7 +557,7 @@ func (x *Error) String() string {
 func (*Error) ProtoMessage() {}
 
 func (x *Error) ProtoReflect() protoreflect.Message {
-	mi := &file_common_proto_msgTypes[6]
+	mi := &file_cipherlake_common_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -570,7 +570,7 @@ func (x *Error) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Error.ProtoReflect.Descriptor instead.
 func (*Error) Descriptor() ([]byte, []int) {
-	return file_common_proto_rawDescGZIP(), []int{6}
+	return file_cipherlake_common_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Error) GetCode() int32 {
@@ -594,15 +594,15 @@ func (x *Error) GetDetails() string {
 	return ""
 }
 
-var File_common_proto protoreflect.FileDescriptor
+var File_cipherlake_common_proto protoreflect.FileDescriptor
 
-const file_common_proto_rawDesc = "" +
+const file_cipherlake_common_proto_rawDesc = "" +
 	"\n" +
-	"\fcommon.proto\x12\fnexus.common\"\xcc\x02\n" +
+	"\x17cipherlake/common.proto\x12\x11cipherlake.common\"\xd1\x02\n" +
 	"\x0fDelegationToken\x12\x19\n" +
-	"\btoken_id\x18\x01 \x01(\tR\atokenId\x126\n" +
+	"\btoken_id\x18\x01 \x01(\tR\atokenId\x12;\n" +
 	"\n" +
-	"token_type\x18\x02 \x01(\x0e2\x17.nexus.common.TokenTypeR\ttokenType\x12\x17\n" +
+	"token_type\x18\x02 \x01(\x0e2\x1c.cipherlake.common.TokenTypeR\ttokenType\x12\x17\n" +
 	"\auser_id\x18\x03 \x01(\tR\x06userId\x12\x16\n" +
 	"\x06bucket\x18\x04 \x01(\tR\x06bucket\x12\x1d\n" +
 	"\n" +
@@ -655,34 +655,34 @@ const file_common_proto_rawDesc = "" +
 	"\tTokenType\x12\x14\n" +
 	"\x10TOKEN_TYPE_WRITE\x10\x00\x12\x13\n" +
 	"\x0fTOKEN_TYPE_READ\x10\x01\x12\x15\n" +
-	"\x11TOKEN_TYPE_DELETE\x10\x02B\x14Z\x12nexus/proto/commonb\x06proto3"
+	"\x11TOKEN_TYPE_DELETE\x10\x02B\x19Z\x17cipherlake/proto/commonb\x06proto3"
 
 var (
-	file_common_proto_rawDescOnce sync.Once
-	file_common_proto_rawDescData []byte
+	file_cipherlake_common_proto_rawDescOnce sync.Once
+	file_cipherlake_common_proto_rawDescData []byte
 )
 
-func file_common_proto_rawDescGZIP() []byte {
-	file_common_proto_rawDescOnce.Do(func() {
-		file_common_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_common_proto_rawDesc), len(file_common_proto_rawDesc)))
+func file_cipherlake_common_proto_rawDescGZIP() []byte {
+	file_cipherlake_common_proto_rawDescOnce.Do(func() {
+		file_cipherlake_common_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_cipherlake_common_proto_rawDesc), len(file_cipherlake_common_proto_rawDesc)))
 	})
-	return file_common_proto_rawDescData
+	return file_cipherlake_common_proto_rawDescData
 }
 
-var file_common_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_common_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
-var file_common_proto_goTypes = []any{
-	(TokenType)(0),           // 0: nexus.common.TokenType
-	(*DelegationToken)(nil),  // 1: nexus.common.DelegationToken
-	(*EncryptedDEK)(nil),     // 2: nexus.common.EncryptedDEK
-	(*ECDHPublicKey)(nil),    // 3: nexus.common.ECDHPublicKey
-	(*ECDHEncryptedDEK)(nil), // 4: nexus.common.ECDHEncryptedDEK
-	(*ServiceMetadata)(nil),  // 5: nexus.common.ServiceMetadata
-	(*HealthStatus)(nil),     // 6: nexus.common.HealthStatus
-	(*Error)(nil),            // 7: nexus.common.Error
+var file_cipherlake_common_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_cipherlake_common_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_cipherlake_common_proto_goTypes = []any{
+	(TokenType)(0),           // 0: cipherlake.common.TokenType
+	(*DelegationToken)(nil),  // 1: cipherlake.common.DelegationToken
+	(*EncryptedDEK)(nil),     // 2: cipherlake.common.EncryptedDEK
+	(*ECDHPublicKey)(nil),    // 3: cipherlake.common.ECDHPublicKey
+	(*ECDHEncryptedDEK)(nil), // 4: cipherlake.common.ECDHEncryptedDEK
+	(*ServiceMetadata)(nil),  // 5: cipherlake.common.ServiceMetadata
+	(*HealthStatus)(nil),     // 6: cipherlake.common.HealthStatus
+	(*Error)(nil),            // 7: cipherlake.common.Error
 }
-var file_common_proto_depIdxs = []int32{
-	0, // 0: nexus.common.DelegationToken.token_type:type_name -> nexus.common.TokenType
+var file_cipherlake_common_proto_depIdxs = []int32{
+	0, // 0: cipherlake.common.DelegationToken.token_type:type_name -> cipherlake.common.TokenType
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -690,27 +690,27 @@ var file_common_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_common_proto_init() }
-func file_common_proto_init() {
-	if File_common_proto != nil {
+func init() { file_cipherlake_common_proto_init() }
+func file_cipherlake_common_proto_init() {
+	if File_cipherlake_common_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_common_proto_rawDesc), len(file_common_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_cipherlake_common_proto_rawDesc), len(file_cipherlake_common_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_common_proto_goTypes,
-		DependencyIndexes: file_common_proto_depIdxs,
-		EnumInfos:         file_common_proto_enumTypes,
-		MessageInfos:      file_common_proto_msgTypes,
+		GoTypes:           file_cipherlake_common_proto_goTypes,
+		DependencyIndexes: file_cipherlake_common_proto_depIdxs,
+		EnumInfos:         file_cipherlake_common_proto_enumTypes,
+		MessageInfos:      file_cipherlake_common_proto_msgTypes,
 	}.Build()
-	File_common_proto = out.File
-	file_common_proto_goTypes = nil
-	file_common_proto_depIdxs = nil
+	File_cipherlake_common_proto = out.File
+	file_cipherlake_common_proto_goTypes = nil
+	file_cipherlake_common_proto_depIdxs = nil
 }

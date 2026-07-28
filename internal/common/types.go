@@ -13,11 +13,11 @@ import (
 type ContextKey string
 
 const (
-	ContextKeyRequestID  ContextKey = "request_id"
-	ContextKeyUserID     ContextKey = "user_id"
-	ContextKeyBucket     ContextKey = "bucket"
-	ContextKeyObjectKey  ContextKey = "object_key"
-	ContextKeyTraceID    ContextKey = "trace_id"
+	ContextKeyRequestID ContextKey = "request_id"
+	ContextKeyUserID    ContextKey = "user_id"
+	ContextKeyBucket    ContextKey = "bucket"
+	ContextKeyObjectKey ContextKey = "object_key"
+	ContextKeyTraceID   ContextKey = "trace_id"
 )
 
 func GetRequestID(ctx context.Context) string {
@@ -100,15 +100,15 @@ func ParseStorageTier(s string) StorageTier {
 }
 
 type AccessPattern struct {
-	ObjectKey        string    `json:"object_key"`
-	Bucket           string    `json:"bucket"`
+	ObjectKey        string      `json:"object_key"`
+	Bucket           string      `json:"bucket"`
 	AccessTimestamps []time.Time `json:"access_timestamps"`
-	AccessTypes      []string  `json:"access_types"`
-	UserIDs          []string  `json:"user_ids"`
-	HotnessScore     float64   `json:"hotness_score"`
-	LastMigratedAt   time.Time `json:"last_migrated_at"`
-	PriorityWeight   int       `json:"priority_weight"`
-	FixedTier        bool      `json:"fixed_tier"`
+	AccessTypes      []string    `json:"access_types"`
+	UserIDs          []string    `json:"user_ids"`
+	HotnessScore     float64     `json:"hotness_score"`
+	LastMigratedAt   time.Time   `json:"last_migrated_at"`
+	PriorityWeight   int         `json:"priority_weight"`
+	FixedTier        bool        `json:"fixed_tier"`
 }
 
 type VectorMetadata struct {

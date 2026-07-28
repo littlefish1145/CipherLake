@@ -1,7 +1,0 @@
-[Unit]
-Description=Nexus Object Storage - All Services
-After=network-online.target
-Wants=network-online.target
-
-[Install]
-WantedBy=multi-user.target

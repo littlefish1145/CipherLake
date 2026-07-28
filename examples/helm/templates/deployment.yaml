@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "nexus.fullname" . }}
+  name: {{ include "cipherlake.fullname" . }}
   labels:
-    {{- include "nexus.labels" . | nindent 4 }}
+    {{- include "cipherlake.labels" . | nindent 4 }}
     app.kubernetes.io/component: gateway
 spec:
   replicas: {{ .Values.gateway.replicas }}
   selector:
     matchLabels:
-      {{- include "nexus.selectorLabels" . | nindent 6 }}
+      {{- include "cipherlake.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: gateway
   template:
     metadata:
       labels:
-        {{- include "nexus.selectorLabels" . | nindent 8 }}
+        {{- include "cipherlake.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: gateway
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
@@ -29,13 +29,13 @@ spec:
         runAsUser: {{ .Values.security.runAsUser }}
         fsGroup: {{ .Values.security.fsGroup }}
       containers:
-        - name: nexus
+        - name: cipherlake
           image: "{{ .Values.gateway.image.repository }}:{{ .Values.gateway.image.tag }}"
           imagePullPolicy: {{ .Values.gateway.image.pullPolicy }}
-          command: ["/usr/local/bin/nexus"]
+          command: ["/usr/local/bin/cipherlake"]
           args:
             - "--config"
-            - "/etc/nexus/config.yaml"
+            - "/etc/cipherlake/config.yaml"
           ports:
             - name: s3
               containerPort: 9000
@@ -47,24 +47,24 @@ spec:
               containerPort: 9091
               protocol: TCP
           env:
-            - name: NEXUS_GATEWAY_ACCESS_KEY
+            - name: CIPHERLAKE_GATEWAY_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "nexus.fullname" . }}-credentials
+                  name: {{ include "cipherlake.fullname" . }}-credentials
                   key: accessKey
-            - name: NEXUS_GATEWAY_SECRET_KEY
+            - name: CIPHERLAKE_GATEWAY_SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "nexus.fullname" . }}-credentials
+                  name: {{ include "cipherlake.fullname" . }}-credentials
                   key: secretKey
           volumeMounts:
             - name: config
-              mountPath: /etc/nexus
+              mountPath: /etc/cipherlake
               readOnly: true
             - name: data
-              mountPath: /var/lib/nexus/data
+              mountPath: /var/lib/cipherlake/data
             - name: metadata
-              mountPath: /var/lib/nexus/metadata
+              mountPath: /var/lib/cipherlake/metadata
           livenessProbe:
             httpGet:
               path: /health
@@ -82,18 +82,18 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ include "nexus.fullname" . }}-config
+            name: {{ include "cipherlake.fullname" . }}-config
         - name: data
           {{- if .Values.storage.persistence.enabled }}
           persistentVolumeClaim:
-            claimName: {{ include "nexus.fullname" . }}-data
+            claimName: {{ include "cipherlake.fullname" . }}-data
           {{- else }}
           emptyDir: {}
           {{- end }}
         - name: metadata
           {{- if .Values.metadata.persistence.enabled }}
           persistentVolumeClaim:
-            claimName: {{ include "nexus.fullname" . }}-metadata
+            claimName: {{ include "cipherlake.fullname" . }}-metadata
           {{- else }}
           emptyDir: {}
           {{- end }}

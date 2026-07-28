@@ -15,8 +15,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"golang.org/x/crypto/hkdf"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/hkdf"
 )
 
 // LocalKMS implements KMSClient using a local ECDSA key pair stored on disk.

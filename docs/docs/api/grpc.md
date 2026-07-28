@@ -1,6 +1,6 @@
 # gRPC Service Reference
 
-Nexus uses gRPC for internal communication between microservices. These
+CipherLake uses gRPC for internal communication between microservices. These
 services are not intended for external use but are documented for operators
 and developers.
 
@@ -30,7 +30,7 @@ message ServiceHealth {
 
 ## Encrypt Service
 
-**Package**: `nexus.encrypt`
+**Package**: `cipherlake.encrypt`
 **Port**: 50051
 
 ### Encrypt
@@ -64,7 +64,7 @@ rpc EncryptStream(stream EncryptStreamRequest) returns (stream EncryptStreamResp
 
 ## Decrypt Service
 
-**Package**: `nexus.decrypt`
+**Package**: `cipherlake.decrypt`
 **Port**: 50052
 
 ### Decrypt
@@ -97,7 +97,7 @@ rpc DecryptStream(stream DecryptStreamRequest) returns (stream DecryptStreamResp
 
 ## KeyGen Service
 
-**Package**: `nexus.keygen`
+**Package**: `cipherlake.keygen`
 **Port**: 50053
 
 ### GenerateKey
@@ -138,7 +138,7 @@ message RotateKeyResponse {
 
 ## KeyStore Service
 
-**Package**: `nexus.keystore`
+**Package**: `cipherlake.keystore`
 **Port**: 50054
 
 ### StoreKey
@@ -194,7 +194,7 @@ message DeleteKeyResponse {
 
 ## KeyUnwrap Service
 
-**Package**: `nexus.keyunwrap`
+**Package**: `cipherlake.keyunwrap`
 **Port**: 50055
 
 ### UnwrapKey
@@ -217,7 +217,7 @@ message UnwrapKeyResponse {
 
 ## Token Service
 
-**Package**: `nexus.token`
+**Package**: `cipherlake.token`
 **Port**: 50056
 
 ### IssueToken
@@ -277,7 +277,7 @@ message RevokeTokenResponse {
 
 ## STS Service
 
-**Package**: `nexus.sts`
+**Package**: `cipherlake.sts`
 **Port**: 50057
 
 ### AssumeRole

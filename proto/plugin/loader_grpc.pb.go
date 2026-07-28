@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             v6.33.2
-// source: plugin/loader.proto
+// source: proto/plugin/loader.proto
 
 package plugin
 
@@ -20,6 +20,8 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	PluginLoaderService_InvokeRoute_FullMethodName = "/cipherlake.plugin.PluginLoaderService/InvokeRoute"
+	PluginLoaderService_InvokeHook_FullMethodName  = "/cipherlake.plugin.PluginLoaderService/InvokeHook"
+	PluginLoaderService_ListHooks_FullMethodName   = "/cipherlake.plugin.PluginLoaderService/ListHooks"
 	PluginLoaderService_Health_FullMethodName      = "/cipherlake.plugin.PluginLoaderService/Health"
 )
 
@@ -35,6 +37,13 @@ type PluginLoaderServiceClient interface {
 	// under /_plugins/<plugin_name>/* to the named plugin's on_request
 	// entry point. The loader handles sub-routing inside the plugin.
 	InvokeRoute(ctx context.Context, in *InvokeRouteRequest, opts ...grpc.CallOption) (*InvokeRouteResponse, error)
+	// InvokeHook dispatches a single S3 hook call to a plugin's on_hook
+	// entry point (spec §3.2). The Gateway orchestrator calls this for
+	// each before/after/around stage in the onion chain.
+	InvokeHook(ctx context.Context, in *InvokeHookRequest, opts ...grpc.CallOption) (*InvokeHookResponse, error)
+	// ListHooks returns the registered S3 hooks visible to this Gateway.
+	// The Gateway uses this to build its local hook orchestrator view.
+	ListHooks(ctx context.Context, in *ListHooksRequest, opts ...grpc.CallOption) (*ListHooksResponse, error)
 	// Health check.
 	Health(ctx context.Context, in *HealthRequest, opts ...grpc.CallOption) (*HealthResponse, error)
 }
@@ -51,6 +60,26 @@ func (c *pluginLoaderServiceClient) InvokeRoute(ctx context.Context, in *InvokeR
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(InvokeRouteResponse)
 	err := c.cc.Invoke(ctx, PluginLoaderService_InvokeRoute_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *pluginLoaderServiceClient) InvokeHook(ctx context.Context, in *InvokeHookRequest, opts ...grpc.CallOption) (*InvokeHookResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InvokeHookResponse)
+	err := c.cc.Invoke(ctx, PluginLoaderService_InvokeHook_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *pluginLoaderServiceClient) ListHooks(ctx context.Context, in *ListHooksRequest, opts ...grpc.CallOption) (*ListHooksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListHooksResponse)
+	err := c.cc.Invoke(ctx, PluginLoaderService_ListHooks_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -79,6 +108,13 @@ type PluginLoaderServiceServer interface {
 	// under /_plugins/<plugin_name>/* to the named plugin's on_request
 	// entry point. The loader handles sub-routing inside the plugin.
 	InvokeRoute(context.Context, *InvokeRouteRequest) (*InvokeRouteResponse, error)
+	// InvokeHook dispatches a single S3 hook call to a plugin's on_hook
+	// entry point (spec §3.2). The Gateway orchestrator calls this for
+	// each before/after/around stage in the onion chain.
+	InvokeHook(context.Context, *InvokeHookRequest) (*InvokeHookResponse, error)
+	// ListHooks returns the registered S3 hooks visible to this Gateway.
+	// The Gateway uses this to build its local hook orchestrator view.
+	ListHooks(context.Context, *ListHooksRequest) (*ListHooksResponse, error)
 	// Health check.
 	Health(context.Context, *HealthRequest) (*HealthResponse, error)
 	mustEmbedUnimplementedPluginLoaderServiceServer()
@@ -93,6 +129,12 @@ type UnimplementedPluginLoaderServiceServer struct{}
 
 func (UnimplementedPluginLoaderServiceServer) InvokeRoute(context.Context, *InvokeRouteRequest) (*InvokeRouteResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method InvokeRoute not implemented")
+}
+func (UnimplementedPluginLoaderServiceServer) InvokeHook(context.Context, *InvokeHookRequest) (*InvokeHookResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method InvokeHook not implemented")
+}
+func (UnimplementedPluginLoaderServiceServer) ListHooks(context.Context, *ListHooksRequest) (*ListHooksResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListHooks not implemented")
 }
 func (UnimplementedPluginLoaderServiceServer) Health(context.Context, *HealthRequest) (*HealthResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Health not implemented")
@@ -136,6 +178,42 @@ func _PluginLoaderService_InvokeRoute_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PluginLoaderService_InvokeHook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InvokeHookRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PluginLoaderServiceServer).InvokeHook(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginLoaderService_InvokeHook_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PluginLoaderServiceServer).InvokeHook(ctx, req.(*InvokeHookRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PluginLoaderService_ListHooks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListHooksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PluginLoaderServiceServer).ListHooks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginLoaderService_ListHooks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PluginLoaderServiceServer).ListHooks(ctx, req.(*ListHooksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _PluginLoaderService_Health_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(HealthRequest)
 	if err := dec(in); err != nil {
@@ -166,10 +244,18 @@ var PluginLoaderService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _PluginLoaderService_InvokeRoute_Handler,
 		},
 		{
+			MethodName: "InvokeHook",
+			Handler:    _PluginLoaderService_InvokeHook_Handler,
+		},
+		{
+			MethodName: "ListHooks",
+			Handler:    _PluginLoaderService_ListHooks_Handler,
+		},
+		{
 			MethodName: "Health",
 			Handler:    _PluginLoaderService_Health_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "plugin/loader.proto",
+	Metadata: "proto/plugin/loader.proto",
 }

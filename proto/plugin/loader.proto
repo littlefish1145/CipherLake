@@ -13,6 +13,15 @@ service PluginLoaderService {
   // entry point. The loader handles sub-routing inside the plugin.
   rpc InvokeRoute(InvokeRouteRequest) returns (InvokeRouteResponse);
 
+  // InvokeHook dispatches a single S3 hook call to a plugin's on_hook
+  // entry point (spec §3.2). The Gateway orchestrator calls this for
+  // each before/after/around stage in the onion chain.
+  rpc InvokeHook(InvokeHookRequest) returns (InvokeHookResponse);
+
+  // ListHooks returns the registered S3 hooks visible to this Gateway.
+  // The Gateway uses this to build its local hook orchestrator view.
+  rpc ListHooks(ListHooksRequest) returns (ListHooksResponse);
+
   // Health check.
   rpc Health(HealthRequest) returns (HealthResponse);
 }
@@ -67,4 +76,93 @@ message HealthResponse {
   string service_name = 2;
   string version = 3;
   int64 uptime_seconds = 4;
+}
+
+// HookAction is the result of a single hook invocation.
+enum HookAction {
+  HOOK_ACTION_UNSPECIFIED = 0;
+  HOOK_ACTION_CONTINUE = 1;  // proceed to the next hook / inner handler
+  HOOK_ACTION_ABORT = 2;     // short-circuit and return the response in this message
+  HOOK_ACTION_MODIFY = 3;    // mutate context (request/response) and continue
+}
+
+// HookContext carries the S3 operation context passed to a plugin hook.
+message HookContext {
+  // S3 operation name, e.g. "s3:GetObject".
+  string operation = 1;
+
+  // Hook phase: "before", "after", "around_before", "around_after".
+  string phase = 2;
+
+  // Target bucket and object key (may be empty for bucket-level ops).
+  string bucket = 3;
+  string key = 4;
+
+  // HTTP method of the original request.
+  string method = 5;
+
+  // Serialized HTTP headers.
+  map<string, string> headers = 6;
+
+  // Request or response body (depending on phase).
+  bytes body = 7;
+
+  // Identity of the original caller.
+  string original_user = 8;
+
+  // Response status code when phase is "after" or "around_after".
+  int32 status_code = 9;
+}
+
+message InvokeHookRequest {
+  // Plugin that owns the hook.
+  string plugin_name = 1;
+
+  // Handler entry point in the WASM module (usually "on_hook").
+  string handler = 2;
+
+  // Context passed to the hook.
+  HookContext context = 3;
+}
+
+message InvokeHookResponse {
+  // Action the Gateway orchestrator should take.
+  HookAction action = 1;
+
+  // HTTP status code when action is ABORT or MODIFY on a response.
+  int32 status_code = 2;
+
+  // Response headers when action is ABORT or MODIFY on a response.
+  map<string, string> headers = 3;
+
+  // Response body when action is ABORT.
+  bytes body = 4;
+
+  // Mutated request context when action is MODIFY on a request.
+  HookContext modified_context = 5;
+
+  // Human-readable error when the hook call itself failed.
+  string error_message = 6;
+}
+
+message ListHooksRequest {
+  // Optional filter by operation name (e.g. "s3:GetObject"). Empty = all.
+  string operation = 1;
+}
+
+// HookRecord describes a registered hook as seen by the Gateway.
+message HookRecord {
+  string plugin_name = 1;
+  string hook_id = 2;
+  string hook_type = 3;     // "before" | "after" | "around"
+  string operation = 4;
+  string condition = 5;     // CEL expression (not evaluated by Gateway in Phase 2)
+  string handler = 6;
+  int32 priority = 7;
+  string on_failure = 8;    // "deny" | "allow" | "log_and_allow"
+  bool critical = 9;
+}
+
+message ListHooksResponse {
+  repeated HookRecord hooks = 1;
 }

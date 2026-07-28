@@ -1,0 +1,308 @@
+# Plugin-loader-service config for local development (Phase 5 / v2.0 schema).
+# Usage:
+#   go run ./cmd/plugin-loader-service -config config.plugin-loader.yaml
+#
+# Once running:
+#   - gRPC:        localhost:50060
+#   - Admin/HTTP:  localhost:50061  (healthz, readyz, plugins, invoke, admin)
+#
+# Install the bundled MCP memory plugin:
+#   curl -s -X POST localhost:50061/admin/plugin/install \
+#        -F manifest=@examples/plugins/mcp-memory-server-rust/manifest.json \
+#        -F wasm=@examples/plugins/mcp-memory-server-rust/plugin.wasm
+#
+# Invoke the plugin:
+#   curl -s localhost:50061/plugins
+#   curl -s -X POST localhost:50061/invoke/mcp-memory-server/mcp/messages \
+#        -H 'Content-Type: application/json' \
+#        -d '{"jsonrpc":"2.0","method":"initialize","id":1}'
+
+version: "2.0"
+
+node:
+  role: "gateway"
+  listen_addr: ":8080"
+  data_dir: "./data/plugin-loader-dev"
+  cluster_peers: []
+  domain: "localhost"
+
+plugin_loader:
+  enabled: true
+  grpc_listen_addr: "localhost:50060"
+  admin_listen_addr: "localhost:50061"
+
+  raft:
+    enabled: true
+    node_id: "plugin-loader-dev"
+    data_dir: "./data/plugin-loader-dev/raft"
+    listen_addr: "localhost:50062"
+    # Phase 5 multi-replica settings (single-node dev: leave empty).
+    cluster_peers: []
+    cluster_peer_ids: []
+    snapshot_count: 8192
+    heartbeat: "1s"
+    election_timeout: "1s"
+
+  instance_pool_size: 8
+  call_timeout: "5s"
+
+  # Phase 5: local cache for plugin artifacts (manifest, wasm, signature).
+  plugin_cache_dir: "./data/plugin-loader-dev/plugin-cache"
+
+  # Phase 5: circuit breaker for critical hooks (gateway → loader path).
+  critical_breaker_threshold: 5
+  critical_breaker_pause: "30s"
+  critical_hooks: []
+
+  # Phase 5: peer gRPC addresses for cluster-aware admin/invoke forwarding.
+  cluster_grpc_addrs: []
+
+  trusted_keys_path: "./data/plugin-loader-dev/trusted_keys.json"
+
+  # Tier-2 crypto service addresses. In non-distributed dev mode these are
+  # not used; storage.get/put below is also disabled.
+  encrypt_service_addr: ""
+  decrypt_service_addr: ""
+
+  # Gateway-backed storage (storage.get / storage.put host import).
+  # Leave empty in dev to keep storage.get/put returning Unauthorized.
+  # gateway_storage_endpoint: "http://localhost:9000"
+  # gateway_storage_service_token: "dev-internal-token"
+
+  resource_limits:
+    global:
+      memory_mb: 256
+      fuel_per_sec: 100000000
+      call_timeout_ms: 5000
+      io_bytes_per_sec: 0
+      concurrent: 32
+    tier_0:
+      memory_mb: 64
+      fuel_per_sec: 10000000
+      call_timeout_ms: 1000
+      io_bytes_per_sec: 0
+      concurrent: 8
+    tier_1:
+      memory_mb: 128
+      fuel_per_sec: 50000000
+      call_timeout_ms: 3000
+      io_bytes_per_sec: 0
+      concurrent: 16
+    tier_2:
+      memory_mb: 256
+      fuel_per_sec: 100000000
+      call_timeout_ms: 10000
+      io_bytes_per_sec: 0
+      concurrent: 32
+
+  # OCI registries for pulling plugin artifacts (optional).
+  oci_registries: []
+
+# Tier-2 services are optional in dev mode. When disabled/absent, the
+# corresponding host imports return ErrInternal.
+iam:
+  enabled: false
+  db_path: ""
+  master_key_path: ""
+  sts_service_addr: ""
+
+crypto_services:
+  enabled: true
+  distributed_mode: false
+  key_path: "./data/plugin-loader-dev/keys"
+  keystore_path: "./data/plugin-loader-dev/keystore"
+  opa_address: ""
+  consul_address: ""
+  audit_size: 10000
+  # gRPC service addresses (only used when distributed_mode=true).
+  token_service_addr: ""
+  keygen_service_addr: ""
+  keyunwrap_service_addr: ""
+  encrypt_service_addr: ""
+  decrypt_service_addr: ""
+  keystore_service_addr: ""
+  mtls_cert_file: ""
+  mtls_key_file: ""
+  mtls_ca_file: ""
+
+# Cipherlake VSE (Vector Search Engine). When enabled, plugin-loader
+# initializes its own VectorManager. Without Milvus, vector.search returns
+# ErrIndexNotInitialized and plugins see statusInternal.
+vector:
+  enabled: true
+  dim: 4
+  index_type: "milvus"
+  metric_type: "cosine"
+  max_vectors: 10000000
+  embedding_provider: "api"
+  embedding_model_path: ""
+  embedding_api_endpoint: ""
+  embedding_api_key: ""
+  embedding_model_name: ""
+  auto_index: false
+  max_search_top_k: 100
+  max_query_length: 10000
+  require_auth: false
+  max_index_content_size: 1048576
+  milvus:
+    address: ""
+    username: ""
+    password: ""
+    db_name: "default"
+    collection_name: "cipherlake_vectors"
+    shards_num: 2
+    replica_number: 1
+    index_type: "HNSW"
+    index_params:
+      M: "16"
+      efConstruction: "200"
+    nprobe: 16
+    ef: 64
+    consistency_level: "Bounded"
+    tiered_storage:
+      enabled: false
+      hot_resource_group: "hot"
+      cold_resource_group: "cold"
+      hot_nodes: 2
+      cold_nodes: 1
+      warm_up: "async"
+    diskann:
+      max_degree: 56
+      search_list_size: 100
+      pq_code_budget_gb_ratio: 0.125
+      search_cache_budget_gb_ratio: 0.10
+      beam_width_ratio: 4.0
+
+logging:
+  level: "info"
+  format: "json"
+  output_path: ""
+  access_log_dir: ""
+
+# Remaining top-level blocks use safe dev defaults.
+tiering:
+  enabled: false
+  schedule: "*/6 * * * *"
+  hot_max_size: "10GB"
+  warm_devices: []
+  cold_devices: []
+  archive_path: ""
+
+encryption:
+  kms_type: "local"
+  vault_addr: ""
+  vault_token_file: ""
+  vault_transit_key: "cipherlake"
+  aws_kms_key_id: ""
+  aws_region: "us-east-1"
+  kms_degradation_mode: "reject_writes"
+  enable_dedup: true
+  master_key_path: "./data/plugin-loader-dev/master.key"
+
+task_queue:
+  enabled: false
+  store_path: "tasks.db"
+  workers: 4
+  poll_interval: "500ms"
+  retry_base: "1s"
+  max_retry_delay: "5m"
+  default_retry: 3
+
+pipelines:
+  config_file: "./pipelines.yaml"
+  max_concurrent: 10
+  enabled: false
+
+cache:
+  metadata_max_size: "1GB"
+  object_max_size: "1GB"
+  policy: "tinyLFU"
+  ttl: "5m"
+
+performance:
+  max_upload_size: "1GB"
+  max_concurrent_uploads: 10
+  io_workers_per_core: 2
+  use_direct_io: false
+  enable_http2: true
+  read_buffer_size: 32768
+  write_buffer_size: 32768
+
+auth:
+  require_auth: false
+  anonymous_read: true
+  jwt_secret: ""
+  token_expiry: "24h"
+  refresh_expiry: "168h"
+
+tls:
+  enabled: false
+  cert_file: ""
+  key_file: ""
+  auto_cert: false
+  auto_cert_host: ""
+  redirect_addr: ":80"
+  min_version: "1.2"
+
+ratelimit:
+  enabled: false
+  global_rps: 1000
+  global_burst: 100
+  ip_rps: 100
+  ip_burst: 20
+  user_rps: 50
+  user_burst: 10
+  bucket_rps: 200
+  bucket_burst: 30
+  upload_bytes_per_sec: 52428800
+  upload_burst_bytes: 104857600
+  whitelist:
+    - "127.0.0.1"
+    - "::1"
+
+replication:
+  allow_private_endpoint: false
+
+events:
+  enabled: false
+  workers: 16
+  max_retries: 3
+  retry_base_ms: 1000
+  webhook_timeout: "5s"
+  dead_letter_dir: "./data/plugin-loader-dev/deadletter"
+
+observability:
+  metrics_enabled: true
+  metrics_path: "/metrics"
+  tracing_enabled: false
+  tracing_endpoint: "localhost:4317"
+  tracing_service_name: "cipherlake"
+  tracing_insecure: true
+
+backup:
+  enabled: false
+  dir: "./data/plugin-loader-dev/backups"
+  interval: "24h"
+  retention_days: [1, 7, 30]
+  remote_type: "local"
+  remote_endpoint: ""
+  remote_bucket: ""
+  remote_prefix: ""
+  encryption_key_id: "cipherlake-backup-key"
+
+fts:
+  enabled: false
+  data_dir: "./data/plugin-loader-dev/fts"
+  max_index_size: "1GB"
+  segment_size: 10000
+  bm25_k1: 1.2
+  bm25_b: 0.75
+
+resumable:
+  enabled: false
+  upload_dir: "./data/plugin-loader-dev/resumable"
+  default_expiry: "24h"
+  cleanup_interval: "1h"
+  max_session_size: "1GB"
+
+storage_classes: {}

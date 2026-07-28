@@ -20,22 +20,22 @@ import (
 )
 
 type AuthConfig struct {
-	JWTSecret      string
-	RequireAuth    bool
-	AnonymousRead  bool
-	TokenExpiry    time.Duration
-	RefreshExpiry  time.Duration
+	JWTSecret     string
+	RequireAuth   bool
+	AnonymousRead bool
+	TokenExpiry   time.Duration
+	RefreshExpiry time.Duration
 }
 
 type AuthHandler struct {
-	mu              sync.RWMutex
-	secretKey       []byte
-	users           map[string]*User
-	config          *AuthConfig
-	failedLogins    map[string]*failedLoginTracker
-	failedLoginsMu  sync.RWMutex
-	userStorePath   string
-	iamBridge       *IAMAuthBridge // Bridge to new IAM system
+	mu             sync.RWMutex
+	secretKey      []byte
+	users          map[string]*User
+	config         *AuthConfig
+	failedLogins   map[string]*failedLoginTracker
+	failedLoginsMu sync.RWMutex
+	userStorePath  string
+	iamBridge      *IAMAuthBridge // Bridge to new IAM system
 }
 
 type User struct {
@@ -56,8 +56,8 @@ type Claims struct {
 }
 
 type failedLoginTracker struct {
-	count     int
-	firstFail time.Time
+	count        int
+	firstFail    time.Time
 	blockedUntil time.Time
 }
 
@@ -77,7 +77,7 @@ func NewAuthHandlerWithConfig(cfg *AuthConfig) *AuthHandler {
 
 	secretKey := cfg.JWTSecret
 	if secretKey == "" {
-		secretKey = os.Getenv("NEXUS_JWT_SECRET")
+		secretKey = os.Getenv("CIPHERLAKE_JWT_SECRET")
 	}
 	if secretKey == "" {
 		secretKey = os.Getenv("JWT_SECRET")
@@ -88,22 +88,22 @@ func NewAuthHandlerWithConfig(cfg *AuthConfig) *AuthHandler {
 			return nil
 		}
 		secretKey = hex.EncodeToString(secretBytes)
-		log.Println("[SECURITY WARNING] No JWT secret configured via NEXUS_JWT_SECRET or JWT_SECRET env vars. A random secret was generated and will NOT persist across restarts. Please set a stable secret for production use.")
+		log.Println("[SECURITY WARNING] No JWT secret configured via CIPHERLAKE_JWT_SECRET or JWT_SECRET env vars. A random secret was generated and will NOT persist across restarts. Please set a stable secret for production use.")
 	}
 
-	adminPassword := os.Getenv("NEXUS_ADMIN_PASSWORD")
+	adminPassword := os.Getenv("CIPHERLAKE_ADMIN_PASSWORD")
 	if adminPassword == "" {
 		pwBytes := make([]byte, 16)
 		if _, err := rand.Read(pwBytes); err != nil {
 			return nil
 		}
 		adminPassword = base64.StdEncoding.EncodeToString(pwBytes)
-		log.Println("[SECURITY WARNING] No admin password configured via NEXUS_ADMIN_PASSWORD env var. A random password was generated. Set NEXUS_ADMIN_PASSWORD for consistent access.")
+		log.Println("[SECURITY WARNING] No admin password configured via CIPHERLAKE_ADMIN_PASSWORD env var. A random password was generated. Set CIPHERLAKE_ADMIN_PASSWORD for consistent access.")
 	}
 
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
 
-	adminSecretKey := os.Getenv("NEXUS_ADMIN_SECRET_KEY")
+	adminSecretKey := os.Getenv("CIPHERLAKE_ADMIN_SECRET_KEY")
 
 	users := map[string]*User{
 		"admin": {
@@ -116,9 +116,9 @@ func NewAuthHandlerWithConfig(cfg *AuthConfig) *AuthHandler {
 		},
 	}
 
-	userStorePath := os.Getenv("NEXUS_USER_STORE")
+	userStorePath := os.Getenv("CIPHERLAKE_USER_STORE")
 	if userStorePath == "" {
-		dataDir := os.Getenv("NEXUS_DATA_DIR")
+		dataDir := os.Getenv("CIPHERLAKE_DATA_DIR")
 		if dataDir == "" {
 			dataDir = "./data"
 		}
@@ -528,7 +528,7 @@ func (a *AuthHandler) GenerateTokenWithExpiry(userID string, expiry time.Duratio
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiry)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "nexus",
+			Issuer:    "cipherlake",
 		},
 	}
 
@@ -764,6 +764,21 @@ func (api *AdminAPI) Handler() http.Handler {
 	mux.HandleFunc("/admin/users", api.handleUsers)
 	mux.HandleFunc("/admin/users/", api.handleUserByName)
 
+	// Plugin loader admin proxy (spec §3.11, P3-1 / P3-5).
+	pluginProxy := NewPluginAdminProxy(api.gateway.loaderAdminClient)
+	mux.HandleFunc("/admin/plugin/list", pluginProxy.ListPlugins)
+	mux.HandleFunc("/admin/plugin/install", pluginProxy.InstallPlugin)
+	mux.HandleFunc("/admin/plugin/uninstall", pluginProxy.UninstallPlugin)
+	mux.HandleFunc("/admin/plugin/reload", pluginProxy.ReloadPlugin)
+	mux.HandleFunc("/admin/plugin/state/dump", pluginProxy.DumpPluginState)
+	mux.HandleFunc("/admin/plugin/state", pluginProxy.GetPluginState)
+	mux.HandleFunc("/admin/plugin/logs", pluginProxy.GetPluginLogs)
+	mux.HandleFunc("/admin/plugin/metrics", pluginProxy.GetPluginMetrics)
+	mux.HandleFunc("/admin/plugin/log-level", pluginProxy.SetPluginLogLevel)
+	mux.HandleFunc("/admin/plugin/trust/add", pluginProxy.AddTrustedKey)
+	mux.HandleFunc("/admin/plugin/trust/remove", pluginProxy.RemoveTrustedKey)
+	mux.HandleFunc("/admin/plugin/trust/list", pluginProxy.ListTrustedKeys)
+
 	return mux
 }
 
@@ -821,7 +836,7 @@ func (api *AdminAPI) handleTieringDecisions(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"decisions": decisions,
-		"count":    len(decisions),
+		"count":     len(decisions),
 	})
 }
 
@@ -902,17 +917,17 @@ func (api *AdminAPI) handleMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metrics := `# HELP nexus_up Whether Nexus is up
-# TYPE nexus_up gauge
-nexus_up 1
+	metrics := `# HELP cipherlake_up Whether CipherLake is up
+# TYPE cipherlake_up gauge
+cipherlake_up 1
 
-# HELP nexus_requests_total Total number of requests
-# TYPE nexus_requests_total counter
-nexus_requests_total{endpoint="/"} 0
+# HELP cipherlake_requests_total Total number of requests
+# TYPE cipherlake_requests_total counter
+cipherlake_requests_total{endpoint="/"} 0
 
-# HELP nexus_tiering_decisions_total Total number of tiering decisions
-# TYPE nexus_tiering_decisions_total counter
-nexus_tiering_decisions_total 0
+# HELP cipherlake_tiering_decisions_total Total number of tiering decisions
+# TYPE cipherlake_tiering_decisions_total counter
+cipherlake_tiering_decisions_total 0
 `
 
 	w.Header().Set("Content-Type", "text/plain")

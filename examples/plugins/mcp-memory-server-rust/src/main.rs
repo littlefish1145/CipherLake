@@ -216,17 +216,43 @@ fn handle_mcp_messages(req_handle: u64) {
             r#"{"jsonrpc":"2.0","result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"mcp-memory-server","version":"0.1.0"}},"id":ID}"#.replace("ID", &id.map(|n| n.to_string()).unwrap_or("null".to_string()))
         }
         "tools/list" => {
-            r#"{"jsonrpc":"2.0","result":{"tools":[{"name":"memory_search","description":"Search memory via vector index","inputSchema":{"type":"object","properties":{"query":{"type":"string"},"top_k":{"type":"integer","default":3}},"required":["query"]}}]},"id":ID}"#.replace("ID", &id.map(|n| n.to_string()).unwrap_or("null".to_string()))
+            r#"{"jsonrpc":"2.0","result":{"tools":[{"name":"memory_search","description":"Search memory via vector index","inputSchema":{"type":"object","properties":{"query":{"type":"string"},"top_k":{"type":"integer","default":3}},"required":["query"]}},{"name":"memory_store","description":"Store a memory in the plugin state KV","inputSchema":{"type":"object","properties":{"key":{"type":"string"},"value":{"type":"string"}},"required":["key","value"]}},{"name":"memory_retrieve","description":"Retrieve a stored memory by key","inputSchema":{"type":"object","properties":{"key":{"type":"string"}},"required":["key"]}}]},"id":ID}"#.replace("ID", &id.map(|n| n.to_string()).unwrap_or("null".to_string()))
         }
         "tools/call" => {
             let name = extract_json_string(body_str, "name").unwrap_or("");
-            if name == "memory_search" {
-                // In a real plugin we would parse arguments.arguments.query,
-                // call vector.search, and return results. Phase 1 returns a
-                // static demo result to keep the example self-contained.
-                r#"{"jsonrpc":"2.0","result":{"content":[{"type":"text","text":"[memory_search] demo result: found 1 memory about Nexus plugins"}]},"id":ID}"#.replace("ID", &id.map(|n| n.to_string()).unwrap_or("null".to_string()))
-            } else {
-                r#"{"jsonrpc":"2.0","error":{"code":-32601,"message":"tool not found"},"id":ID}"#.replace("ID", &id.map(|n| n.to_string()).unwrap_or("null".to_string()))
+            match name {
+                "memory_search" => {
+                    // Call vector.search with a hardcoded query and return the
+                    // raw host result (or a friendly fallback).
+                    let vbody = handle_memory_search_body();
+                    format!(r#"{{"jsonrpc":"2.0","result":{{"content":[{{"type":"text","text":"{vbody}"}}]}},":{}}}"#, id.map(|n| n.to_string()).unwrap_or("null".to_string()))
+                }
+                "memory_store" => {
+                    let key = extract_json_string(body_str, "key").unwrap_or("");
+                    let value = extract_json_string(body_str, "value").unwrap_or("");
+                    let result = state_put_str(key, value.as_bytes());
+                    let msg = if result == 0 {
+                        format!(r#"{{"status":"stored","key":"{key}"}}"#)
+                    } else {
+                        format!(r#"{{"status":"error","host_status":{result}}}"#)
+                    };
+                    let escaped = msg.replace('"', "\\\"");
+                    format!(r#"{{"jsonrpc":"2.0","result":{{"content":[{{"type":"text","text":"{escaped}"}}]}},":{}}}"#, id.map(|n| n.to_string()).unwrap_or("null".to_string()))
+                }
+                "memory_retrieve" => {
+                    let key = extract_json_string(body_str, "key").unwrap_or("");
+                    let (val, status) = state_get_str(key);
+                    let msg = if status == 0 {
+                        format!(r#"{{"status":"found","key":"{key}","value":"{}"}}"#, val.replace('"', "\\\""))
+                    } else {
+                        format!(r#"{{"status":"not_found","key":"{key}","host_status":{status}}}"#)
+                    };
+                    let escaped = msg.replace('"', "\\\"");
+                    format!(r#"{{"jsonrpc":"2.0","result":{{"content":[{{"type":"text","text":"{escaped}"}}]}},":{}}}"#, id.map(|n| n.to_string()).unwrap_or("null".to_string()))
+                }
+                _ => {
+                    r#"{"jsonrpc":"2.0","error":{"code":-32601,"message":"tool not found"},"id":ID}"#.replace("ID", &id.map(|n| n.to_string()).unwrap_or("null".to_string()))
+                }
             }
         }
         _ => {
@@ -236,6 +262,82 @@ fn handle_mcp_messages(req_handle: u64) {
 
     let headers = r#"{"Content-Type":"application/json"}"#;
     write_response(req_handle, 200, headers, response_body.as_bytes());
+}
+
+/// state_put_str stores a key-value pair in the plugin state KV.
+fn state_put_str(key: &str, value: &[u8]) -> u32 {
+    let mut status: u32 = 0;
+    let mut version: u64 = 0;
+    let (key_ptr, key_len) = string_to_ptr(key);
+    let (val_ptr, val_len) = vec_to_ptr(&value.to_vec());
+    unsafe {
+        host_state_put(
+            token(),
+            key_ptr, key_len,
+            val_ptr, val_len,
+            0, // no CAS
+            &mut status,
+            &mut version,
+        );
+    }
+    status
+}
+
+/// state_get_str retrieves a value by key from the plugin state KV.
+/// Returns (value_string, status_code).
+fn state_get_str(key: &str) -> (String, u32) {
+    let mut buf = vec![0u8; 4096];
+    let mut len: u32 = 0;
+    let mut status: u32 = 0;
+    let mut version: u64 = 0;
+    let (key_ptr, key_len) = string_to_ptr(key);
+    unsafe {
+        host_state_get(
+            token(),
+            key_ptr, key_len,
+            buf.as_mut_ptr() as u32, buf.len() as u32,
+            &mut status,
+            &mut len,
+            &mut version,
+        );
+    }
+    if status != 0 || len as usize > buf.len() {
+        return (String::new(), status);
+    }
+    buf.truncate(len as usize);
+    (String::from_utf8_lossy(&buf).into_owned(), status)
+}
+
+/// handle_memory_search_body returns the raw vector search result.
+fn handle_memory_search_body() -> String {
+    let bucket = "memory";
+    let query: [f32; 4] = [0.1, 0.2, 0.3, 0.4];
+    let mut result_buf = vec![0u8; 4096];
+    let mut len: u32 = 0;
+    let mut status: u32 = 0;
+
+    let (bucket_ptr, bucket_len) = string_to_ptr(bucket);
+    let (query_ptr, _) = (query.as_ptr() as u32, query.len() as u32);
+
+    unsafe {
+        host_vector_search(
+            token(),
+            bucket_ptr, bucket_len,
+            query_ptr, query.len() as u32,
+            3,
+            &mut status,
+            result_buf.as_mut_ptr() as u32,
+            result_buf.len() as u32,
+            &mut len,
+        );
+    }
+
+    if status == 0 {
+        result_buf.truncate(len as usize);
+        str::from_utf8(&result_buf).unwrap_or("[]").to_string()
+    } else {
+        format!(r#"{{"status":"demo","host_status":{status}}}"#)
+    }
 }
 
 fn handle_memory_search(req_handle: u64) {

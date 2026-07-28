@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,12 +18,14 @@ import (
 )
 
 var (
-	ErrKeyNotFound        = errors.New("key not found")
-	ErrBucketNotFound     = errors.New("bucket not found")
-	ErrInvalidKey        = errors.New("invalid key")
-	ErrTransactionFailed = errors.New("transaction failed")
-	ErrQuotaExceeded     = errors.New("quota exceeded")
-	ErrVersionNotFound   = errors.New("version not found")
+	ErrKeyNotFound         = errors.New("key not found")
+	ErrBucketNotFound      = errors.New("bucket not found")
+	ErrBucketAlreadyExists = errors.New("bucket already exists")
+	ErrBucketNotEmpty      = errors.New("bucket not empty")
+	ErrInvalidKey          = errors.New("invalid key")
+	ErrTransactionFailed   = errors.New("transaction failed")
+	ErrQuotaExceeded       = errors.New("quota exceeded")
+	ErrVersionNotFound     = errors.New("version not found")
 )
 
 type MetadataStore interface {
@@ -43,6 +46,7 @@ type MetadataStore interface {
 	GetUpload(ctx context.Context, bucket, key, uploadID string) (*MultipartUpload, error)
 	DeleteUpload(ctx context.Context, bucket, key, uploadID string) error
 	ListUploads(ctx context.Context, bucket string) ([]*MultipartUpload, error)
+	ListExpiredUploads(ctx context.Context) ([]*MultipartUpload, error)
 	AddPart(ctx context.Context, uploadID string, part *UploadPart) error
 	GetParts(ctx context.Context, uploadID string) ([]*UploadPart, error)
 	Close() error
@@ -58,62 +62,62 @@ type ListResult struct {
 }
 
 type ObjectMetadata struct {
-	Key              string            `json:"key"`
-	Bucket           string            `json:"bucket"`
-	Size             int64             `json:"size"`
-	ContentType      string            `json:"content_type"`
-	ContentEncoding  string            `json:"content_encoding"`
-	ETag             string            `json:"etag"`
-	Checksum         string            `json:"checksum"`
-	ChecksumType     string            `json:"checksum_type"`
-	UserMetadata     map[string]string `json:"user_metadata"`
-	StorageTier      int               `json:"storage_tier"`
-	CreatedAt        time.Time         `json:"created_at"`
-	ModifiedAt       time.Time         `json:"modified_at"`
-	AccessCount      int64             `json:"access_count"`
-	LastAccessedAt   time.Time         `json:"last_accessed_at"`
-	Encrypted        bool              `json:"encrypted"`
-	EncryptedDEK     []byte            `json:"encrypted_dek,omitempty"`
-	Vectorized       bool              `json:"vectorized"`
-	VectorID         string            `json:"vector_id,omitempty"`
-	VersionID        string            `json:"version_id"`
-	IsLatest         bool              `json:"is_latest"`
-	PreviousVersion  string            `json:"previous_version,omitempty"`
-	ObjectStatus     string            `json:"object_status"`
-	TieringLocked    bool              `json:"tiering_locked"`
-	LockedTier       int               `json:"locked_tier,omitempty"`
-	PipelineResults  map[string]string `json:"pipeline_results,omitempty"`
-	DeleteMarker     bool              `json:"delete_marker,omitempty"`
-	RetainUntil      *time.Time        `json:"retain_until,omitempty"`
-	SSECUsed         bool              `json:"ssec_used"`
-	SSECKeySHA256    string            `json:"ssec_key_sha256"`
-	SSECAlgorithm    string            `json:"ssec_algorithm"`
+	Key             string            `json:"key"`
+	Bucket          string            `json:"bucket"`
+	Size            int64             `json:"size"`
+	ContentType     string            `json:"content_type"`
+	ContentEncoding string            `json:"content_encoding"`
+	ETag            string            `json:"etag"`
+	Checksum        string            `json:"checksum"`
+	ChecksumType    string            `json:"checksum_type"`
+	UserMetadata    map[string]string `json:"user_metadata"`
+	StorageTier     int               `json:"storage_tier"`
+	CreatedAt       time.Time         `json:"created_at"`
+	ModifiedAt      time.Time         `json:"modified_at"`
+	AccessCount     int64             `json:"access_count"`
+	LastAccessedAt  time.Time         `json:"last_accessed_at"`
+	Encrypted       bool              `json:"encrypted"`
+	EncryptedDEK    []byte            `json:"encrypted_dek,omitempty"`
+	Vectorized      bool              `json:"vectorized"`
+	VectorID        string            `json:"vector_id,omitempty"`
+	VersionID       string            `json:"version_id"`
+	IsLatest        bool              `json:"is_latest"`
+	PreviousVersion string            `json:"previous_version,omitempty"`
+	ObjectStatus    string            `json:"object_status"`
+	TieringLocked   bool              `json:"tiering_locked"`
+	LockedTier      int               `json:"locked_tier,omitempty"`
+	PipelineResults map[string]string `json:"pipeline_results,omitempty"`
+	DeleteMarker    bool              `json:"delete_marker,omitempty"`
+	RetainUntil     *time.Time        `json:"retain_until,omitempty"`
+	SSECUsed        bool              `json:"ssec_used"`
+	SSECKeySHA256   string            `json:"ssec_key_sha256"`
+	SSECAlgorithm   string            `json:"ssec_algorithm"`
 }
 
 type BucketInfo struct {
-	Name           string                `json:"name"`
-	CreatedAt      time.Time             `json:"created_at"`
-	OwnerID        string                `json:"owner_id"`
-	OwnerName      string                `json:"owner_name"`
-	Region         string                `json:"region"`
-	ACL            string                `json:"acl,omitempty"`
-	Quota          *QuotaConfig          `json:"quota,omitempty"`
-	Policy         map[string]any        `json:"policy,omitempty"`
-	Tags           map[string]string     `json:"tags,omitempty"`
-	CORS           *CORSConfiguration    `json:"cors,omitempty"`
-	Lifecycle      *LifecycleRule        `json:"lifecycle,omitempty"`
-	Encryption     *BucketEncryption     `json:"encryption,omitempty"`
-	ObjectCount    int64                `json:"object_count"`
-	TotalSize      int64                `json:"total_size"`
-	Versioning     bool                 `json:"versioning"`
-	LoggingEnabled bool                 `json:"logging_enabled"`
-	ObjectLock     *ObjectLockConfig     `json:"object_lock,omitempty"`
-	StorageClass   string               `json:"storage_class"`
+	Name           string             `json:"name"`
+	CreatedAt      time.Time          `json:"created_at"`
+	OwnerID        string             `json:"owner_id"`
+	OwnerName      string             `json:"owner_name"`
+	Region         string             `json:"region"`
+	ACL            string             `json:"acl,omitempty"`
+	Quota          *QuotaConfig       `json:"quota,omitempty"`
+	Policy         map[string]any     `json:"policy,omitempty"`
+	Tags           map[string]string  `json:"tags,omitempty"`
+	CORS           *CORSConfiguration `json:"cors,omitempty"`
+	Lifecycle      *LifecycleRule     `json:"lifecycle,omitempty"`
+	Encryption     *BucketEncryption  `json:"encryption,omitempty"`
+	ObjectCount    int64              `json:"object_count"`
+	TotalSize      int64              `json:"total_size"`
+	Versioning     bool               `json:"versioning"`
+	LoggingEnabled bool               `json:"logging_enabled"`
+	ObjectLock     *ObjectLockConfig  `json:"object_lock,omitempty"`
+	StorageClass   string             `json:"storage_class"`
 }
 
 type QuotaConfig struct {
-	MaxObjects   int64 `json:"max_objects"`
-	MaxSizeBytes int64 `json:"max_size_bytes"`
+	MaxObjects    int64   `json:"max_objects"`
+	MaxSizeBytes  int64   `json:"max_size_bytes"`
 	WarnThreshold float64 `json:"warn_threshold"`
 }
 
@@ -125,47 +129,47 @@ type CORSConfiguration struct {
 }
 
 type LifecycleRule struct {
-	Enabled    bool            `json:"enabled"`
-	Prefix     string          `json:"prefix"`
-	Expiration *ExpirationRule `json:"expiration,omitempty"`
+	Enabled     bool             `json:"enabled"`
+	Prefix      string           `json:"prefix"`
+	Expiration  *ExpirationRule  `json:"expiration,omitempty"`
 	Transitions []TransitionRule `json:"transitions,omitempty"`
 }
 
 type ExpirationRule struct {
-	Days              int       `json:"days"`
-	Date             *time.Time `json:"date,omitempty"`
-	ExpiredObjectDeleteMarker bool `json:"expired_object_delete_marker"`
+	Days                      int        `json:"days"`
+	Date                      *time.Time `json:"date,omitempty"`
+	ExpiredObjectDeleteMarker bool       `json:"expired_object_delete_marker"`
 }
 
 type TransitionRule struct {
-	Days         int   `json:"days"`
-	StorageClass int   `json:"storage_class"`
+	Days         int `json:"days"`
+	StorageClass int `json:"storage_class"`
 }
 
 type BucketEncryption struct {
-	Algorithm   string `json:"algorithm"`
-	KMSKeyID    string `json:"kms_key_id,omitempty"`
+	Algorithm string `json:"algorithm"`
+	KMSKeyID  string `json:"kms_key_id,omitempty"`
 }
 
 type ObjectLockConfig struct {
-	Enabled  bool   `json:"enabled"`
-	Mode     string `json:"mode"`
-	Days     int    `json:"days"`
+	Enabled bool   `json:"enabled"`
+	Mode    string `json:"mode"`
+	Days    int    `json:"days"`
 }
 
 type MultipartUpload struct {
-	UploadID   string    `json:"upload_id"`
-	Bucket     string    `json:"bucket"`
-	Key        string    `json:"key"`
-	Initiated  time.Time `json:"initiated"`
-	ExpiresAt  time.Time `json:"expires_at"`
-	UserID     string    `json:"user_id"`
-	ContentType string   `json:"content_type"`
-	Metadata   map[string]string `json:"metadata"`
-	Parts      []*UploadPart `json:"parts,omitempty"`
-	TotalSize  int64   `json:"total_size"`
-	Encrypted  bool    `json:"encrypted"`
-	Checksum   string  `json:"checksum"`
+	UploadID    string            `json:"upload_id"`
+	Bucket      string            `json:"bucket"`
+	Key         string            `json:"key"`
+	Initiated   time.Time         `json:"initiated"`
+	ExpiresAt   time.Time         `json:"expires_at"`
+	UserID      string            `json:"user_id"`
+	ContentType string            `json:"content_type"`
+	Metadata    map[string]string `json:"metadata"`
+	Parts       []*UploadPart     `json:"parts,omitempty"`
+	TotalSize   int64             `json:"total_size"`
+	Encrypted   bool              `json:"encrypted"`
+	Checksum    string            `json:"checksum"`
 }
 
 type ResumableSession struct {
@@ -197,7 +201,7 @@ type WALEntry struct {
 	Key       string          `json:"key,omitempty"`
 	Data      json.RawMessage `json:"data"`
 	Timestamp time.Time       `json:"timestamp"`
-	Checksum  uint32         `json:"checksum"`
+	Checksum  uint32          `json:"checksum"`
 }
 
 type BoltDBMetadataStore struct {
@@ -227,11 +231,11 @@ func NewBoltDBMetadataStore(path string) (*BoltDBMetadataStore, error) {
 	}
 
 	db, err := bolt.Open(path, 0666, &bolt.Options{
-		Timeout:        5 * time.Second,
-		FreelistType:   bolt.FreelistMapType,
-		MmapFlags:      os.O_RDWR,
-		NoSync:         false,
-		NoGrowSync:     false,
+		Timeout:      5 * time.Second,
+		FreelistType: bolt.FreelistMapType,
+		MmapFlags:    os.O_RDWR,
+		NoSync:       false,
+		NoGrowSync:   false,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open bolt db: %w", err)
@@ -359,10 +363,22 @@ func (s *BoltDBMetadataStore) PutObject(ctx context.Context, bucket, key string,
 		Key:    key,
 		Data:   data,
 	}); err != nil {
+		return fmt.Errorf("failed to write metadata WAL: %w", err)
 	}
 
 	return s.db.Update(func(tx *bolt.Tx) error {
 		objBucket := tx.Bucket([]byte("objects"))
+		var previousSize int64
+		existingData := objBucket.Get(s.objectKey(bucket, key))
+		objectExists := existingData != nil
+		if objectExists {
+			var existing ObjectMetadata
+			if err := json.Unmarshal(existingData, &existing); err == nil {
+				previousSize = existing.Size
+			}
+		}
+		sizeDelta := metadata.Size - previousSize
+
 		if err := objBucket.Put(s.objectKey(bucket, key), data); err != nil {
 			return err
 		}
@@ -372,7 +388,9 @@ func (s *BoltDBMetadataStore) PutObject(ctx context.Context, bucket, key string,
 		indexKey := s.indexKey(bucket, prefix)
 		existing := indexBucket.Get(indexKey)
 		if existing == nil {
-			indexBucket.Put(indexKey, data)
+			if err := indexBucket.Put(indexKey, data); err != nil {
+				return err
+			}
 		}
 
 		bktBucket := tx.Bucket([]byte("buckets"))
@@ -380,8 +398,10 @@ func (s *BoltDBMetadataStore) PutObject(ctx context.Context, bucket, key string,
 		if bucketData != nil {
 			var info BucketInfo
 			if err := json.Unmarshal(bucketData, &info); err == nil {
-				info.ObjectCount++
-				info.TotalSize += metadata.Size
+				if !objectExists {
+					info.ObjectCount++
+				}
+				info.TotalSize += sizeDelta
 				if info.Quota != nil {
 					if info.Quota.MaxObjects > 0 && info.ObjectCount > info.Quota.MaxObjects {
 						return ErrQuotaExceeded
@@ -390,13 +410,20 @@ func (s *BoltDBMetadataStore) PutObject(ctx context.Context, bucket, key string,
 						return ErrQuotaExceeded
 					}
 				}
-				newData, _ := json.Marshal(&info)
-				bktBucket.Put([]byte(bucket), newData)
+				newData, err := json.Marshal(&info)
+				if err != nil {
+					return fmt.Errorf("failed to marshal bucket metadata: %w", err)
+				}
+				if err := bktBucket.Put([]byte(bucket), newData); err != nil {
+					return err
+				}
 			}
 		}
 
-		atomic.AddInt64(&s.stats.ObjectCount, 1)
-		atomic.AddInt64(&s.stats.TotalSize, metadata.Size)
+		if !objectExists {
+			atomic.AddInt64(&s.stats.ObjectCount, 1)
+		}
+		atomic.AddInt64(&s.stats.TotalSize, sizeDelta)
 		return nil
 	})
 }
@@ -443,31 +470,58 @@ func (s *BoltDBMetadataStore) DeleteObject(ctx context.Context, bucket, key stri
 		objBucket := tx.Bucket([]byte("objects"))
 		data := objBucket.Get(s.objectKey(bucket, key))
 
-		if data != nil {
-			var metadata ObjectMetadata
-			if err := json.Unmarshal(data, &metadata); err == nil {
-				bktBucket := tx.Bucket([]byte("buckets"))
-				bucketData := bktBucket.Get([]byte(bucket))
-				if bucketData != nil {
-					var info BucketInfo
-					if err := json.Unmarshal(bucketData, &info); err == nil {
-						info.ObjectCount--
-						info.TotalSize -= metadata.Size
-						if info.ObjectCount < 0 {
-							info.ObjectCount = 0
-						}
-						if info.TotalSize < 0 {
-							info.TotalSize = 0
-						}
-						newData, _ := json.Marshal(&info)
-						bktBucket.Put([]byte(bucket), newData)
+		if data == nil {
+			return nil
+		}
+
+		var metadata ObjectMetadata
+		if err := json.Unmarshal(data, &metadata); err == nil {
+			bktBucket := tx.Bucket([]byte("buckets"))
+			bucketData := bktBucket.Get([]byte(bucket))
+			if bucketData != nil {
+				var info BucketInfo
+				if err := json.Unmarshal(bucketData, &info); err == nil {
+					info.ObjectCount--
+					info.TotalSize -= metadata.Size
+					if info.ObjectCount < 0 {
+						info.ObjectCount = 0
+					}
+					if info.TotalSize < 0 {
+						info.TotalSize = 0
+					}
+					newData, err := json.Marshal(&info)
+					if err != nil {
+						return fmt.Errorf("failed to marshal bucket metadata: %w", err)
+					}
+					if err := bktBucket.Put([]byte(bucket), newData); err != nil {
+						return err
 					}
 				}
 			}
 		}
 
+		if err := objBucket.Delete(s.objectKey(bucket, key)); err != nil {
+			return err
+		}
+
+		// Also delete any version records for this object to avoid orphaned
+		// version metadata. Version keys are formatted as "<bucket>/<key>/<versionID>".
+		versionBucket := tx.Bucket([]byte("object_versions"))
+		versionPrefix := []byte(bucket + "/" + key + "/")
+		versionCursor := versionBucket.Cursor()
+		var versionKeysToDelete [][]byte
+		for k, _ := versionCursor.Seek(versionPrefix); k != nil && bytesHasPrefix(k, versionPrefix); k, _ = versionCursor.Next() {
+			versionKeysToDelete = append(versionKeysToDelete, k)
+		}
+		for _, k := range versionKeysToDelete {
+			if err := versionBucket.Delete(k); err != nil {
+				return err
+			}
+		}
+
 		atomic.AddInt64(&s.stats.ObjectCount, -1)
-		return objBucket.Delete(s.objectKey(bucket, key))
+		atomic.AddInt64(&s.stats.TotalSize, -metadata.Size)
+		return nil
 	})
 }
 
@@ -594,7 +648,7 @@ func (s *BoltDBMetadataStore) CreateBucket(ctx context.Context, bucket string, i
 	return s.db.Update(func(tx *bolt.Tx) error {
 		bucketBucket := tx.Bucket([]byte("buckets"))
 		if bucketBucket.Get([]byte(bucket)) != nil {
-			return fmt.Errorf("bucket %s already exists", bucket)
+			return fmt.Errorf("%w: %s", ErrBucketAlreadyExists, bucket)
 		}
 		if err := bucketBucket.Put([]byte(bucket), data); err != nil {
 			return err
@@ -631,9 +685,19 @@ func (s *BoltDBMetadataStore) DeleteBucket(ctx context.Context, bucket string) e
 		prefix := []byte(bucket + "/")
 		cursor := objBucket.Cursor()
 		var keysToDelete [][]byte
+		var objectCountDelta int64
+		var totalSizeDelta int64
 		for k, _ := cursor.First(); k != nil; k, _ = cursor.Next() {
 			if bytesHasPrefix(k, prefix) {
 				keysToDelete = append(keysToDelete, k)
+				data := objBucket.Get(k)
+				if data != nil {
+					var metadata ObjectMetadata
+					if err := json.Unmarshal(data, &metadata); err == nil {
+						objectCountDelta++
+						totalSizeDelta += metadata.Size
+					}
+				}
 			}
 		}
 		for _, k := range keysToDelete {
@@ -642,12 +706,82 @@ func (s *BoltDBMetadataStore) DeleteBucket(ctx context.Context, bucket string) e
 			}
 		}
 
+		versionBucket := tx.Bucket([]byte("object_versions"))
+		versionCursor := versionBucket.Cursor()
+		var versionKeysToDelete [][]byte
+		for k, _ := versionCursor.First(); k != nil; k, _ = versionCursor.Next() {
+			if bytesHasPrefix(k, prefix) {
+				versionKeysToDelete = append(versionKeysToDelete, k)
+			}
+		}
+		for _, k := range versionKeysToDelete {
+			if err := versionBucket.Delete(k); err != nil {
+				return err
+			}
+		}
+
+		uploadBucket := tx.Bucket([]byte("uploads"))
+		uploadCursor := uploadBucket.Cursor()
+		var uploadKeysToDelete [][]byte
+		var uploadIDs []string
+		for k, v := uploadCursor.First(); k != nil; k, v = uploadCursor.Next() {
+			if !bytesHasPrefix(k, prefix) {
+				continue
+			}
+			uploadKeysToDelete = append(uploadKeysToDelete, append([]byte(nil), k...))
+			var upload MultipartUpload
+			if err := json.Unmarshal(v, &upload); err == nil && upload.UploadID != "" {
+				uploadIDs = append(uploadIDs, upload.UploadID)
+			}
+		}
+		for _, k := range uploadKeysToDelete {
+			if err := uploadBucket.Delete(k); err != nil {
+				return err
+			}
+		}
+
+		partsBucket := tx.Bucket([]byte("upload_parts"))
+		for _, uploadID := range uploadIDs {
+			partsPrefix := []byte(uploadID + "/")
+			partsCursor := partsBucket.Cursor()
+			var partKeysToDelete [][]byte
+			for k, _ := partsCursor.Seek(partsPrefix); k != nil && bytesHasPrefix(k, partsPrefix); k, _ = partsCursor.Next() {
+				partKeysToDelete = append(partKeysToDelete, append([]byte(nil), k...))
+			}
+			for _, k := range partKeysToDelete {
+				if err := partsBucket.Delete(k); err != nil {
+					return err
+				}
+			}
+		}
+
+		resumableBucket := tx.Bucket([]byte("resumable_uploads"))
+		resumableCursor := resumableBucket.Cursor()
+		var resumableKeysToDelete [][]byte
+		for k, v := resumableCursor.First(); k != nil; k, v = resumableCursor.Next() {
+			var session ResumableSession
+			if err := json.Unmarshal(v, &session); err == nil && session.Bucket == bucket {
+				resumableKeysToDelete = append(resumableKeysToDelete, append([]byte(nil), k...))
+			}
+		}
+		for _, k := range resumableKeysToDelete {
+			if err := resumableBucket.Delete(k); err != nil {
+				return err
+			}
+		}
+
 		bucketBucket := tx.Bucket([]byte("buckets"))
+		if bucketBucket.Get([]byte(bucket)) == nil {
+			return nil
+		}
 		if err := bucketBucket.Delete([]byte(bucket)); err != nil {
 			return err
 		}
 
 		atomic.AddInt64(&s.stats.BucketCount, -1)
+		atomic.AddInt64(&s.stats.ObjectCount, -objectCountDelta)
+		atomic.AddInt64(&s.stats.TotalSize, -totalSizeDelta)
+		atomic.AddInt64(&s.stats.UploadCount, -int64(len(uploadKeysToDelete)))
 		return nil
 	})
 }
@@ -775,8 +909,12 @@ func (s *BoltDBMetadataStore) PutUpload(ctx context.Context, upload *MultipartUp
 	if upload.UploadID == "" {
 		upload.UploadID = uuid.New().String()
 	}
-	upload.Initiated = time.Now()
-	upload.ExpiresAt = time.Now().Add(24 * time.Hour)
+	if upload.Initiated.IsZero() {
+		upload.Initiated = time.Now()
+	}
+	if upload.ExpiresAt.IsZero() {
+		upload.ExpiresAt = time.Now().Add(24 * time.Hour)
+	}
 
 	data, err := json.Marshal(upload)
 	if err != nil {
@@ -789,11 +927,14 @@ func (s *BoltDBMetadataStore) PutUpload(ctx context.Context, upload *MultipartUp
 	return s.db.Update(func(tx *bolt.Tx) error {
 		uploadBucket := tx.Bucket([]byte("uploads"))
 		uploadKey := []byte(fmt.Sprintf("%s/%s/%s", upload.Bucket, upload.Key, upload.UploadID))
+		uploadExists := uploadBucket.Get(uploadKey) != nil
 		if err := uploadBucket.Put(uploadKey, data); err != nil {
 			return err
 		}
 
-		atomic.AddInt64(&s.stats.UploadCount, 1)
+		if !uploadExists {
+			atomic.AddInt64(&s.stats.UploadCount, 1)
+		}
 		return nil
 	})
 }
@@ -823,6 +964,9 @@ func (s *BoltDBMetadataStore) DeleteUpload(ctx context.Context, bucket, key, upl
 	return s.db.Update(func(tx *bolt.Tx) error {
 		uploadBucket := tx.Bucket([]byte("uploads"))
 		uploadKey := []byte(fmt.Sprintf("%s/%s/%s", bucket, key, uploadID))
+		if uploadBucket.Get(uploadKey) == nil {
+			return nil
+		}
 		if err := uploadBucket.Delete(uploadKey); err != nil {
 			return err
 		}
@@ -839,7 +983,9 @@ func (s *BoltDBMetadataStore) DeleteUpload(ctx context.Context, bucket, key, upl
 			partsToDelete = append(partsToDelete, k)
 		}
 		for _, k := range partsToDelete {
-			partsBucket.Delete(k)
+			if err := partsBucket.Delete(k); err != nil {
+				return err
+			}
 		}
 
 		atomic.AddInt64(&s.stats.UploadCount, -1)
@@ -874,6 +1020,26 @@ func (s *BoltDBMetadataStore) ListUploads(ctx context.Context, bucket string) ([
 		}
 
 		return nil
+	})
+
+	return results, err
+}
+
+func (s *BoltDBMetadataStore) ListExpiredUploads(ctx context.Context) ([]*MultipartUpload, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var results []*MultipartUpload
+	now := time.Now()
+	err := s.db.View(func(tx *bolt.Tx) error {
+		uploadBucket := tx.Bucket([]byte("uploads"))
+		return uploadBucket.ForEach(func(_, v []byte) error {
+			var upload MultipartUpload
+			if err := json.Unmarshal(v, &upload); err == nil && !upload.ExpiresAt.After(now) {
+				results = append(results, &upload)
+			}
+			return nil
+		})
 	})
 
 	return results, err
@@ -928,9 +1094,7 @@ func (s *BoltDBMetadataStore) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := s.flushWAL(); err != nil {
-	}
-	return s.db.Close()
+	return errors.Join(s.flushWAL(), s.db.Close())
 }
 
 func (s *BoltDBMetadataStore) GetStats() *MetadataStats {
@@ -952,14 +1116,12 @@ func ComputeChecksum(data []byte, checksumType string) string {
 	case "CRC32C":
 		return fmt.Sprintf("%08x", crc32.Checksum(data, crc32.MakeTable(crc32.Castagnoli)))
 	case "SHA256":
-		import_crypto_sha256()
-		return fmt.Sprintf("%x", data)
+		sum := sha256.Sum256(data)
+		return fmt.Sprintf("%x", sum)
 	default:
 		return fmt.Sprintf("%08x", crc32.ChecksumIEEE(data))
 	}
 }
-
-func import_crypto_sha256() {}
 
 func (s *BoltDBMetadataStore) PutResumableSession(ctx context.Context, session *ResumableSession) error {
 	data, err := json.Marshal(session)

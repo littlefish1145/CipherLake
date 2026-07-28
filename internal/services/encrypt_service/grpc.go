@@ -7,10 +7,10 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	pb "nexus/proto/encrypt"
-	common "nexus/proto/common"
-	"nexus/internal/services/server"
-	"nexus/internal/services"
+	"cipherlake/internal/services"
+	"cipherlake/internal/services/server"
+	common "cipherlake/proto/common"
+	pb "cipherlake/proto/encrypt"
 )
 
 // GRPCServer adapts EncryptService to gRPC interface

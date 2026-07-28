@@ -85,6 +85,7 @@ type S3Gateway struct {
 	taskQueue         *taskqueue.Queue
 	writeTasks        objectWriteTaskScheduler
 	loaderClient      pluginpb.PluginLoaderServiceClient
+	loaderAdminClient pluginpb.PluginAdminServiceClient
 	loaderConn        *grpc.ClientConn
 	closeOnce         sync.Once
 	closeErr          error
@@ -384,6 +385,7 @@ func (g *S3Gateway) initializeComponents(cfg *config.Config) error {
 		}
 		g.loaderConn = conn
 		g.loaderClient = pluginpb.NewPluginLoaderServiceClient(conn)
+		g.loaderAdminClient = pluginpb.NewPluginAdminServiceClient(conn)
 	}
 
 	return nil

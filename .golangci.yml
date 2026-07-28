@@ -80,7 +80,7 @@ linters-settings:
       - performance
       - style
   goimports:
-    local-prefixes: nexus
+    local-prefixes: cipherlake
   misspell:
     locale: US
 

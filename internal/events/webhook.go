@@ -27,8 +27,8 @@ type DeliveryResult struct {
 
 // WebhookSender delivers events via HTTP webhook with optional HMAC-SHA256 signing.
 type WebhookSender struct {
-	client        *http.Client
-	ssrfBypass    bool // When true, skip SSRF validation (for testing only)
+	client     *http.Client
+	ssrfBypass bool // When true, skip SSRF validation (for testing only)
 }
 
 // NewWebhookSender creates a new WebhookSender with the given timeout.
@@ -82,13 +82,13 @@ func (s *WebhookSender) Send(event *Event, dest DestinationConfig) DeliveryResul
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Nexus-Delivery", deliveryID)
-	req.Header.Set("X-Nexus-Event-Type", event.EventType)
+	req.Header.Set("X-CipherLake-Delivery", deliveryID)
+	req.Header.Set("X-CipherLake-Event-Type", event.EventType)
 
 	// Sign payload if signing config is provided
 	if dest.Signing != nil && dest.Signing.Secret != "" {
 		sig := signPayload(payload, dest.Signing.Secret)
-		req.Header.Set("X-Nexus-Signature", sig)
+		req.Header.Set("X-CipherLake-Signature", sig)
 	}
 
 	resp, err := s.client.Do(req)

@@ -1,7 +1,7 @@
-site_name: Nexus Object Storage
+site_name: CipherLake Object Storage
 site_description: Enterprise-grade object storage with S3 compatibility
-site_author: Nexus Team
-repo_url: https://github.com/nexus/nexus
+site_author: CipherLake Team
+repo_url: https://github.com/cipherlake/cipherlake
 edit_uri: edit/main/docs/docs/
 
 theme:

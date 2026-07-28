@@ -5,8 +5,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"nexus/internal/services/decrypt_service"
-	"nexus/internal/services/server"
+	"cipherlake/internal/services/decrypt_service"
+	"cipherlake/internal/services/server"
 )
 
 func main() {

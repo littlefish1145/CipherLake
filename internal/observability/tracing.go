@@ -69,7 +69,7 @@ func InitTracer(cfg *TracingConfig) (func(context.Context) error, error) {
 // TracingHTTPMiddleware creates an HTTP middleware that starts a span for each request
 // and propagates trace context via the traceparent header.
 func TracingHTTPMiddleware(next http.Handler) http.Handler {
-	tracer := otel.Tracer("nexus-gateway")
+	tracer := otel.Tracer("cipherlake-gateway")
 	propagator := otel.GetTextMapPropagator()
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

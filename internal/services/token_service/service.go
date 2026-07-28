@@ -43,8 +43,8 @@ type TokenRecord struct {
 type TokenType int
 
 const (
-	TokenTypeWrite TokenType = 0
-	TokenTypeRead  TokenType = 1
+	TokenTypeWrite  TokenType = 0
+	TokenTypeRead   TokenType = 1
 	TokenTypeDelete TokenType = 2
 )
 
@@ -67,9 +67,9 @@ type AuditEntry struct {
 
 // TokenServiceConfig configuration
 type TokenServiceConfig struct {
-	KeyPath     string // Path to store/load Ed25519 key
-	KeyID       string // Optional key identifier
-	AuditSize   int    // Max audit entries
+	KeyPath   string // Path to store/load Ed25519 key
+	KeyID     string // Optional key identifier
+	AuditSize int    // Max audit entries
 }
 
 // NewTokenService creates a new token service
@@ -129,7 +129,7 @@ func NewTokenService(cfg TokenServiceConfig) (*TokenService, error) {
 		keyID:          keyID,
 		keyPath:        cfg.KeyPath,
 		issuedTokens:   make(map[string]*TokenRecord),
-		auditLog:       &AuditLogger{
+		auditLog: &AuditLogger{
 			entries: make([]AuditEntry, 0, auditSize),
 			maxSize: auditSize,
 		},

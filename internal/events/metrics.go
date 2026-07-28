@@ -4,11 +4,11 @@ import "sync/atomic"
 
 // Metrics holds Prometheus-style counters for event delivery.
 type Metrics struct {
-	DeadLetterTotal          atomic.Int64 // nexus_deadletter_total
-	EventDeliveryFailedTotal atomic.Int64 // nexus_event_delivery_failed_total
-	EventDeliverySuccessTotal atomic.Int64 // nexus_event_delivery_total{status="success"}
-	EventDeliveryRetryTotal  atomic.Int64 // nexus_event_delivery_total{status="retry"}
-	EventDroppedTotal        atomic.Int64 // nexus_event_dropped_total (events dropped due to full queues)
+	DeadLetterTotal           atomic.Int64 // cipherlake_deadletter_total
+	EventDeliveryFailedTotal  atomic.Int64 // cipherlake_event_delivery_failed_total
+	EventDeliverySuccessTotal atomic.Int64 // cipherlake_event_delivery_total{status="success"}
+	EventDeliveryRetryTotal   atomic.Int64 // cipherlake_event_delivery_total{status="retry"}
+	EventDroppedTotal         atomic.Int64 // cipherlake_event_dropped_total (events dropped due to full queues)
 }
 
 // NewMetrics creates a new Metrics instance.

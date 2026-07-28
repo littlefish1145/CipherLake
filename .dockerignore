@@ -54,7 +54,7 @@ build/
 # Local development
 config.local.yaml
 *.db
-nexus-data/
+cipherlake-data/
 .env
 .env.*
 

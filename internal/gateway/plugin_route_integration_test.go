@@ -80,7 +80,7 @@ func TestPluginRoute_EndToEnd(t *testing.T) {
 	deadline := time.Now().Add(5 * time.Second)
 	var installErr error
 	for time.Now().Before(deadline) {
-		installErr = loader.InstallPlugin(ctx, manifest, wasmRaw, 1)
+		installErr = loader.InstallPlugin(ctx, manifest, wasmRaw, nil, "")
 		if installErr == nil {
 			break
 		}

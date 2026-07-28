@@ -33,7 +33,7 @@ pipelines:
       - name: "add_watermark"
         plugin: "image_watermark"
         params:
-          text: "© Nexus"
+          text: "© CipherLake"
           position: "bottom-right"
         inline: true
 

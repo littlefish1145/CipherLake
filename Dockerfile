@@ -29,14 +29,14 @@ RUN GRPC_HEALTH_PROBE_VERSION=v0.4.52 && \
 FROM alpine:3.20
 
 RUN apk add --no-cache ca-certificates wget && \
-    addgroup -g 1000 -S nexus && \
-    adduser -u 1000 -S nexus -G nexus
+    addgroup -g 1000 -S cipherlake && \
+    adduser -u 1000 -S cipherlake -G cipherlake
 
-WORKDIR /home/nexus
+WORKDIR /home/cipherlake
 
 # Copy binaries from builder
-COPY --from=builder /out/nexus /usr/local/bin/nexus
-COPY --from=builder /out/nexusctl /usr/local/bin/nexusctl
+COPY --from=builder /out/cipherlake /usr/local/bin/cipherlake
+COPY --from=builder /out/cipherlakectl /usr/local/bin/cipherlakectl
 COPY --from=builder /out/encrypt-service /usr/local/bin/encrypt-service
 COPY --from=builder /out/decrypt-service /usr/local/bin/decrypt-service
 COPY --from=builder /out/keygen-service /usr/local/bin/keygen-service
@@ -47,14 +47,14 @@ COPY --from=builder /out/sts-service /usr/local/bin/sts-service
 COPY --from=builder /out/grpc_health_probe /usr/local/bin/grpc_health_probe
 
 # Create data directories
-RUN mkdir -p /var/lib/nexus/data /var/lib/nexus/metadata /var/lib/nexus/keystore /etc/nexus && \
-    chown -R nexus:nexus /var/lib/nexus /etc/nexus
+RUN mkdir -p /var/lib/cipherlake/data /var/lib/cipherlake/metadata /var/lib/cipherlake/keystore /etc/cipherlake && \
+    chown -R cipherlake:cipherlake /var/lib/cipherlake /etc/cipherlake
 
-USER nexus
+USER cipherlake
 
 EXPOSE 9000 9001 9091 50051 50052 50053 50054 50055 50056 50057
 
-VOLUME ["/var/lib/nexus", "/etc/nexus"]
+VOLUME ["/var/lib/cipherlake", "/etc/cipherlake"]
 
-ENTRYPOINT ["/usr/local/bin/nexus"]
-CMD ["--config", "/etc/nexus/config.yaml"]
+ENTRYPOINT ["/usr/local/bin/cipherlake"]
+CMD ["--config", "/etc/cipherlake/config.yaml"]

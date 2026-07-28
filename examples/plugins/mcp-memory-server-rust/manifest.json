@@ -2,9 +2,9 @@
   "manifest_version": "1.0",
   "api_version": ">=1.0.0 <2.0.0",
   "name": "mcp-memory-server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "Nexus Project",
-  "description": "MCP memory server example plugin written in Rust.",
+  "description": "MCP memory server example plugin written in Rust. Supports memory_store, memory_retrieve, and memory_search via JSON-RPC.",
   "trust_tier_requested": 1,
   "capabilities": [
     "http:route",
@@ -21,6 +21,9 @@
       "prefix": "/memory/*",
       "handler": "on_request"
     }
+  ],
+  "state_schema": [
+    {"key": "memory/*", "type": "json"}
   ],
   "resources": {
     "memory": 32,

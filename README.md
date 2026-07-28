@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="Logo.png" alt="Nexus" width="120" />
+<img src="Logo.png" alt="CipherLake" width="120" />
 
-# Nexus
+# CipherLake
 
 **高性能 · S3 兼容 · 存算一体 · 零信任加密 · 智能对象存储**
 
@@ -13,13 +13,13 @@
 
 ---
 
-Nexus 是一款将存储、计算、搜索与零信任加密融合为统一平台的智能对象存储系统。传统对象存储只负责"存"和"取"，数据的价值需要额外的计算集群和搜索引擎来挖掘，数据的安全需要外部 KMS 来保障。Nexus 将管线处理、向量索引和微服务化加密内置于存储层——**上传即处理、存储即索引、读取即解密**，无需编排外部服务。
+CipherLake 是一款将存储、计算、搜索与零信任加密融合为统一平台的智能对象存储系统。传统对象存储只负责"存"和"取"，数据的价值需要额外的计算集群和搜索引擎来挖掘，数据的安全需要外部 KMS 来保障。CipherLake 将管线处理、向量索引和微服务化加密内置于存储层——**上传即处理、存储即索引、读取即解密**，无需编排外部服务。
 
 ## 核心特性
 
 ### 零信任加密（微服务架构）
 
-Nexus 的加密系统采用**微服务架构 + 信封加密（Envelope Encryption）**，将密钥生成、密钥解包、数据加密、数据解密、密钥存储、令牌管理拆分为 6 个独立微服务，通过 gRPC 通信，由 `EncryptionCoordinator` 编排：
+CipherLake 的加密系统采用**微服务架构 + 信封加密（Envelope Encryption）**，将密钥生成、密钥解包、数据加密、数据解密、密钥存储、令牌管理拆分为 6 个独立微服务，通过 gRPC 通信，由 `EncryptionCoordinator` 编排：
 
 - **密钥隔离** — KeyGenService 仅持有公钥（只能加密），KeyUnwrapService 仅持有私钥（只能解密），EncryptService/DecryptService 不持久化任何密钥
 - **信封加密** — 每对象独立 DEK（AES-256），DEK 由 ECDSA 长期密钥加密存储，数据用 DEK 加密
@@ -74,10 +74,10 @@ Nexus 的加密系统采用**微服务架构 + 信封加密（Envelope Encryptio
 
 ```bash
 # 构建主服务
-go build -o nexus ./cmd/nexus
+go build -o cipherlake ./cmd/cipherlake
 
 # 构建 CLI 工具
-go build -o nexusctl ./cmd/nexusctl
+go build -o cipherlakectl ./cmd/cipherlakectl
 
 # 构建加密微服务（分布式模式需要）
 go build -o token-service     ./cmd/token-service
@@ -94,7 +94,7 @@ go build -o sts-service       ./cmd/sts-service
 **嵌入式模式（默认，推荐开发/小型部署）：**
 
 ```bash
-./nexus
+./cipherlake
 ```
 
 所有加密微服务嵌入主进程内运行，无需额外配置。
@@ -113,7 +113,7 @@ python start_services.py
 ./decrypt-service   -port 50055 &
 ./keystore-service  -port 50056 -data-path ./data/keystore &
 ./sts-service       -port 50057 &
-./nexus
+./cipherlake
 ```
 
 在 `config.yaml` 中设置 `crypto_services.distributed_mode: true` 启用分布式模式。
@@ -143,13 +143,13 @@ cp config.yaml config.local.yaml
 
 | 变量 | 说明 |
 |------|------|
-| `NEXUS_ADMIN_USER` | CLI 管理员用户名 |
-| `NEXUS_ADMIN_PASSWORD` | CLI 管理员密码 |
-| `NEXUS_ACCESS_KEY` | CLI S3 访问密钥 |
-| `NEXUS_SECRET_KEY` | CLI S3 密钥 |
-| `NEXUS_ACCESS_KEY_ID` | IAM Access Key ID |
-| `NEXUS_SECRET_ACCESS_KEY` | IAM Secret Access Key |
-| `NEXUS_REPLICATION_ALLOW_PRIVATE_ENDPOINT` | 允许内网复制目标 |
+| `CIPHERLAKE_ADMIN_USER` | CLI 管理员用户名 |
+| `CIPHERLAKE_ADMIN_PASSWORD` | CLI 管理员密码 |
+| `CIPHERLAKE_ACCESS_KEY` | CLI S3 访问密钥 |
+| `CIPHERLAKE_SECRET_KEY` | CLI S3 密钥 |
+| `CIPHERLAKE_ACCESS_KEY_ID` | IAM Access Key ID |
+| `CIPHERLAKE_SECRET_ACCESS_KEY` | IAM Secret Access Key |
+| `CIPHERLAKE_REPLICATION_ALLOW_PRIVATE_ENDPOINT` | 允许内网复制目标 |
 
 ---
 
@@ -162,8 +162,8 @@ cp config.yaml config.local.yaml
 | TokenService | 50051 | Ed25519 签名密钥 | 签发/验证读/写/删除令牌 |
 | KeyGenService | 50052 | ECDSA P-256 公钥 | 生成 DEK，加密 DEK |
 | KeyUnwrapService | 50053 | ECDSA P-256 私钥 | 解密 DEK，重新加密传输 |
-| EncryptService | 50054 | 无 | 用 DEK 加密数据 |
-| DecryptService | 50055 | 无 | 用 DEK 解密数据 |
+| EncryptService | 50054 | 无 | 数据加密适配器（无持久密钥） |
+| DecryptService | 50055 | 无 | 数据解密适配器（无持久密钥） |
 | KeyStoreService | 50056 | 无 | 存储加密后的 DEK |
 | STSService | 50057 | — | AssumeRole 临时凭证 |
 
@@ -173,7 +173,7 @@ cp config.yaml config.local.yaml
 OPA 策略检查 → 生成 ECDH 临时密钥 → TokenService 签发令牌
   → KeyGenService 生成 DEK（ECIES 加密 + ECDH 会话密钥加密）
   → KeyStoreService 存储 EncryptedDEK
-  → EncryptService 用 DEK 加密数据（AES-256-GCM）
+  → EncryptionCoordinator 本地解包会话 DEK 并流式加密数据（AES-256-GCM）
 ```
 
 ### 解密流程
@@ -182,7 +182,7 @@ OPA 策略检查 → 生成 ECDH 临时密钥 → TokenService 签发令牌
 OPA 策略检查 → 生成 ECDH 临时密钥 → TokenService 签发令牌
   → KeyStoreService 取出 EncryptedDEK
   → KeyUnwrapService 解密 DEK（ECDSA 私钥）+ ECDH 重新加密
-  → DecryptService 用 DEK 解密数据（AES-256-GCM）
+  → EncryptionCoordinator 本地解包会话 DEK 并流式解密数据（AES-256-GCM）
 ```
 
 > 完整架构设计、密码学方案、部署模式详见 [docs/encryption-microservices.md](docs/encryption-microservices.md)
@@ -191,7 +191,7 @@ OPA 策略检查 → 生成 ECDH 临时密钥 → TokenService 签发令牌
 
 ## AI / 向量搜索
 
-Nexus 支持可插拔嵌入提供者：
+CipherLake 支持可插拔嵌入提供者：
 
 | 提供者 | 配置值 | 说明 |
 |--------|--------|------|
@@ -279,135 +279,135 @@ task_queue:
 
 ---
 
-## CLI 使用（nexusctl）
+## CLI 使用（cipherlakectl）
 
 ### 集群状态
 
 ```bash
-./nexusctl status
+./cipherlakectl status
 ```
 
 ### 用户管理
 
 ```bash
 # 创建用户
-./nexusctl user create myuser --password mypass --role user --permissions read,write
+./cipherlakectl user create myuser --password mypass --role user --permissions read,write
 
 # 列出用户
-./nexusctl user list
+./cipherlakectl user list
 
 # 查看用户详情
-./nexusctl user get myuser
+./cipherlakectl user get myuser
 
 # 更新用户角色/权限
-./nexusctl user update myuser --role admin --permissions read,write,delete
+./cipherlakectl user update myuser --role admin --permissions read,write,delete
 
 # 修改密码
-./nexusctl user passwd myuser --password newpass
+./cipherlakectl user passwd myuser --password newpass
 
 # 删除用户
-./nexusctl user delete myuser
+./cipherlakectl user delete myuser
 ```
 
 ### 存储桶管理
 
 ```bash
 # 创建桶
-./nexusctl bucket create mybucket --acl private
+./cipherlakectl bucket create mybucket --acl private
 
 # 列出桶
-./nexusctl bucket list
+./cipherlakectl bucket list
 
 # 查看桶信息
-./nexusctl bucket info mybucket
+./cipherlakectl bucket info mybucket
 
 # 列出桶内对象
-./nexusctl bucket objects mybucket
+./cipherlakectl bucket objects mybucket
 
 # 设置桶 ACL
-./nexusctl bucket set-acl mybucket --acl public-read
+./cipherlakectl bucket set-acl mybucket --acl public-read
 
 # 获取桶 ACL
-./nexusctl bucket get-acl mybucket
+./cipherlakectl bucket get-acl mybucket
 
 # 删除桶
-./nexusctl bucket delete mybucket
+./cipherlakectl bucket delete mybucket
 ```
 
 ### IAM 管理
 
 ```bash
 # --- 用户 ---
-./nexusctl iam create-user myuser --display-name "My User"
-./nexusctl iam list-users
-./nexusctl iam delete-user myuser
+./cipherlakectl iam create-user myuser --display-name "My User"
+./cipherlakectl iam list-users
+./cipherlakectl iam delete-user myuser
 
 # --- Access Key ---
-./nexusctl iam create-access-key myuser --description "CI/CD key"
-./nexusctl iam list-access-keys myuser
-./nexusctl iam delete-access-key --user myuser --key-id AKIA...
+./cipherlakectl iam create-access-key myuser --description "CI/CD key"
+./cipherlakectl iam list-access-keys myuser
+./cipherlakectl iam delete-access-key --user myuser --key-id AKIA...
 
 # --- 组 ---
-./nexusctl iam group create developers --description "Dev team"
-./nexusctl iam group list
-./nexusctl iam group add-user --user myuser --group developers
-./nexusctl iam group remove-user --user myuser --group developers
-./nexusctl iam group delete developers
+./cipherlakectl iam group create developers --description "Dev team"
+./cipherlakectl iam group list
+./cipherlakectl iam group add-user --user myuser --group developers
+./cipherlakectl iam group remove-user --user myuser --group developers
+./cipherlakectl iam group delete developers
 
 # --- 策略 ---
-./nexusctl iam policy create read-only --file policy.json --description "Read only access"
-./nexusctl iam policy list
-./nexusctl iam policy attach-user-policy --user myuser --policy read-only
-./nexusctl iam policy detach-user-policy --user myuser --policy read-only
-./nexusctl iam policy attach-group-policy --group developers --policy read-only
-./nexusctl iam policy delete read-only
+./cipherlakectl iam policy create read-only --file policy.json --description "Read only access"
+./cipherlakectl iam policy list
+./cipherlakectl iam policy attach-user-policy --user myuser --policy read-only
+./cipherlakectl iam policy detach-user-policy --user myuser --policy read-only
+./cipherlakectl iam policy attach-group-policy --group developers --policy read-only
+./cipherlakectl iam policy delete read-only
 
 # --- 角色 ---
-./nexusctl iam role create cross-account --trust-policy-file trust.json --max-session 3600
-./nexusctl iam role list
-./nexusctl iam role delete cross-account
+./cipherlakectl iam role create cross-account --trust-policy-file trust.json --max-session 3600
+./cipherlakectl iam role list
+./cipherlakectl iam role delete cross-account
 
 # --- 桶策略 ---
-./nexusctl iam bucket-policy set mybucket --file bucket-policy.json
-./nexusctl iam bucket-policy get mybucket
-./nexusctl iam bucket-policy delete mybucket
+./cipherlakectl iam bucket-policy set mybucket --file bucket-policy.json
+./cipherlakectl iam bucket-policy get mybucket
+./cipherlakectl iam bucket-policy delete mybucket
 ```
 
 ### 加密操作
 
 ```bash
 # 查看加密状态
-./nexusctl crypto status
+./cipherlakectl crypto status
 
 # 轮换加密密钥
-./nexusctl crypto rotate --bucket mybucket
+./cipherlakectl crypto rotate --bucket mybucket
 ```
 
 ### 存储分层
 
 ```bash
 # 触发分层迁移
-./nexusctl tiering run --bucket mybucket
+./cipherlakectl tiering run --bucket mybucket
 
 # 查看分层状态
-./nexusctl tiering status
+./cipherlakectl tiering status
 ```
 
 ### 向量索引
 
 ```bash
 # 重建向量索引
-./nexusctl vector rebuild --bucket mybucket
+./cipherlakectl vector rebuild --bucket mybucket
 
 # 查看向量索引统计
-./nexusctl vector stats
+./cipherlakectl vector stats
 ```
 
 ### 性能分析
 
 ```bash
 # CPU Profile
-./nexusctl profile --cpu 30 --output profile.out
+./cipherlakectl profile --cpu 30 --output profile.out
 ```
 
 ---

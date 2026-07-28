@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 // minimalWASM is a hand-built WASM module exporting the three mandatory
@@ -210,6 +212,28 @@ func TestCapabilityTable_Authorize_Tier2(t *testing.T) {
 	if err := tab.Authorize(tok2, "iam:policy:evaluate"); err != nil {
 		t.Errorf("Tier 2 token should be allowed: %v", err)
 	}
+}
+
+// TestManifest_Validate_Tier2CapabilityRequiresTier2Request verifies that
+// declaring a Tier-2-only capability without requesting Tier 2 is rejected
+// at manifest parse time (spec §3.7 A4, P5-5).
+func TestManifest_Validate_Tier2CapabilityRequiresTier2Request(t *testing.T) {
+	m := &Manifest{
+		ManifestVersion:    SupportedManifestVersion,
+		APIVersion:         HostAPICompatRange,
+		Name:               "tier2-cap-demo",
+		Version:            "1.0.0",
+		TrustTierRequested: TierTrusted,
+		Capabilities:       []string{"state:kv", "iam:policy:evaluate"},
+	}
+	err := m.Validate()
+	require.Error(t, err)
+	require.True(t, IsErrManifestInvalid(err))
+	require.Contains(t, err.Error(), "iam:policy:evaluate")
+
+	// Requesting Tier 2 makes the manifest valid.
+	m.TrustTierRequested = TierCore
+	require.NoError(t, m.Validate())
 }
 
 // TestWASMRuntime_LoadModule_Valid verifies that a minimal valid WASM

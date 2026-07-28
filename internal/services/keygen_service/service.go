@@ -18,23 +18,23 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/crypto/hkdf"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/hkdf"
 
-	"nexus/internal/services"
+	"cipherlake/internal/services"
 )
 
 // KeyGenService generates data encryption keys (DEK)
 // Uses ECIES (Elliptic Curve Integrated Encryption Scheme) for encrypting DEK
 // Only has public key - cannot decrypt
 type KeyGenService struct {
-	mu                   sync.RWMutex
-	encryptPublicKey     *ecdsa.PublicKey    // Long-term public key for encrypting DEK
-	encryptPublicKeyBytes []byte             // Serialized public key
-	keyID                string
-	keyPath              string
-	curve                elliptic.Curve      // P-256 for ECDH
-	auditLog             *AuditLogger
+	mu                    sync.RWMutex
+	encryptPublicKey      *ecdsa.PublicKey // Long-term public key for encrypting DEK
+	encryptPublicKeyBytes []byte           // Serialized public key
+	keyID                 string
+	keyPath               string
+	curve                 elliptic.Curve // P-256 for ECDH
+	auditLog              *AuditLogger
 }
 
 // AuditLogger for keygen service

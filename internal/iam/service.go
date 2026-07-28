@@ -12,7 +12,7 @@ import (
 
 // IAMService provides the core IAM operations
 type IAMService struct {
-	store    *IAMStore
+	store     *IAMStore
 	masterKey *MasterKey
 	evaluator *PolicyEvaluator
 }
@@ -342,8 +342,61 @@ func (s *IAMService) CreatePolicy(name, description string, document PolicyDocum
 
 // DeletePolicy deletes a managed IAM policy
 func (s *IAMService) DeletePolicy(name string) error {
-	// TODO: Check if policy is attached to any user/group/role
+	if err := s.ensurePolicyNotAttached(name); err != nil {
+		return err
+	}
 	return s.store.DeletePolicy(name)
+}
+
+func (s *IAMService) ensurePolicyNotAttached(name string) error {
+	policyRefs := map[string]struct{}{
+		name:                {},
+		MakePolicyARN(name): {},
+	}
+
+	users, err := s.store.ListUsers()
+	if err != nil {
+		return fmt.Errorf("failed to list users for policy attachment check: %w", err)
+	}
+	for _, user := range users {
+		if hasPolicyRef(policyRefs, user.AttachedPolicies) {
+			return fmt.Errorf("policy %s is attached to user %s", name, user.Name)
+		}
+		if _, ok := policyRefs[user.PermissionBoundary]; ok {
+			return fmt.Errorf("policy %s is used as permission boundary by user %s", name, user.Name)
+		}
+	}
+
+	groups, err := s.store.ListGroups()
+	if err != nil {
+		return fmt.Errorf("failed to list groups for policy attachment check: %w", err)
+	}
+	for _, group := range groups {
+		if hasPolicyRef(policyRefs, group.AttachedPolicies) {
+			return fmt.Errorf("policy %s is attached to group %s", name, group.Name)
+		}
+	}
+
+	roles, err := s.store.ListRoles()
+	if err != nil {
+		return fmt.Errorf("failed to list roles for policy attachment check: %w", err)
+	}
+	for _, role := range roles {
+		if hasPolicyRef(policyRefs, role.PermissionPolicies) {
+			return fmt.Errorf("policy %s is attached to role %s", name, role.Name)
+		}
+	}
+
+	return nil
+}
+
+func hasPolicyRef(policyRefs map[string]struct{}, refs []string) bool {
+	for _, ref := range refs {
+		if _, ok := policyRefs[ref]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 // ListPolicies lists all managed policies
@@ -710,8 +763,8 @@ func (s *IAMService) InitializeAdmin() (*CreateAccessKeyResult, error) {
 		Version: PolicyVersion,
 		Statement: []Statement{
 			{
-				Effect: EffectAllow,
-				Action: StringOrSlice{"*"},
+				Effect:   EffectAllow,
+				Action:   StringOrSlice{"*"},
 				Resource: StringOrSlice{"*"},
 			},
 		},
@@ -762,7 +815,7 @@ func removeString(slice []string, s string) []string {
 }
 
 func extractRoleNameFromARN(arn string) string {
-	// arn:nexus:iam:::role/RoleName -> RoleName
+	// arn:cipherlake:iam:::role/RoleName -> RoleName
 	if !strings.HasPrefix(arn, ARNPrefix) {
 		return ""
 	}

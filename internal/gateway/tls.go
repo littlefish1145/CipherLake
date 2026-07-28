@@ -20,8 +20,8 @@ import (
 	"sync"
 	"time"
 
+	"cipherlake/internal/config"
 	"go.uber.org/zap"
-	"nexus/internal/config"
 )
 
 type TLSManager struct {
@@ -33,6 +33,9 @@ type TLSManager struct {
 	server      *http.Server
 	redirectSrv *http.Server
 	stopCh      chan struct{}
+	wg          sync.WaitGroup
+	startOnce   sync.Once
+	stopOnce    sync.Once
 }
 
 func NewTLSManager(cfg *config.TLSConfig) (*TLSManager, error) {
@@ -175,33 +178,41 @@ func (tm *TLSManager) StartCertWatcher() {
 		return
 	}
 
-	go func() {
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
+	tm.startOnce.Do(func() {
+		tm.wg.Add(1)
+		go func() {
+			defer tm.wg.Done()
+			ticker := time.NewTicker(30 * time.Second)
+			defer ticker.Stop()
 
-		for {
-			select {
-			case <-ticker.C:
-				if err := tm.ReloadCertificate(); err != nil {
-					zap.L().Error("Certificate reload failed", zap.Error(err))
+			for {
+				select {
+				case <-ticker.C:
+					if err := tm.ReloadCertificate(); err != nil {
+						zap.L().Error("Certificate reload failed", zap.Error(err))
+					}
+				case <-tm.stopCh:
+					return
 				}
-			case <-tm.stopCh:
-				return
 			}
-		}
-	}()
+		}()
 
-	zap.L().Info("TLS certificate watcher started", zap.String("cert_file", tm.config.CertFile))
+		zap.L().Info("TLS certificate watcher started", zap.String("cert_file", tm.config.CertFile))
+	})
 }
 
 func (tm *TLSManager) Stop() {
-	close(tm.stopCh)
+	tm.stopOnce.Do(func() {
+		close(tm.stopCh)
+	})
 
 	if tm.redirectSrv != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		tm.redirectSrv.Shutdown(ctx)
+		_ = tm.redirectSrv.Shutdown(ctx)
 	}
+
+	tm.wg.Wait()
 }
 
 func (tm *TLSManager) GetTLSConfig() *tls.Config {
@@ -272,7 +283,7 @@ func (tm *TLSManager) generateSelfSignedCert() error {
 	template := x509.Certificate{
 		SerialNumber: serialNumber,
 		Subject: pkix.Name{
-			Organization: []string{"Nexus S3 Gateway"},
+			Organization: []string{"CipherLake S3 Gateway"},
 			CommonName:   host,
 		},
 		NotBefore:             time.Now(),

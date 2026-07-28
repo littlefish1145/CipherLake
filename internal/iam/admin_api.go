@@ -156,10 +156,10 @@ func (a *AdminAPI) createUser(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"user": map[string]interface{}{
-			"id":         user.ID,
-			"name":       user.Name,
+			"id":           user.ID,
+			"name":         user.Name,
 			"display_name": user.DisplayName,
-			"created_at": user.CreatedAt.Format(time.RFC3339),
+			"created_at":   user.CreatedAt.Format(time.RFC3339),
 		},
 	})
 }
@@ -600,12 +600,12 @@ func (a *AdminAPI) simulatePolicy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := &EvalContext{
-		Principal:  req.Principal,
-		Action:     req.Action,
-		Resource:   req.Resource,
-		SourceIP:   req.SourceIP,
-		UserAgent:  req.UserAgent,
-		Time:       time.Now(),
+		Principal: req.Principal,
+		Action:    req.Action,
+		Resource:  req.Resource,
+		SourceIP:  req.SourceIP,
+		UserAgent: req.UserAgent,
+		Time:      time.Now(),
 	}
 
 	result := a.service.GetEvaluator().Simulate(ctx)

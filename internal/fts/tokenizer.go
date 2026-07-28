@@ -128,7 +128,7 @@ func porterStem(word string) string {
 
 	// Step 2: common suffix transformations
 	suffixes2 := []struct {
-		suffix    string
+		suffix      string
 		replacement string
 	}{
 		{"ational", "ate"},

@@ -207,7 +207,7 @@ func (p *InstancePool) Return(inst *Instance) {
 		p.inUse = 0
 	}
 
-	if p.closed || inst.Module == nil {
+	if p.closed || inst.Module == nil || inst.Module.IsClosed() {
 		// Pool is shutting down or instance is unhealthy — destroy.
 		inst.Destroy(context.Background())
 		return

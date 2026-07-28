@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,16 +13,15 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
+	"cipherlake/internal/auth"
+	"cipherlake/internal/common"
+	"cipherlake/internal/events"
+	"cipherlake/internal/metadata"
 	"github.com/google/uuid"
-	"nexus/internal/auth"
-	"nexus/internal/common"
-	"nexus/internal/events"
-	"nexus/internal/metadata"
-	"nexus/internal/taskqueue"
+	"go.uber.org/zap"
 )
 
 type MultipartUploadHandler struct {
@@ -119,22 +119,11 @@ func (h *MultipartUploadHandler) HandleCreateMultipartUpload(w http.ResponseWrit
 		return fmt.Errorf("access denied: %w", err)
 	}
 
-	userID := h.gateway.getUserID(r)
-	if userID == "" {
-		userID = "anonymous"
-	}
+	userID := h.gateway.requestUserID(r)
 
-	contentType := r.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = "application/octet-stream"
-	}
+	contentType := objectContentType(r.Header)
 
-	metadataMap := make(map[string]string)
-	for k, values := range r.Header {
-		if strings.HasPrefix(strings.ToLower(k), "x-amz-meta-") {
-			metadataMap[strings.TrimPrefix(k, "x-amz-meta-")] = values[0]
-		}
-	}
+	metadataMap := parseUserMetadata(r.Header)
 
 	upload := &metadata.MultipartUpload{
 		UploadID:    uuid.New().String(),
@@ -301,27 +290,16 @@ func (h *MultipartUploadHandler) HandleCompleteMultipartUpload(w http.ResponseWr
 
 	etag := uuid.New().String()
 
-	objMetadata := &metadata.ObjectMetadata{
-		Key:            key,
-		Bucket:         bucket,
-		Size:           totalSize,
-		ContentType:    upload.ContentType,
-		ETag:           etag,
-		UserMetadata:   upload.Metadata,
-		StorageTier:    int(common.TierHot),
-		CreatedAt:      time.Now(),
-		ModifiedAt:     time.Now(),
-		AccessCount:    0,
-		LastAccessedAt: time.Now(),
-		Encrypted:      upload.Encrypted,
-		VersionID:      uuid.New().String(),
-		IsLatest:       true,
-		ObjectStatus:   "active",
-	}
-
-	if err := h.gateway.metadata.PutObject(r.Context(), bucket, key, objMetadata); err != nil {
-		return fmt.Errorf("failed to store metadata: %w", err)
-	}
+	commonMeta, objMetadata := buildActiveObjectMetadata(activeObjectMetadataInput{
+		Bucket:       bucket,
+		Key:          key,
+		Size:         totalSize,
+		ContentType:  upload.ContentType,
+		ETag:         etag,
+		UserMetadata: upload.Metadata,
+		StorageTier:  common.TierHot,
+		Encrypted:    upload.Encrypted,
+	})
 
 	pr, pw := io.Pipe()
 	go func() {
@@ -349,64 +327,51 @@ func (h *MultipartUploadHandler) HandleCompleteMultipartUpload(w http.ResponseWr
 		pw.Close()
 	}()
 
-	commonMeta := &common.ObjectMetadata{
-		Key:          objMetadata.Key,
-		Bucket:       objMetadata.Bucket,
-		Size:         objMetadata.Size,
-		ContentType:  objMetadata.ContentType,
-		ETag:         objMetadata.ETag,
-		UserMetadata: objMetadata.UserMetadata,
-		StorageTier:  common.StorageTier(objMetadata.StorageTier),
-		CreatedAt:    objMetadata.CreatedAt,
-		ModifiedAt:   objMetadata.ModifiedAt,
-		Encrypted:    objMetadata.Encrypted,
-		Vectorized:   objMetadata.Vectorized,
-		VersionID:    objMetadata.VersionID,
-	}
-
 	storageTier := common.StorageTier(objMetadata.StorageTier)
-	if err := h.gateway.store.Put(r.Context(), bucket, key, pr, totalSize, storageTier, commonMeta); err != nil {
-		return fmt.Errorf("failed to store merged object: %w", err)
+	if err := h.gateway.putStoredObjectWithMetadata(
+		r.Context(),
+		bucket,
+		key,
+		pr,
+		totalSize,
+		storageTier,
+		commonMeta,
+		objMetadata,
+		"failed to store merged object",
+	); err != nil {
+		return err
 	}
 
-	go h.cleanupParts(uploadID)
+	// Synchronously clean up part files. The previous async `go cleanupParts`
+	// could leak part files if the process exited before the goroutine
+	// completed. The merged object is already persisted, so the parts are
+	// no longer needed.
+	if cleanupErr := h.cleanupParts(uploadID); cleanupErr != nil {
+		zap.L().Warn("failed to clean up part files after complete-multipart",
+			zap.String("upload_id", uploadID),
+			zap.String("bucket", bucket),
+			zap.String("key", key),
+			zap.Error(cleanupErr))
+	}
 
 	if err := h.gateway.metadata.DeleteUpload(r.Context(), bucket, key, uploadID); err != nil {
+		return fmt.Errorf("failed to finalize upload metadata: %w", err)
 	}
 
 	if h.gateway.tiering != nil {
 		h.gateway.tiering.RecordAccess(r.Context(), bucket, key, "PUT", upload.UserID)
 	}
 
-	if h.gateway.vector != nil && h.gateway.config.Vector.Enabled {
-		if r.Header.Get("X-Vectorize") != "false" {
-			h.gateway.submitBackgroundTask(r.Context(), taskqueue.KindVectorize, taskqueue.VectorizePayload{
-				Bucket:      bucket,
-				Key:         key,
-				ContentType: upload.ContentType,
-				Metadata:    upload.Metadata,
-				UserID:      upload.UserID,
-			})
-		}
-	}
-
-	if h.gateway.ftsIndex != nil && h.gateway.config.FTS.Enabled {
-		if r.Header.Get("X-FTS-Index") != "false" {
-			h.gateway.submitBackgroundTask(r.Context(), taskqueue.KindFTS, taskqueue.FTSPayload{
-				Bucket:      bucket,
-				Key:         key,
-				ContentType: upload.ContentType,
-				VersionID:   objMetadata.VersionID,
-			})
-		}
-	}
-
-	if h.gateway.pipeline != nil {
-		h.gateway.submitBackgroundTask(r.Context(), taskqueue.KindPipeline, taskqueue.PipelinePayload{
-			Bucket:      bucket,
-			Key:         key,
-			ContentType: upload.ContentType,
-			Metadata:    upload.Metadata,
+	if h.gateway.writeTasks != nil {
+		h.gateway.writeTasks.ScheduleObjectWriteTasks(r.Context(), objectWriteTaskRequest{
+			Bucket:        bucket,
+			Key:           key,
+			ContentType:   upload.ContentType,
+			Metadata:      upload.Metadata,
+			UserID:        upload.UserID,
+			VersionID:     objMetadata.VersionID,
+			SkipVectorize: r.Header.Get("X-Vectorize") == "false",
+			SkipFTS:       r.Header.Get("X-FTS-Index") == "false",
 		})
 	}
 
@@ -434,18 +399,49 @@ func (h *MultipartUploadHandler) HandleCompleteMultipartUpload(w http.ResponseWr
 	return h.gateway.writeXML(w, http.StatusOK, output)
 }
 
-func (h *MultipartUploadHandler) cleanupParts(uploadID string) {
+// cleanupParts removes the on-disk part files for an upload ID. It returns an
+// aggregated error describing any failures encountered during removal so
+// callers can log them instead of silently dropping them. The error is
+// constructed via errors.Join so partial failures (some parts removed, others
+// not) are still surfaced. A missing upload directory is treated as a no-op
+// (nil error) so callers can invoke cleanupParts idempotently.
+func (h *MultipartUploadHandler) cleanupParts(uploadID string) error {
 	uploadDir := h.getUploadDir(uploadID)
-	filepath.Walk(uploadDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
+
+	// If the upload directory doesn't exist, there's nothing to clean up.
+	// This makes cleanupParts safe to call repeatedly (e.g. after a crash
+	// where the directory was already removed).
+	if _, err := os.Stat(uploadDir); err != nil {
+		if os.IsNotExist(err) {
 			return nil
 		}
-		if !info.IsDir() {
-			os.Remove(path)
+		return fmt.Errorf("failed to stat upload dir %s: %w", uploadDir, err)
+	}
+
+	var errs error
+
+	walkErr := filepath.Walk(uploadDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			errs = errors.Join(errs, fmt.Errorf("walk error on %s: %w", path, err))
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if removeErr := os.Remove(path); removeErr != nil && !os.IsNotExist(removeErr) {
+			errs = errors.Join(errs, fmt.Errorf("failed to remove part file %s: %w", path, removeErr))
 		}
 		return nil
 	})
-	os.Remove(uploadDir)
+	if walkErr != nil {
+		errs = errors.Join(errs, walkErr)
+	}
+
+	if removeErr := os.Remove(uploadDir); removeErr != nil && !os.IsNotExist(removeErr) {
+		errs = errors.Join(errs, fmt.Errorf("failed to remove upload dir %s: %w", uploadDir, removeErr))
+	}
+
+	return errs
 }
 
 func (h *MultipartUploadHandler) HandleAbortMultipartUpload(w http.ResponseWriter, r *http.Request, bucket, key string) error {
@@ -462,7 +458,15 @@ func (h *MultipartUploadHandler) HandleAbortMultipartUpload(w http.ResponseWrite
 		return fmt.Errorf("uploadId is required")
 	}
 
-	go h.cleanupParts(uploadID)
+	// Synchronously clean up part files to avoid leaking them if the process
+	// exits before an async goroutine completes.
+	if cleanupErr := h.cleanupParts(uploadID); cleanupErr != nil {
+		zap.L().Warn("failed to clean up part files after abort-multipart",
+			zap.String("upload_id", uploadID),
+			zap.String("bucket", bucket),
+			zap.String("key", key),
+			zap.Error(cleanupErr))
+	}
 
 	if err := h.gateway.metadata.DeleteUpload(r.Context(), bucket, key, uploadID); err != nil {
 		return fmt.Errorf("failed to abort upload: %w", err)
@@ -570,27 +574,23 @@ func (h *MultipartUploadHandler) HandleListUploads(w http.ResponseWriter, r *htt
 }
 
 func (h *MultipartUploadHandler) CleanupExpiredUploads(ctx context.Context) error {
-	buckets, err := h.gateway.metadata.ListBuckets(ctx)
+	uploads, err := h.gateway.metadata.ListExpiredUploads(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to list buckets: %w", err)
+		return fmt.Errorf("failed to list expired uploads: %w", err)
 	}
 
-	now := time.Now()
-	for _, bucket := range buckets {
-		uploads, err := h.gateway.metadata.ListUploads(ctx, bucket.Name)
-		if err != nil {
+	var cleanupErr error
+	for _, upload := range uploads {
+		if err := h.gateway.metadata.DeleteUpload(ctx, upload.Bucket, upload.Key, upload.UploadID); err != nil {
+			cleanupErr = errors.Join(cleanupErr, fmt.Errorf("delete expired upload %s: %w", upload.UploadID, err))
 			continue
 		}
-
-		for _, upload := range uploads {
-			if now.After(upload.ExpiresAt) {
-				if err := h.gateway.metadata.DeleteUpload(ctx, bucket.Name, upload.Key, upload.UploadID); err != nil {
-				}
-			}
+		if partErr := h.cleanupParts(upload.UploadID); partErr != nil {
+			cleanupErr = errors.Join(cleanupErr, fmt.Errorf("cleanup parts for expired upload %s: %w", upload.UploadID, partErr))
 		}
 	}
 
-	return nil
+	return cleanupErr
 }
 
 type CompleteUploadInput struct {

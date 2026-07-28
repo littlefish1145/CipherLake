@@ -1,12 +1,12 @@
 # Admin API Reference
 
-The Admin API provides management operations for Nexus. It is served on a
+The Admin API provides management operations for CipherLake. It is served on a
 separate port (default 9001) and requires admin authentication.
 
 ## Base URL
 
 ```
-http://<nexus-host>:9001/admin/v1
+http://<cipherlake-host>:9001/admin/v1
 ```
 
 ## Authentication
@@ -17,7 +17,7 @@ Admin API requests require an admin token in the `Authorization` header:
 Authorization: Bearer <admin-token>
 ```
 
-Admin tokens are created via `nexusctl user create --admin`.
+Admin tokens are created via `cipherlakectl user create --admin`.
 
 ## Cluster Management
 
@@ -91,7 +91,7 @@ POST /iam/users
   "username": "app-user",
   "access_key": "AKIA...",
   "secret_key": "secret...",
-  "policy_arn": "arn:nexus:policy:::read-only"
+  "policy_arn": "arn:cipherlake:policy:::read-only"
 }
 ```
 
@@ -124,7 +124,7 @@ POST /iam/policies
       {
         "Effect": "Allow",
         "Action": ["s3:GetObject", "s3:ListBucket"],
-        "Resource": ["arn:nexus:s3:::my-bucket/*"]
+        "Resource": ["arn:cipherlake:s3:::my-bucket/*"]
       }
     ]
   }
@@ -141,7 +141,7 @@ POST /iam/users/{username}/policies
 
 ```json
 {
-  "policy_arn": "arn:nexus:policy:::read-only"
+  "policy_arn": "arn:cipherlake:policy:::read-only"
 }
 ```
 

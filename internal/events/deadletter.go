@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,13 +14,13 @@ import (
 
 // DeadLetterEntry represents a failed event delivery stored in the dead letter queue.
 type DeadLetterEntry struct {
-	ID          string      `json:"id"`
-	Event       *Event      `json:"event"`
+	ID          string            `json:"id"`
+	Event       *Event            `json:"event"`
 	Rule        *NotificationRule `json:"rule"`
-	Attempts    int         `json:"attempts"`
-	LastAttempt time.Time   `json:"last_attempt"`
-	LastError   string      `json:"last_error"`
-	CreatedAt   time.Time   `json:"created_at"`
+	Attempts    int               `json:"attempts"`
+	LastAttempt time.Time         `json:"last_attempt"`
+	LastError   string            `json:"last_error"`
+	CreatedAt   time.Time         `json:"created_at"`
 }
 
 // DeadLetterQueue manages failed event deliveries with retry support.
@@ -30,6 +31,9 @@ type DeadLetterQueue struct {
 	metrics     *Metrics
 	retryCh     chan *DeadLetterEntry
 	stopCh      chan struct{}
+	startOnce   sync.Once
+	stopOnce    sync.Once
+	wg          sync.WaitGroup
 }
 
 // NewDeadLetterQueue creates a new dead letter queue.
@@ -52,12 +56,18 @@ func NewDeadLetterQueue(dir string, maxRetries, retryBaseMS int, metrics *Metric
 
 // Start begins the background retry processor.
 func (q *DeadLetterQueue) Start(sender *WebhookSender) {
-	go q.retryLoop(sender)
+	q.startOnce.Do(func() {
+		q.wg.Add(1)
+		go q.retryLoop(sender)
+	})
 }
 
 // Stop signals the background retry processor to stop.
 func (q *DeadLetterQueue) Stop() {
-	close(q.stopCh)
+	q.stopOnce.Do(func() {
+		close(q.stopCh)
+		q.wg.Wait()
+	})
 }
 
 // Enqueue adds a failed delivery to the dead letter queue.
@@ -97,6 +107,8 @@ func (q *DeadLetterQueue) RetryChannel() <-chan *DeadLetterEntry {
 
 // retryLoop processes retries with exponential backoff.
 func (q *DeadLetterQueue) retryLoop(sender *WebhookSender) {
+	defer q.wg.Done()
+
 	for {
 		select {
 		case <-q.stopCh:
@@ -143,7 +155,7 @@ func (q *DeadLetterQueue) retryLoop(sender *WebhookSender) {
 // writeToDisk persists a dead letter entry as a JSON file.
 func (q *DeadLetterQueue) writeToDisk(entry *DeadLetterEntry) {
 	if err := os.MkdirAll(q.dir, 0755); err != nil {
-		log.Printf("[nexus] DLQ: failed to create directory %s: %v", q.dir, err)
+		log.Printf("[cipherlake] DLQ: failed to create directory %s: %v", q.dir, err)
 		return
 	}
 
@@ -152,11 +164,11 @@ func (q *DeadLetterQueue) writeToDisk(entry *DeadLetterEntry) {
 
 	data, err := json.MarshalIndent(entry, "", "  ")
 	if err != nil {
-		log.Printf("[nexus] DLQ: failed to marshal entry %s: %v", entry.ID, err)
+		log.Printf("[cipherlake] DLQ: failed to marshal entry %s: %v", entry.ID, err)
 		return
 	}
 
 	if err := os.WriteFile(path, data, 0644); err != nil {
-		log.Printf("[nexus] DLQ: failed to write entry to %s: %v", path, err)
+		log.Printf("[cipherlake] DLQ: failed to write entry to %s: %v", path, err)
 	}
 }

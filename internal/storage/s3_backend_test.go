@@ -18,11 +18,11 @@ func TestS3Config_Validation(t *testing.T) {
 	// Test that NewS3Backend requires valid config
 	// With empty config, it should still attempt to load (may fail in CI without credentials)
 	_, err := NewS3Backend(S3Config{
-		Endpoint:  "http://localhost:9000",
-		Region:    "us-east-1",
-		Bucket:    "test-bucket",
-		AccessKey: "test-access",
-		SecretKey: "test-secret",
+		Endpoint:       "http://localhost:9000",
+		Region:         "us-east-1",
+		Bucket:         "test-bucket",
+		AccessKey:      "test-access",
+		SecretKey:      "test-secret",
 		ForcePathStyle: true,
 	})
 	// This may fail if no S3 endpoint is available, but should not panic

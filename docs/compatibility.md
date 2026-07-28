@@ -1,8 +1,8 @@
-# Nexus Version Compatibility Strategy
+# CipherLake Version Compatibility Strategy
 
 ## Version Numbering
 
-Nexus follows [Semantic Versioning 2.0.0](https://semver.org/):
+CipherLake follows [Semantic Versioning 2.0.0](https://semver.org/):
 
 - **MAJOR** version: Incompatible API changes
 - **MINOR** version: Backward-compatible functionality additions
@@ -46,7 +46,7 @@ The Admin REST API follows the same compatibility rules as the S3 API. All break
 
 1. **Announcement**: Features are marked as deprecated in release notes and documentation.
 2. **Grace period**: Deprecated features remain functional for at least two minor releases (typically 6 months).
-3. **Warnings**: Deprecated API endpoints return a `X-Nexus-Deprecated` header with migration guidance.
+3. **Warnings**: Deprecated API endpoints return a `X-CipherLake-Deprecated` header with migration guidance.
 4. **Removal**: Features are removed only in major version releases.
 
 ### Currently Deprecated Features
@@ -81,7 +81,7 @@ The Admin REST API follows the same compatibility rules as the S3 API. All break
 #### Recommended Major Upgrade Process
 
 1. Deploy the new version alongside the old (blue-green)
-2. Migrate data using `nexusctl backup` and `nexusctl restore`
+2. Migrate data using `cipherlakectl backup` and `cipherlakectl restore`
 3. Validate data integrity
 4. Switch traffic to the new version
 5. Decommission the old version
@@ -91,13 +91,13 @@ The Admin REST API follows the same compatibility rules as the S3 API. All break
 ### Go SDK
 
 - Minimum Go version: follows the two most recent Go releases
-- Compatible with the latest two Nexus major versions
-- Follows the same semver scheme as Nexus
+- Compatible with the latest two CipherLake major versions
+- Follows the same semver scheme as CipherLake
 
 ### Python SDK
 
 - Minimum Python version: 3.9+
-- Compatible with the latest two Nexus major versions
+- Compatible with the latest two CipherLake major versions
 - boto3 dependency: latest stable release
 
 ## Configuration Compatibility

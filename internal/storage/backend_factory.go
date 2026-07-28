@@ -3,7 +3,7 @@ package storage
 import (
 	"fmt"
 
-	"nexus/internal/config"
+	"cipherlake/internal/config"
 )
 
 // NewBackendFromConfig creates a BackendStorage from a StorageClassConfig.

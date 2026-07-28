@@ -80,6 +80,8 @@ type VectorManager struct {
 	cache             *QueryCache
 	embeddingCache    *embeddingCache
 	embeddingProvider EmbeddingProvider
+	closeOnce         sync.Once
+	closeErr          error
 }
 
 // embeddingCache 缓存 text -> embedding,避免重复 API 调用。
@@ -254,12 +256,12 @@ func NewVectorManager(config *VectorConfig) (*VectorManager, error) {
 	var embeddingProvider EmbeddingProvider
 	if config.Enabled {
 		embConfig := &EmbeddingConfig{
-			Provider:      config.EmbeddingProvider,
-			ModelPath:     config.EmbeddingModelPath,
-			APIEndpoint:   config.EmbeddingAPIEndpoint,
-			APIKey:        config.EmbeddingAPIKey,
-			ModelName:     config.EmbeddingModelName,
-			Dimension:     dim,
+			Provider:    config.EmbeddingProvider,
+			ModelPath:   config.EmbeddingModelPath,
+			APIEndpoint: config.EmbeddingAPIEndpoint,
+			APIKey:      config.EmbeddingAPIKey,
+			ModelName:   config.EmbeddingModelName,
+			Dimension:   dim,
 		}
 		embeddingProvider, err = NewEmbeddingProvider(embConfig)
 		if err != nil {
@@ -482,17 +484,23 @@ func (vm *VectorManager) SearchByText(ctx context.Context, queryText string, top
 }
 
 func (vm *VectorManager) Close() error {
-	if vm.index != nil {
-		if mb, ok := vm.index.(*MilvusBackend); ok {
-			if err := mb.Close(); err != nil {
-				return fmt.Errorf("milvus backend close failed: %w", err)
+	vm.closeOnce.Do(func() {
+		var closeErr error
+		if vm.index != nil {
+			if mb, ok := vm.index.(*MilvusBackend); ok {
+				if err := mb.Close(); err != nil {
+					closeErr = errors.Join(closeErr, fmt.Errorf("milvus backend close failed: %w", err))
+				}
 			}
 		}
-	}
-	if vm.embeddingProvider != nil {
-		return vm.embeddingProvider.Close()
-	}
-	return nil
+		if vm.embeddingProvider != nil {
+			if err := vm.embeddingProvider.Close(); err != nil {
+				closeErr = errors.Join(closeErr, fmt.Errorf("embedding provider close failed: %w", err))
+			}
+		}
+		vm.closeErr = closeErr
+	})
+	return vm.closeErr
 }
 
 func EncodeVector(v []float32) []byte {

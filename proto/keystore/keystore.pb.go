@@ -7,9 +7,9 @@
 package keystore
 
 import (
+	common "cipherlake/proto/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	common "nexus/proto/common"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -743,53 +743,53 @@ var File_keystore_proto protoreflect.FileDescriptor
 
 const file_keystore_proto_rawDesc = "" +
 	"\n" +
-	"\x0ekeystore.proto\x12\x0enexus.keystore\x1a\fcommon.proto\"\xfe\x01\n" +
+	"\x0ekeystore.proto\x12\x13cipherlake.keystore\x1a\x17cipherlake/common.proto\"\x83\x02\n" +
 	"\x0fStoreKeyRequest\x12\x16\n" +
 	"\x06bucket\x18\x01 \x01(\tR\x06bucket\x12\x1d\n" +
 	"\n" +
-	"object_key\x18\x02 \x01(\tR\tobjectKey\x12?\n" +
-	"\rencrypted_dek\x18\x03 \x01(\v2\x1a.nexus.common.EncryptedDEKR\fencryptedDek\x12\x15\n" +
+	"object_key\x18\x02 \x01(\tR\tobjectKey\x12D\n" +
+	"\rencrypted_dek\x18\x03 \x01(\v2\x1f.cipherlake.common.EncryptedDEKR\fencryptedDek\x12\x15\n" +
 	"\x06key_id\x18\x04 \x01(\tR\x05keyId\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x05 \x01(\x03R\tcreatedAt\x12\x1c\n" +
 	"\talgorithm\x18\x06 \x01(\tR\talgorithm\x12\x1f\n" +
 	"\vobject_size\x18\a \x01(\x03R\n" +
-	"objectSize\"q\n" +
+	"objectSize\"v\n" +
 	"\x10StoreKeyResponse\x12\x15\n" +
 	"\x06key_id\x18\x01 \x01(\tR\x05keyId\x12\x1b\n" +
-	"\tstored_at\x18\x02 \x01(\x03R\bstoredAt\x12)\n" +
-	"\x05error\x18\x03 \x01(\v2\x13.nexus.common.ErrorR\x05error\"]\n" +
+	"\tstored_at\x18\x02 \x01(\x03R\bstoredAt\x12.\n" +
+	"\x05error\x18\x03 \x01(\v2\x18.cipherlake.common.ErrorR\x05error\"]\n" +
 	"\rGetKeyRequest\x12\x16\n" +
 	"\x06bucket\x18\x01 \x01(\tR\x06bucket\x12\x1d\n" +
 	"\n" +
 	"object_key\x18\x02 \x01(\tR\tobjectKey\x12\x15\n" +
-	"\x06key_id\x18\x03 \x01(\tR\x05keyId\"\xd0\x01\n" +
-	"\x0eGetKeyResponse\x12?\n" +
-	"\rencrypted_dek\x18\x01 \x01(\v2\x1a.nexus.common.EncryptedDEKR\fencryptedDek\x12\x15\n" +
+	"\x06key_id\x18\x03 \x01(\tR\x05keyId\"\xda\x01\n" +
+	"\x0eGetKeyResponse\x12D\n" +
+	"\rencrypted_dek\x18\x01 \x01(\v2\x1f.cipherlake.common.EncryptedDEKR\fencryptedDek\x12\x15\n" +
 	"\x06key_id\x18\x02 \x01(\tR\x05keyId\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x03 \x01(\x03R\tcreatedAt\x12\x1c\n" +
-	"\talgorithm\x18\x04 \x01(\tR\talgorithm\x12)\n" +
-	"\x05error\x18\x05 \x01(\v2\x13.nexus.common.ErrorR\x05error\"`\n" +
+	"\talgorithm\x18\x04 \x01(\tR\talgorithm\x12.\n" +
+	"\x05error\x18\x05 \x01(\v2\x18.cipherlake.common.ErrorR\x05error\"`\n" +
 	"\x10DeleteKeyRequest\x12\x16\n" +
 	"\x06bucket\x18\x01 \x01(\tR\x06bucket\x12\x1d\n" +
 	"\n" +
 	"object_key\x18\x02 \x01(\tR\tobjectKey\x12\x15\n" +
-	"\x06key_id\x18\x03 \x01(\tR\x05keyId\"}\n" +
+	"\x06key_id\x18\x03 \x01(\tR\x05keyId\"\x82\x01\n" +
 	"\x11DeleteKeyResponse\x12\x18\n" +
 	"\adeleted\x18\x01 \x01(\bR\adeleted\x12#\n" +
-	"\rdeleted_count\x18\x02 \x01(\x05R\fdeletedCount\x12)\n" +
-	"\x05error\x18\x03 \x01(\v2\x13.nexus.common.ErrorR\x05error\"o\n" +
+	"\rdeleted_count\x18\x02 \x01(\x05R\fdeletedCount\x12.\n" +
+	"\x05error\x18\x03 \x01(\v2\x18.cipherlake.common.ErrorR\x05error\"o\n" +
 	"\x0fListKeysRequest\x12\x16\n" +
 	"\x06bucket\x18\x01 \x01(\tR\x06bucket\x12\x16\n" +
 	"\x06prefix\x18\x02 \x01(\tR\x06prefix\x12\x14\n" +
 	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06offset\x18\x04 \x01(\x05R\x06offset\"\x8c\x01\n" +
-	"\x10ListKeysResponse\x12,\n" +
-	"\x04keys\x18\x01 \x03(\v2\x18.nexus.keystore.KeyEntryR\x04keys\x12\x1f\n" +
+	"\x06offset\x18\x04 \x01(\x05R\x06offset\"\x96\x01\n" +
+	"\x10ListKeysResponse\x121\n" +
+	"\x04keys\x18\x01 \x03(\v2\x1d.cipherlake.keystore.KeyEntryR\x04keys\x12\x1f\n" +
 	"\vtotal_count\x18\x02 \x01(\x05R\n" +
-	"totalCount\x12)\n" +
-	"\x05error\x18\x03 \x01(\v2\x13.nexus.common.ErrorR\x05error\"}\n" +
+	"totalCount\x12.\n" +
+	"\x05error\x18\x03 \x01(\v2\x18.cipherlake.common.ErrorR\x05error\"}\n" +
 	"\bKeyEntry\x12\x1d\n" +
 	"\n" +
 	"object_key\x18\x01 \x01(\tR\tobjectKey\x12\x15\n" +
@@ -803,13 +803,13 @@ const file_keystore_proto_rawDesc = "" +
 	"\fservice_name\x18\x02 \x01(\tR\vserviceName\x12\x18\n" +
 	"\aversion\x18\x03 \x01(\tR\aversion\x12%\n" +
 	"\x0euptime_seconds\x18\x04 \x01(\x03R\ruptimeSeconds\x12*\n" +
-	"\x11total_keys_stored\x18\x05 \x01(\x03R\x0ftotalKeysStored2\x93\x03\n" +
-	"\x0fKeyStoreService\x12M\n" +
-	"\bStoreKey\x12\x1f.nexus.keystore.StoreKeyRequest\x1a .nexus.keystore.StoreKeyResponse\x12G\n" +
-	"\x06GetKey\x12\x1d.nexus.keystore.GetKeyRequest\x1a\x1e.nexus.keystore.GetKeyResponse\x12P\n" +
-	"\tDeleteKey\x12 .nexus.keystore.DeleteKeyRequest\x1a!.nexus.keystore.DeleteKeyResponse\x12M\n" +
-	"\bListKeys\x12\x1f.nexus.keystore.ListKeysRequest\x1a .nexus.keystore.ListKeysResponse\x12G\n" +
-	"\x06Health\x12\x1d.nexus.keystore.HealthRequest\x1a\x1e.nexus.keystore.HealthResponseB\x16Z\x14nexus/proto/keystoreb\x06proto3"
+	"\x11total_keys_stored\x18\x05 \x01(\x03R\x0ftotalKeysStored2\xc5\x03\n" +
+	"\x0fKeyStoreService\x12W\n" +
+	"\bStoreKey\x12$.cipherlake.keystore.StoreKeyRequest\x1a%.cipherlake.keystore.StoreKeyResponse\x12Q\n" +
+	"\x06GetKey\x12\".cipherlake.keystore.GetKeyRequest\x1a#.cipherlake.keystore.GetKeyResponse\x12Z\n" +
+	"\tDeleteKey\x12%.cipherlake.keystore.DeleteKeyRequest\x1a&.cipherlake.keystore.DeleteKeyResponse\x12W\n" +
+	"\bListKeys\x12$.cipherlake.keystore.ListKeysRequest\x1a%.cipherlake.keystore.ListKeysResponse\x12Q\n" +
+	"\x06Health\x12\".cipherlake.keystore.HealthRequest\x1a#.cipherlake.keystore.HealthResponseB\x1bZ\x19cipherlake/proto/keystoreb\x06proto3"
 
 var (
 	file_keystore_proto_rawDescOnce sync.Once
@@ -825,38 +825,38 @@ func file_keystore_proto_rawDescGZIP() []byte {
 
 var file_keystore_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_keystore_proto_goTypes = []any{
-	(*StoreKeyRequest)(nil),     // 0: nexus.keystore.StoreKeyRequest
-	(*StoreKeyResponse)(nil),    // 1: nexus.keystore.StoreKeyResponse
-	(*GetKeyRequest)(nil),       // 2: nexus.keystore.GetKeyRequest
-	(*GetKeyResponse)(nil),      // 3: nexus.keystore.GetKeyResponse
-	(*DeleteKeyRequest)(nil),    // 4: nexus.keystore.DeleteKeyRequest
-	(*DeleteKeyResponse)(nil),   // 5: nexus.keystore.DeleteKeyResponse
-	(*ListKeysRequest)(nil),     // 6: nexus.keystore.ListKeysRequest
-	(*ListKeysResponse)(nil),    // 7: nexus.keystore.ListKeysResponse
-	(*KeyEntry)(nil),            // 8: nexus.keystore.KeyEntry
-	(*HealthRequest)(nil),       // 9: nexus.keystore.HealthRequest
-	(*HealthResponse)(nil),      // 10: nexus.keystore.HealthResponse
-	(*common.EncryptedDEK)(nil), // 11: nexus.common.EncryptedDEK
-	(*common.Error)(nil),        // 12: nexus.common.Error
+	(*StoreKeyRequest)(nil),     // 0: cipherlake.keystore.StoreKeyRequest
+	(*StoreKeyResponse)(nil),    // 1: cipherlake.keystore.StoreKeyResponse
+	(*GetKeyRequest)(nil),       // 2: cipherlake.keystore.GetKeyRequest
+	(*GetKeyResponse)(nil),      // 3: cipherlake.keystore.GetKeyResponse
+	(*DeleteKeyRequest)(nil),    // 4: cipherlake.keystore.DeleteKeyRequest
+	(*DeleteKeyResponse)(nil),   // 5: cipherlake.keystore.DeleteKeyResponse
+	(*ListKeysRequest)(nil),     // 6: cipherlake.keystore.ListKeysRequest
+	(*ListKeysResponse)(nil),    // 7: cipherlake.keystore.ListKeysResponse
+	(*KeyEntry)(nil),            // 8: cipherlake.keystore.KeyEntry
+	(*HealthRequest)(nil),       // 9: cipherlake.keystore.HealthRequest
+	(*HealthResponse)(nil),      // 10: cipherlake.keystore.HealthResponse
+	(*common.EncryptedDEK)(nil), // 11: cipherlake.common.EncryptedDEK
+	(*common.Error)(nil),        // 12: cipherlake.common.Error
 }
 var file_keystore_proto_depIdxs = []int32{
-	11, // 0: nexus.keystore.StoreKeyRequest.encrypted_dek:type_name -> nexus.common.EncryptedDEK
-	12, // 1: nexus.keystore.StoreKeyResponse.error:type_name -> nexus.common.Error
-	11, // 2: nexus.keystore.GetKeyResponse.encrypted_dek:type_name -> nexus.common.EncryptedDEK
-	12, // 3: nexus.keystore.GetKeyResponse.error:type_name -> nexus.common.Error
-	12, // 4: nexus.keystore.DeleteKeyResponse.error:type_name -> nexus.common.Error
-	8,  // 5: nexus.keystore.ListKeysResponse.keys:type_name -> nexus.keystore.KeyEntry
-	12, // 6: nexus.keystore.ListKeysResponse.error:type_name -> nexus.common.Error
-	0,  // 7: nexus.keystore.KeyStoreService.StoreKey:input_type -> nexus.keystore.StoreKeyRequest
-	2,  // 8: nexus.keystore.KeyStoreService.GetKey:input_type -> nexus.keystore.GetKeyRequest
-	4,  // 9: nexus.keystore.KeyStoreService.DeleteKey:input_type -> nexus.keystore.DeleteKeyRequest
-	6,  // 10: nexus.keystore.KeyStoreService.ListKeys:input_type -> nexus.keystore.ListKeysRequest
-	9,  // 11: nexus.keystore.KeyStoreService.Health:input_type -> nexus.keystore.HealthRequest
-	1,  // 12: nexus.keystore.KeyStoreService.StoreKey:output_type -> nexus.keystore.StoreKeyResponse
-	3,  // 13: nexus.keystore.KeyStoreService.GetKey:output_type -> nexus.keystore.GetKeyResponse
-	5,  // 14: nexus.keystore.KeyStoreService.DeleteKey:output_type -> nexus.keystore.DeleteKeyResponse
-	7,  // 15: nexus.keystore.KeyStoreService.ListKeys:output_type -> nexus.keystore.ListKeysResponse
-	10, // 16: nexus.keystore.KeyStoreService.Health:output_type -> nexus.keystore.HealthResponse
+	11, // 0: cipherlake.keystore.StoreKeyRequest.encrypted_dek:type_name -> cipherlake.common.EncryptedDEK
+	12, // 1: cipherlake.keystore.StoreKeyResponse.error:type_name -> cipherlake.common.Error
+	11, // 2: cipherlake.keystore.GetKeyResponse.encrypted_dek:type_name -> cipherlake.common.EncryptedDEK
+	12, // 3: cipherlake.keystore.GetKeyResponse.error:type_name -> cipherlake.common.Error
+	12, // 4: cipherlake.keystore.DeleteKeyResponse.error:type_name -> cipherlake.common.Error
+	8,  // 5: cipherlake.keystore.ListKeysResponse.keys:type_name -> cipherlake.keystore.KeyEntry
+	12, // 6: cipherlake.keystore.ListKeysResponse.error:type_name -> cipherlake.common.Error
+	0,  // 7: cipherlake.keystore.KeyStoreService.StoreKey:input_type -> cipherlake.keystore.StoreKeyRequest
+	2,  // 8: cipherlake.keystore.KeyStoreService.GetKey:input_type -> cipherlake.keystore.GetKeyRequest
+	4,  // 9: cipherlake.keystore.KeyStoreService.DeleteKey:input_type -> cipherlake.keystore.DeleteKeyRequest
+	6,  // 10: cipherlake.keystore.KeyStoreService.ListKeys:input_type -> cipherlake.keystore.ListKeysRequest
+	9,  // 11: cipherlake.keystore.KeyStoreService.Health:input_type -> cipherlake.keystore.HealthRequest
+	1,  // 12: cipherlake.keystore.KeyStoreService.StoreKey:output_type -> cipherlake.keystore.StoreKeyResponse
+	3,  // 13: cipherlake.keystore.KeyStoreService.GetKey:output_type -> cipherlake.keystore.GetKeyResponse
+	5,  // 14: cipherlake.keystore.KeyStoreService.DeleteKey:output_type -> cipherlake.keystore.DeleteKeyResponse
+	7,  // 15: cipherlake.keystore.KeyStoreService.ListKeys:output_type -> cipherlake.keystore.ListKeysResponse
+	10, // 16: cipherlake.keystore.KeyStoreService.Health:output_type -> cipherlake.keystore.HealthResponse
 	12, // [12:17] is the sub-list for method output_type
 	7,  // [7:12] is the sub-list for method input_type
 	7,  // [7:7] is the sub-list for extension type_name

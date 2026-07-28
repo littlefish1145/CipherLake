@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package sts;
 
-option go_package = "nexus/proto/sts";
+option go_package = "cipherlake/proto/sts";
 
 // STS Service - Security Token Service + IAM Lookup
 service STSService {
@@ -15,7 +15,7 @@ service STSService {
   // GetFederationToken returns temporary credentials for a federated user
   rpc GetFederationToken(GetFederationTokenRequest) returns (GetFederationTokenResponse);
 
-  // --- IAM Lookup RPCs (used by nexus gateway in distributed mode) ---
+  // --- IAM Lookup RPCs (used by cipherlake gateway in distributed mode) ---
 
   // LookupUserByAccessKey finds a user by access key ID
   rpc LookupUserByAccessKey(LookupUserByAccessKeyRequest) returns (LookupUserByAccessKeyResponse);
@@ -32,7 +32,7 @@ service STSService {
   // EvaluateAccess evaluates IAM policy for a request
   rpc EvaluateAccess(EvaluateAccessRequest) returns (EvaluateAccessResponse);
 
-  // --- IAM Admin RPCs (used by nexus gateway in distributed mode) ---
+  // --- IAM Admin RPCs (used by cipherlake gateway in distributed mode) ---
 
   // AdminCreateUser creates a new IAM user
   rpc AdminCreateUser(AdminCreateUserRequest) returns (AdminCreateUserResponse);

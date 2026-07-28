@@ -5,7 +5,7 @@ import "strings"
 // NotificationRule defines a bucket-level event subscription rule.
 type NotificationRule struct {
 	ID          string
-	Events      []string        // e.g., "s3:ObjectCreated:*", "s3:ObjectRemoved:Delete"
+	Events      []string // e.g., "s3:ObjectCreated:*", "s3:ObjectRemoved:Delete"
 	Prefix      string
 	Suffix      string
 	Destination DestinationConfig
@@ -13,7 +13,7 @@ type NotificationRule struct {
 
 // DestinationConfig describes where matching events should be delivered.
 type DestinationConfig struct {
-	Type    string        // "webhook", "kafka", "nats", "amqp"
+	Type    string // "webhook", "kafka", "nats", "amqp"
 	URL     string
 	Signing *SigningConfig
 }

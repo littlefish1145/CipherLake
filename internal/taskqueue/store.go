@@ -20,6 +20,10 @@ type Store interface {
 	Put(ctx context.Context, task *Task) error
 	// GetPending returns pending tasks ordered by priority and creation time.
 	GetPending(ctx context.Context, limit int) ([]*Task, error)
+	// ClaimPending atomically marks pending tasks as processing and returns them.
+	ClaimPending(ctx context.Context, limit int) ([]*Task, error)
+	// RecoverProcessing returns tasks left processing by a previous process to pending.
+	RecoverProcessing(ctx context.Context) error
 	// GetByID returns a task by id.
 	GetByID(ctx context.Context, id string) (*Task, error)
 	// Update atomically updates an existing task.
@@ -60,8 +64,9 @@ func (s *MemoryStore) Put(ctx context.Context, task *Task) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	task.UpdatedAt = time.Now()
-	s.tasks[task.ID] = task
+	stored := cloneTask(task)
+	stored.UpdatedAt = time.Now()
+	s.tasks[task.ID] = stored
 	return nil
 }
 
@@ -75,7 +80,7 @@ func (s *MemoryStore) GetPending(ctx context.Context, limit int) ([]*Task, error
 	var pending []*Task
 	for _, t := range s.tasks {
 		if t.Status == StatusPending {
-			pending = append(pending, t)
+			pending = append(pending, cloneTask(t))
 		}
 	}
 	pending = sortTasks(pending)
@@ -83,6 +88,52 @@ func (s *MemoryStore) GetPending(ctx context.Context, limit int) ([]*Task, error
 		pending = pending[:limit]
 	}
 	return pending, nil
+}
+
+func (s *MemoryStore) ClaimPending(ctx context.Context, limit int) ([]*Task, error) {
+	if err := s.checkOpen(); err != nil {
+		return nil, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var pending []*Task
+	for _, task := range s.tasks {
+		if task.Status == StatusPending {
+			pending = append(pending, cloneTask(task))
+		}
+	}
+	pending = sortTasks(pending)
+	if limit > 0 && len(pending) > limit {
+		pending = pending[:limit]
+	}
+
+	now := time.Now()
+	for _, task := range pending {
+		stored := s.tasks[task.ID]
+		stored.Status = StatusProcessing
+		stored.Attempts++
+		stored.UpdatedAt = now
+		*task = *cloneTask(stored)
+	}
+	return pending, nil
+}
+
+func (s *MemoryStore) RecoverProcessing(ctx context.Context) error {
+	if err := s.checkOpen(); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now()
+	for _, task := range s.tasks {
+		if task.Status == StatusProcessing {
+			task.Status = StatusPending
+			task.UpdatedAt = now
+		}
+	}
+	return nil
 }
 
 func (s *MemoryStore) GetByID(ctx context.Context, id string) (*Task, error) {
@@ -107,8 +158,9 @@ func (s *MemoryStore) Update(ctx context.Context, task *Task) error {
 	if _, ok := s.tasks[task.ID]; !ok {
 		return ErrTaskNotFound
 	}
-	task.UpdatedAt = time.Now()
-	s.tasks[task.ID] = task
+	stored := cloneTask(task)
+	stored.UpdatedAt = time.Now()
+	s.tasks[task.ID] = stored
 	return nil
 }
 
@@ -132,7 +184,7 @@ func (s *MemoryStore) ListDeadLetter(ctx context.Context, limit int) ([]*Task, e
 	var dead []*Task
 	for _, t := range s.tasks {
 		if t.Status == StatusDeadLetter {
-			dead = append(dead, t)
+			dead = append(dead, cloneTask(t))
 		}
 	}
 	dead = sortTasks(dead)

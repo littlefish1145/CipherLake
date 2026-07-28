@@ -98,7 +98,9 @@ func (a *AWSKMS) GenerateDataKey(ctx context.Context, keyID string, length int) 
 				zap.Int("attempt", attempt+1),
 				zap.Duration("backoff", backoff),
 				zap.Error(err))
-			time.Sleep(backoff)
+			if err := waitForRetry(ctx, backoff); err != nil {
+				return nil, nil, err
+			}
 		} else {
 			return nil, nil, fmt.Errorf("kms/aws: GenerateDataKey max retries exceeded: %w", err)
 		}
@@ -136,7 +138,9 @@ func (a *AWSKMS) DecryptDataKey(ctx context.Context, keyID string, encrypted []b
 				zap.Int("attempt", attempt+1),
 				zap.Duration("backoff", backoff),
 				zap.Error(err))
-			time.Sleep(backoff)
+			if err := waitForRetry(ctx, backoff); err != nil {
+				return nil, err
+			}
 		} else {
 			return nil, fmt.Errorf("kms/aws: DecryptDataKey max retries exceeded: %w", err)
 		}
@@ -171,7 +175,9 @@ func (a *AWSKMS) GetPublicKey(ctx context.Context, keyID string) (pub []byte, er
 				zap.Int("attempt", attempt+1),
 				zap.Duration("backoff", backoff),
 				zap.Error(err))
-			time.Sleep(backoff)
+			if err := waitForRetry(ctx, backoff); err != nil {
+				return nil, err
+			}
 		} else {
 			return nil, fmt.Errorf("kms/aws: GetPublicKey max retries exceeded: %w", err)
 		}
@@ -188,6 +194,18 @@ func (a *AWSKMS) GetPublicKey(ctx context.Context, keyID string) (pub []byte, er
 // Close cleans up AWS KMS client resources.
 func (a *AWSKMS) Close() error {
 	return nil
+}
+
+func waitForRetry(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 // resolveKeyID returns the effective key ID to use.

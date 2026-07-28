@@ -28,11 +28,11 @@ type IncrementalBackupInfo struct {
 }
 
 type Manifest struct {
-	LSNRange   LSNRange   `json:"lsn_range"`
-	Checksum   string     `json:"checksum"`
+	LSNRange    LSNRange  `json:"lsn_range"`
+	Checksum    string    `json:"checksum"`
 	ObjectCount int       `json:"object_count"`
-	Timestamp  time.Time  `json:"timestamp"`
-	Type       string     `json:"type"`
+	Timestamp   time.Time `json:"timestamp"`
+	Type        string    `json:"type"`
 }
 
 type LSNRange struct {
@@ -430,21 +430,18 @@ func applyIncrementalBackup(dataDir string, backupPath string) error {
 			return fmt.Errorf("failed to read tar entry: %w", err)
 		}
 
-		// Skip manifest
 		if hdr.Name == "manifest.json" {
 			continue
+		}
+		bucketName, err := archiveBucketName(hdr)
+		if err != nil {
+			return err
 		}
 
 		// Read bucket data
 		data, err := io.ReadAll(tr)
 		if err != nil {
 			return fmt.Errorf("failed to read %s: %w", hdr.Name, err)
-		}
-
-		// Parse bucket name from filename (e.g., "objects.json" -> "objects")
-		bucketName := hdr.Name
-		if len(bucketName) > 5 && bucketName[len(bucketName)-5:] == ".json" {
-			bucketName = bucketName[:len(bucketName)-5]
 		}
 
 		// Apply to database
@@ -454,6 +451,20 @@ func applyIncrementalBackup(dataDir string, backupPath string) error {
 	}
 
 	return nil
+}
+
+func archiveBucketName(hdr *tar.Header) (string, error) {
+	if hdr.Typeflag != tar.TypeReg && hdr.Typeflag != tar.TypeRegA {
+		return "", fmt.Errorf("invalid incremental backup entry type for %s", hdr.Name)
+	}
+	if filepath.Base(hdr.Name) != hdr.Name || filepath.Ext(hdr.Name) != ".json" {
+		return "", fmt.Errorf("invalid incremental backup entry name %q", hdr.Name)
+	}
+	bucketName := hdr.Name[:len(hdr.Name)-len(".json")]
+	if bucketName == "" {
+		return "", fmt.Errorf("invalid empty bucket name in incremental backup")
+	}
+	return bucketName, nil
 }
 
 // applyBucketData applies key-value entries from JSON data to a BoltDB bucket.

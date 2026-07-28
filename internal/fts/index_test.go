@@ -692,8 +692,8 @@ func TestFullIndexWorkflow(t *testing.T) {
 		key    string
 		text   string
 	}{
-		{"docs", "readme", "Nexus is an object storage system with full-text search capabilities"},
-		{"docs", "guide", "This guide explains how to use the full-text search feature in Nexus"},
+		{"docs", "readme", "CipherLake is an object storage system with full-text search capabilities"},
+		{"docs", "guide", "This guide explains how to use the full-text search feature in CipherLake"},
 		{"docs", "api", "The API reference for the FTS search endpoint"},
 		{"data", "log1", "Application log file with error messages and warnings"},
 		{"data", "log2", "System log with performance metrics and error traces"},
@@ -706,14 +706,14 @@ func TestFullIndexWorkflow(t *testing.T) {
 		}
 	}
 
-	// Search for "nexus"
-	results, err := idx.Search("nexus", 10)
+	// Search for "cipherlake"
+	results, err := idx.Search("cipherlake", 10)
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
 	}
 
 	if len(results) != 2 {
-		t.Errorf("expected 2 results for 'nexus', got %d", len(results))
+		t.Errorf("expected 2 results for 'cipherlake', got %d", len(results))
 	}
 
 	// Search for "error"
@@ -733,7 +733,7 @@ func TestFullIndexWorkflow(t *testing.T) {
 	}
 
 	// Search again - should have one less result
-	results, err = idx.Search("nexus", 10)
+	results, err = idx.Search("cipherlake", 10)
 	if err != nil {
 		t.Fatalf("search after delete failed: %v", err)
 	}

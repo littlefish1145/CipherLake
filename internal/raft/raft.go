@@ -3,6 +3,7 @@ package raft
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -10,23 +11,40 @@ import (
 	"sync"
 	"time"
 
+	"cipherlake/internal/config"
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb/v2"
 	bolt "go.etcd.io/bbolt"
-	"nexus/internal/config"
 )
 
-// RaftNode wraps a hashicorp/raft instance with Nexus-specific configuration.
+// RaftNode wraps a hashicorp/raft instance with CipherLake-specific configuration.
 type RaftNode struct {
-	raft      *raft.Raft
-	fsm       *BoltFSM
-	transport raft.Transport
-	isLeader  bool
-	mu        sync.RWMutex
+	raft            *raft.Raft
+	fsm             raft.FSM
+	fsmCloser        io.Closer
+	transport       raft.Transport
+	transportCloser io.Closer
+	logStore        io.Closer
+	stableStore     io.Closer
+	isLeader        bool
+	mu              sync.RWMutex
 }
 
-// NewRaftNode creates and configures a new RaftNode from the given RaftConfig.
+// NewRaftNode creates and configures a new RaftNode from the given RaftConfig,
+// using a BoltFSM as the state machine (backward-compatible).
 func NewRaftNode(cfg *config.RaftConfig) (*RaftNode, error) {
+	fsm, err := NewBoltFSM(filepath.Join(cfg.DataDir, "fsm.db"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create bolt FSM: %w", err)
+	}
+	return NewRaftNodeWithFSM(cfg, fsm, fsm)
+}
+
+// NewRaftNodeWithFSM creates a RaftNode with an externally-provided FSM.
+// fsmCloser may be nil if the FSM does not need explicit close (it will be
+// invoked by RaftNode.Shutdown). Use this constructor to plug a custom FSM
+// (e.g. plugin-loader's LoaderFSM) without touching the default BoltFSM path.
+func NewRaftNodeWithFSM(cfg *config.RaftConfig, fsm raft.FSM, fsmCloser io.Closer) (*RaftNode, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("raft config is nil")
 	}
@@ -66,6 +84,15 @@ func NewRaftNode(cfg *config.RaftConfig) (*RaftNode, error) {
 	raftCfg.ElectionTimeout = electionTimeout
 	raftCfg.CommitTimeout = 50 * time.Millisecond
 	raftCfg.SnapshotThreshold = snapshotCount
+	// LeaderLeaseTimeout must be <= HeartbeatTimeout; scale it down for
+	// aggressive test configs without disabling leader leasing.
+	if heartbeatTimeout > 0 {
+		lease := heartbeatTimeout / 2
+		if lease < 10*time.Millisecond {
+			lease = 10 * time.Millisecond
+		}
+		raftCfg.LeaderLeaseTimeout = lease
+	}
 	// Pre-vote is enabled by default (PreVoteDisabled defaults to false).
 	// Explicitly ensure it's not disabled for split-brain prevention.
 	raftCfg.PreVoteDisabled = false
@@ -77,40 +104,47 @@ func NewRaftNode(cfg *config.RaftConfig) (*RaftNode, error) {
 		return nil, fmt.Errorf("failed to create tcp transport: %w", err)
 	}
 
-	// Create BoltDB-based FSM
-	fsm, err := NewBoltFSM(filepath.Join(cfg.DataDir, "fsm.db"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create bolt FSM: %w", err)
-	}
-
 	// Create log store using BoltDB
 	logStore, err := raftboltdb.NewBoltStore(filepath.Join(cfg.DataDir, "raft-log.db"))
 	if err != nil {
+		tcpTransport.Close()
 		return nil, fmt.Errorf("failed to create log store: %w", err)
 	}
 
 	// Create stable store using BoltDB
 	stableStore, err := raftboltdb.NewBoltStore(filepath.Join(cfg.DataDir, "raft-stable.db"))
 	if err != nil {
+		logStore.Close()
+		tcpTransport.Close()
 		return nil, fmt.Errorf("failed to create stable store: %w", err)
 	}
 
 	// Create snapshot store
 	snapshotStore, err := raft.NewFileSnapshotStore(cfg.DataDir, 2, os.Stderr)
 	if err != nil {
+		stableStore.Close()
+		logStore.Close()
+		tcpTransport.Close()
 		return nil, fmt.Errorf("failed to create snapshot store: %w", err)
 	}
 
-	// Create the raft instance
+	// Create the raft instance with the injected FSM
 	raftInst, err := raft.NewRaft(raftCfg, fsm, logStore, stableStore, snapshotStore, tcpTransport)
 	if err != nil {
+		stableStore.Close()
+		logStore.Close()
+		tcpTransport.Close()
 		return nil, fmt.Errorf("failed to create raft instance: %w", err)
 	}
 
 	node := &RaftNode{
-		raft:      raftInst,
-		fsm:       fsm,
-		transport: tcpTransport,
+		raft:            raftInst,
+		fsm:             fsm,
+		fsmCloser:       fsmCloser,
+		transport:       tcpTransport,
+		transportCloser: tcpTransport,
+		logStore:        logStore,
+		stableStore:     stableStore,
 	}
 
 	// Watch for leadership changes
@@ -142,16 +176,91 @@ func (n *RaftNode) RaftApply(ctx context.Context, op *FSMOperation) error {
 	return nil
 }
 
-// Shutdown gracefully shuts down the raft node.
-func (n *RaftNode) Shutdown() error {
-	if n.fsm != nil {
-		n.fsm.Close()
+// ApplyRaw submits an arbitrary JSON-encoded FSM operation to the Raft log
+// and returns the FSM's Apply response. Use this with custom FSMs plugged
+// in via NewRaftNodeWithFSM (e.g. the plugin loader's LoaderFSM) whose
+// operation type is not the package-level FSMOperation.
+//
+// Returns:
+//   - (*FSMApplyResult, true)  if the FSM returned one (inspect .Success / .Error)
+//   - (nil, nil)               if the FSM returned nil or an unrecognized type
+//   - (nil, err)               on Raft-level errors (timeout, shutdown, etc.)
+func (n *RaftNode) ApplyRaw(ctx context.Context, opJSON []byte, timeout time.Duration) (*FSMApplyResult, bool, error) {
+	if n.raft == nil {
+		return nil, false, fmt.Errorf("raft instance is nil")
 	}
-	f := n.raft.Shutdown()
+	f := n.raft.Apply(opJSON, timeout)
 	if err := f.Error(); err != nil {
-		return fmt.Errorf("raft shutdown failed: %w", err)
+		return nil, false, fmt.Errorf("raft apply failed: %w", err)
+	}
+	if result, ok := f.Response().(*FSMApplyResult); ok {
+		return result, true, nil
+	}
+	return nil, false, nil
+}
+
+// Underlying exposes the underlying *raft.Raft for callers that need
+// APIs not yet wrapped by RaftNode (e.g. Snapshot, State, LeadershipTransfer).
+// Prefer adding a wrapper method when one is missing.
+func (n *RaftNode) Underlying() *raft.Raft {
+	return n.raft
+}
+
+// BootstrapSingle bootstraps a single-node Raft cluster using the given
+// configuration. Safe to call on an already-bootstrapped cluster
+// (returns nil on raft.ErrCantBootstrap). Use this when NewRaftNode or
+// NewRaftNodeWithFSM has already been used to create the node.
+func (n *RaftNode) BootstrapSingle(cfg *config.RaftConfig) error {
+	configuration := raft.Configuration{
+		Servers: []raft.Server{
+			{
+				ID:      raft.ServerID(cfg.NodeID),
+				Address: raft.ServerAddress(cfg.ListenAddr),
+			},
+		},
+	}
+	f := n.raft.BootstrapCluster(configuration)
+	if err := f.Error(); err != nil {
+		if err == raft.ErrCantBootstrap {
+			return nil // already bootstrapped, that's fine
+		}
+		return fmt.Errorf("failed to bootstrap single node cluster: %w", err)
 	}
 	return nil
+}
+
+// Shutdown gracefully shuts down the raft node.
+func (n *RaftNode) Shutdown() error {
+	var errs []error
+	if n.raft != nil {
+		f := n.raft.Shutdown()
+		if err := f.Error(); err != nil {
+			errs = append(errs, fmt.Errorf("raft shutdown failed: %w", err))
+		}
+	}
+	if n.transportCloser != nil {
+		if err := n.transportCloser.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("raft transport close failed: %w", err))
+		}
+	}
+	if n.fsmCloser != nil {
+		if closer, ok := n.fsmCloser.(interface{ Close() error }); ok {
+			if err := closer.Close(); err != nil {
+				errs = append(errs, fmt.Errorf("raft FSM close failed: %w", err))
+			}
+		}
+	}
+	if n.logStore != nil {
+		if err := n.logStore.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("raft log store close failed: %w", err))
+		}
+	}
+	if n.stableStore != nil {
+		if err := n.stableStore.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("raft stable store close failed: %w", err))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // BoltSnapshot implements raft.FSMSnapshot for BoltDB.
@@ -197,7 +306,7 @@ func parseDuration(s string, defaultVal time.Duration) (time.Duration, error) {
 
 // FSMOperation represents an operation to be applied to the FSM.
 type FSMOperation struct {
-	Type   string          `json:"type"`   // "put_object", "delete_object", "create_bucket", etc.
+	Type   string          `json:"type"` // "put_object", "delete_object", "create_bucket", etc.
 	Bucket string          `json:"bucket"`
 	Key    string          `json:"key,omitempty"`
 	Data   json.RawMessage `json:"data"`

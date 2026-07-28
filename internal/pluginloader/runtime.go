@@ -7,6 +7,8 @@ import (
 	"io"
 	"time"
 
+	"cipherlake/internal/config"
+
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
@@ -31,6 +33,7 @@ var optionalEntryPoints = []string{
 	"on_event",
 	"on_sse_close",
 	"on_task",
+	"on_pipeline_step",
 }
 
 // CompiledModule is a wazero-compiled representation of a plugin's
@@ -85,6 +88,16 @@ type HostInstantiator interface {
 	// all host imports on the provided module builder and return the
 	// finalized module.
 	Instantiate(ctx context.Context, builder wazero.HostModuleBuilder, token CapabilityToken, pluginName string) error
+
+	// OnModuleInstantiated is called after the plugin module has been
+	// instantiated and before it is returned to the pool. Implementations
+	// can use this to associate the live module with its capability token
+	// for host-import authorization.
+	OnModuleInstantiated(mod api.Module, token CapabilityToken)
+
+	// OnModuleClosed is called when the plugin module is closed. The
+	// implementation should clean up any module/token associations.
+	OnModuleClosed(mod api.Module)
 }
 
 // NewWASMRuntime constructs a runtime with the interpreter-only engine
@@ -92,10 +105,21 @@ type HostInstantiator interface {
 // host imports (which receive a token as their first arg) can resolve
 // it through the runtime.
 func NewWASMRuntime(caps *CapabilityTable) *WASMRuntime {
+	return NewWASMRuntimeWithLimits(caps, NewResourceLimiter(config.PluginLoaderResourceLimits{}))
+}
+
+// NewWASMRuntimeWithLimits constructs a runtime with resource limits and
+// context-cancel termination enabled (spec §3.6). CloseOnContextDone ensures
+// that a WASM call whose context expires is terminated instead of blocking
+// forever; the instance is then discarded by the pool.
+func NewWASMRuntimeWithLimits(caps *CapabilityTable, limiter *ResourceLimiter) *WASMRuntime {
 	ctx := context.Background()
 	// Interpreter-only configuration. The compiler would add ~3MB to
 	// the binary and a measurable startup latency; we opt out per spec.
-	rt := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())
+	cfg := wazero.NewRuntimeConfigInterpreter().
+		WithCloseOnContextDone(true).
+		WithMemoryLimitPages(limiter.GlobalMemoryPages())
+	rt := wazero.NewRuntimeWithConfig(ctx, cfg)
 	// WASI Preview 1 is needed by tinygo-compiled plugins (spec §8.6).
 	wasi_snapshot_preview1.Instantiate(ctx, rt)
 	return &WASMRuntime{rt: rt, caps: caps}
@@ -250,6 +274,9 @@ func (r *WASMRuntime) Instantiate(
 		callTimeout:  callTimeout,
 		runtime:       r,
 	}
+	if r.hostInst != nil {
+		r.hostInst.OnModuleInstantiated(mod, token)
+	}
 	return inst, nil
 }
 
@@ -312,6 +339,9 @@ func (in *Instance) CallEntry(ctx context.Context, name string, args ...uint64) 
 // After Destroy the Instance is no longer usable.
 func (in *Instance) Destroy(ctx context.Context) {
 	if in.Module != nil {
+		if in.runtime != nil && in.runtime.hostInst != nil {
+			in.runtime.hostInst.OnModuleClosed(in.Module)
+		}
 		in.Module.Close(ctx)
 	}
 	if in.runtime != nil && in.runtime.caps != nil {

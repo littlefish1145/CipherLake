@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/hkdf"
 
-	"nexus/internal/services/token_service"
+	"cipherlake/internal/services/token_service"
 )
 
 // TokenIssuer defines the interface for token issuance used by the coordinator.
@@ -35,10 +35,9 @@ type EncryptionCoordinator struct {
 	tokenService     TokenIssuer
 	keyGenService    KeyGenerator
 	keyUnwrapService KeyUnwrapper
-	encryptService   DataEncryptor
-	decryptService   DataDecryptor
 	keyStoreService  KeyStorer
 	opaClient        *OPAClient
+	serviceClosers   []io.Closer
 }
 
 // CoordinatorConfig configuration for the coordinator
@@ -46,10 +45,9 @@ type CoordinatorConfig struct {
 	TokenService     TokenIssuer
 	KeyGenService    KeyGenerator
 	KeyUnwrapService KeyUnwrapper
-	EncryptService   DataEncryptor
-	DecryptService   DataDecryptor
 	KeyStoreService  KeyStorer
 	OPAClient        *OPAClient
+	ServiceClosers   []io.Closer
 }
 
 // NewEncryptionCoordinator creates a new encryption coordinator
@@ -58,10 +56,9 @@ func NewEncryptionCoordinator(cfg CoordinatorConfig) *EncryptionCoordinator {
 		tokenService:     cfg.TokenService,
 		keyGenService:    cfg.KeyGenService,
 		keyUnwrapService: cfg.KeyUnwrapService,
-		encryptService:   cfg.EncryptService,
-		decryptService:   cfg.DecryptService,
 		keyStoreService:  cfg.KeyStoreService,
 		opaClient:        cfg.OPAClient,
+		serviceClosers:   append([]io.Closer(nil), cfg.ServiceClosers...),
 	}
 }
 
@@ -522,14 +519,14 @@ func (r *streamingEncryptReader) Read(p []byte) (int, error) {
 
 // streamingDecryptReader implements io.Reader for streaming decryption.
 type streamingDecryptReader struct {
-	source  io.Reader
-	key     []byte
-	nonce   []byte
+	source   io.Reader
+	key      []byte
+	nonce    []byte
 	chunkIdx uint32
-	outBuf  *bytes.Buffer
-	done    bool
-	lenBuf  [ssecCiphertextLenSize]byte
-	lenRead int
+	outBuf   *bytes.Buffer
+	done     bool
+	lenBuf   [ssecCiphertextLenSize]byte
+	lenRead  int
 }
 
 // newStreamingDecryptReader creates a new streaming decryptor.
@@ -705,18 +702,16 @@ func (c *EncryptionCoordinator) Close() error {
 			errs = append(errs, err)
 		}
 	}
-	if c.encryptService != nil {
-		if err := c.encryptService.Close(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if c.decryptService != nil {
-		if err := c.decryptService.Close(); err != nil {
-			errs = append(errs, err)
-		}
-	}
 	if c.keyStoreService != nil {
 		if err := c.keyStoreService.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, closer := range c.serviceClosers {
+		if closer == nil {
+			continue
+		}
+		if err := closer.Close(); err != nil {
 			errs = append(errs, err)
 		}
 	}

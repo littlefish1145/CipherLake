@@ -1,0 +1,223 @@
+syntax = "proto3";
+
+package cipherlake.plugin;
+
+option go_package = "cipherlake/proto/plugin";
+
+// PluginAdminService is the administrative API of the plugin-loader
+// microservice (spec §3.11, P3-1). It is exposed on the same gRPC server as
+// PluginLoaderService but uses a separate service so Gateway traffic and
+// operator traffic can be authorized independently.
+service PluginAdminService {
+  // InstallPlugin loads a plugin into the loader. The plugin may be supplied
+  // as raw bytes (manifest + wasm) or as an OCI URL (P3-3).
+  rpc InstallPlugin(InstallPluginRequest) returns (InstallPluginResponse);
+
+  // UninstallPlugin removes a plugin and frees its runtime resources.
+  // Dependent plugins block uninstall unless force=true.
+  rpc UninstallPlugin(UninstallPluginRequest) returns (UninstallPluginResponse);
+
+  // ReloadPlugin uninstalls and reinstalls a plugin from its persisted
+  // registry record. Useful for picking up a changed trusted_keys tier or
+  // for recovery after a partial install.
+  rpc ReloadPlugin(ReloadPluginRequest) returns (ReloadPluginResponse);
+
+  // ListPlugins returns the installed plugins.
+  rpc ListPlugins(ListPluginsRequest) returns (ListPluginsResponse);
+
+  // GetPluginState reads a single key from a plugin's state:kv namespace.
+  rpc GetPluginState(GetPluginStateRequest) returns (GetPluginStateResponse);
+
+  // DumpPluginState exports the entire state:kv namespace of a plugin.
+  rpc DumpPluginState(DumpPluginStateRequest) returns (DumpPluginStateResponse);
+
+  // GetPluginLogs returns recent log entries emitted by a plugin.
+  rpc GetPluginLogs(GetPluginLogsRequest) returns (GetPluginLogsResponse);
+
+  // GetPluginMetrics returns recent metric samples recorded by a plugin.
+  rpc GetPluginMetrics(GetPluginMetricsRequest) returns (GetPluginMetricsResponse);
+
+  // SetPluginLogLevel adjusts the per-plugin log level dynamically.
+  rpc SetPluginLogLevel(SetPluginLogLevelRequest) returns (SetPluginLogLevelResponse);
+
+  // AddTrustedKey registers a new Ed25519 public key in the loader's
+  // trust store. The change is replicated through Raft and persisted back
+  // to config/trusted_keys.json on the leader.
+  rpc AddTrustedKey(AddTrustedKeyRequest) returns (AddTrustedKeyResponse);
+
+  // RemoveTrustedKey deletes a trusted key by key_id. The change is
+  // replicated through Raft and persisted back to config/trusted_keys.json.
+  rpc RemoveTrustedKey(RemoveTrustedKeyRequest) returns (RemoveTrustedKeyResponse);
+
+  // ListTrustedKeys returns the current trusted keys mirror.
+  rpc ListTrustedKeys(ListTrustedKeysRequest) returns (ListTrustedKeysResponse);
+}
+
+message InstallPluginRequest {
+  // OCI artifact URL. When set, the loader pulls the artifact from the
+  // configured registry (P3-3). For Phase 3 P3-1 this field is left empty
+  // and manifest_bytes/wasm_bytes are used instead.
+  string oci_url = 1;
+
+  // Raw manifest JSON. Required when oci_url is empty.
+  bytes manifest_bytes = 2;
+
+  // Raw WASM bytecode. Required when oci_url is empty.
+  bytes wasm_bytes = 3;
+
+  // Ed25519 signature over manifest_bytes || wasm_bytes. Empty for Tier 0.
+  bytes signature = 4;
+
+  // Key ID from trusted_keys.json used to verify signature. Empty for Tier 0.
+  string key_id = 5;
+
+  // Force installation even if route prefixes are already owned. Dangerous;
+  // intended for disaster recovery.
+  bool force = 6;
+}
+
+message InstallPluginResponse {
+  string plugin_name = 1;
+  string version = 2;
+  int32 trust_tier = 3;
+}
+
+message UninstallPluginRequest {
+  string plugin_name = 1;
+  // Force uninstall even if other plugins declare depends_on this plugin.
+  bool force = 2;
+}
+
+message UninstallPluginResponse {
+  bool uninstalled = 1;
+}
+
+message ReloadPluginRequest {
+  string plugin_name = 1;
+}
+
+message ReloadPluginResponse {
+  string plugin_name = 1;
+  string version = 2;
+  int32 trust_tier = 3;
+}
+
+message ListPluginsRequest {}
+
+message PluginInfo {
+  string name = 1;
+  string version = 2;
+  int32 trust_tier = 3;
+  string installed_at = 4;
+  repeated string routes = 5;
+  repeated string capabilities = 6;
+}
+
+message ListPluginsResponse {
+  repeated PluginInfo plugins = 1;
+}
+
+message GetPluginStateRequest {
+  string plugin_name = 1;
+  string key = 2;
+}
+
+message GetPluginStateResponse {
+  bytes value = 1;
+  uint64 version = 2;
+  bool found = 3;
+}
+
+message DumpPluginStateRequest {
+  string plugin_name = 1;
+}
+
+message StateKVEntry {
+  string key = 1;
+  bytes value = 2;
+  uint64 version = 3;
+}
+
+message DumpPluginStateResponse {
+  string plugin_name = 1;
+  repeated StateKVEntry entries = 2;
+}
+
+message GetPluginLogsRequest {
+  string plugin_name = 1;
+  int32 limit = 2; // default 100
+  bool follow = 3; // server-side streaming placeholder; single-shot if false
+}
+
+message PluginLogEntry {
+  string level = 1;
+  string payload = 2;
+  int64 timestamp_ms = 3;
+}
+
+message GetPluginLogsResponse {
+  string plugin_name = 1;
+  repeated PluginLogEntry entries = 2;
+}
+
+message GetPluginMetricsRequest {
+  string plugin_name = 1;
+  int32 limit = 2; // default 100
+}
+
+message PluginMetricSample {
+  string name = 1;
+  double value = 2;
+  string labels_json = 3;
+  int64 timestamp_ms = 4;
+}
+
+message GetPluginMetricsResponse {
+  string plugin_name = 1;
+  repeated PluginMetricSample samples = 2;
+}
+
+message SetPluginLogLevelRequest {
+  string plugin_name = 1;
+  string level = 2; // debug, info, warn, error
+}
+
+message SetPluginLogLevelResponse {
+  string plugin_name = 1;
+  string level = 2;
+}
+
+message AddTrustedKeyRequest {
+  string key_id = 1;
+  string public_key = 2; // base64 ed25519 public key
+  bool is_core = 3;
+  string added_by = 4; // admin user identifier
+}
+
+message AddTrustedKeyResponse {
+  string key_id = 1;
+  bool added = 2;
+}
+
+message RemoveTrustedKeyRequest {
+  string key_id = 1;
+}
+
+message RemoveTrustedKeyResponse {
+  string key_id = 1;
+  bool removed = 2;
+}
+
+message ListTrustedKeysRequest {}
+
+message TrustedKeyInfo {
+  string key_id = 1;
+  string public_key = 2;
+  bool is_core = 3;
+  string added_at = 4;
+  string added_by = 5;
+}
+
+message ListTrustedKeysResponse {
+  repeated TrustedKeyInfo keys = 1;
+}

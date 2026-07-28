@@ -1,33 +1,33 @@
-# Nexus Codebase Map
+# CipherLake Codebase Map
 
 ## Project Overview
 
-Nexus is an S3-compatible intelligent object storage system written in Go. It features intelligent tiering, zero-trust encryption with external KMS, native vector search, content processing pipelines, and a full IAM system compatible with AWS S3 semantics.
+CipherLake is an S3-compatible intelligent object storage system written in Go. It features intelligent tiering, zero-trust encryption with external KMS, native vector search, content processing pipelines, and a full IAM system compatible with AWS S3 semantics.
 
 ---
 
 ## `/cmd/` -- Entrypoints (Binary Targets)
 
-### `cmd/nexus/`
+### `cmd/cipherlake/`
 
 | File | Description |
 |------|-------------|
-| `cmd/nexus/main.go` | **Main server entrypoint.** Cobra-based CLI that bootstraps the S3Gateway, config, IAM, tiering, and HTTP server; handles graceful shutdown on signals. |
+| `cmd/cipherlake/main.go` | **Main server entrypoint.** Cobra-based CLI that bootstraps the S3Gateway, config, IAM, tiering, and HTTP server; handles graceful shutdown on signals. |
 
-### `cmd/nexusctl/`
+### `cmd/cipherlakectl/`
 
 | File | Description |
 |------|-------------|
-| `cmd/nexusctl/main.go` | **Nexus CLI tool entrypoint.** Cobra-rooted management CLI (`nexusctl`) with persistent config loading and REST API client helpers. |
-| `cmd/nexusctl/config.go` | CLI configuration loading (`~/.nexusctl.yaml`), encrypted secret storage with AES-256-GCM + HKDF, and CRUD for server config. |
-| `cmd/nexusctl/bucket.go` | Bucket management commands: `create`, `list`, `delete`, `info`, `policy get/set`, `versioning` via REST API. |
-| `cmd/nexusctl/user.go` | User management commands: `create`, `list`, `info`, `update`, `delete` with API key and permission management. |
-| `cmd/nexusctl/iam.go` | IAM management commands: users, groups, policies, roles, access keys. |
-| `cmd/nexusctl/cluster.go` | Cluster management commands: `status`, `add-peer`, `remove-peer`, `migrate` for Raft consensus. |
-| `cmd/nexusctl/backup.go` | Backup management commands: `create`, `list`, `restore`, `verify`, `drill` for full and incremental backups. |
-| `cmd/nexusctl/completion.go` | Shell completion generator for `bash`, `zsh`, `fish`, `powershell`. |
-| `cmd/nexusctl/errors.go` | RFC 7807 Problem Details error formatting and HTTP status helper for CLI responses. |
-| `cmd/nexusctl/output.go` | Output formatting engine supporting `json`, `yaml`, `table` formats with JMESPath query filtering. |
+| `cmd/cipherlakectl/main.go` | **CipherLake CLI tool entrypoint.** Cobra-rooted management CLI (`cipherlakectl`) with persistent config loading and REST API client helpers. |
+| `cmd/cipherlakectl/config.go` | CLI configuration loading (`~/.cipherlakectl.yaml`), encrypted secret storage with AES-256-GCM + HKDF, and CRUD for server config. |
+| `cmd/cipherlakectl/bucket.go` | Bucket management commands: `create`, `list`, `delete`, `info`, `policy get/set`, `versioning` via REST API. |
+| `cmd/cipherlakectl/user.go` | User management commands: `create`, `list`, `info`, `update`, `delete` with API key and permission management. |
+| `cmd/cipherlakectl/iam.go` | IAM management commands: users, groups, policies, roles, access keys. |
+| `cmd/cipherlakectl/cluster.go` | Cluster management commands: `status`, `add-peer`, `remove-peer`, `migrate` for Raft consensus. |
+| `cmd/cipherlakectl/backup.go` | Backup management commands: `create`, `list`, `restore`, `verify`, `drill` for full and incremental backups. |
+| `cmd/cipherlakectl/completion.go` | Shell completion generator for `bash`, `zsh`, `fish`, `powershell`. |
+| `cmd/cipherlakectl/errors.go` | RFC 7807 Problem Details error formatting and HTTP status helper for CLI responses. |
+| `cmd/cipherlakectl/output.go` | Output formatting engine supporting `json`, `yaml`, `table` formats with JMESPath query filtering. |
 
 ### Microservice Binaries (`cmd/token-service/`, `cmd/keygen-service/`, `cmd/keyunwrap-service/`, `cmd/encrypt-service/`, `cmd/decrypt-service/`, `cmd/keystore-service/`, `cmd/sts-service/`)
 
@@ -170,7 +170,7 @@ Each is a standalone gRPC microservice for the distributed encryption ecosystem 
 
 | File | Description |
 |------|-------------|
-| `internal/services/types.go` | **Shared crypto types.** Interfaces (`KeyGenerator`, `KeyUnwrapper`, `DataEncryptor`, `DataDecryptor`, `KeyStorer`) for the crypto microservice ecosystem. |
+| `internal/services/types.go` | **Shared crypto types.** Interfaces (`KeyGenerator`, `KeyUnwrapper`, `KeyStorer`) for envelope orchestration, plus data-plane adapter interfaces for standalone encrypt/decrypt gRPC clients. |
 | `internal/services/coordinator.go` | **Encryption coordinator.** Orchestrates the full encryption/decryption workflow across all crypto microservices. |
 | `internal/services/registry.go` | **Service registry.** Consul-based service registration and discovery. |
 | `internal/services/grpc_clients.go` | **gRPC client adapters.** Client wrappers for all crypto services converting between internal types and protobuf types. |
@@ -294,7 +294,7 @@ Each service subdirectory contains `service.go` (core logic) and `grpc.go` (gRPC
 
 | File | Description |
 |------|-------------|
-| `proto/common.proto` | Shared protobuf types for all crypto services. |
+| `proto/cipherlake/common.proto` | Shared protobuf types for all crypto services. |
 | `proto/token.proto` | Token service gRPC contract. |
 | `proto/keygen.proto` | KeyGen service gRPC contract. |
 | `proto/keyunwrap.proto` | KeyUnwrap service gRPC contract. |
@@ -334,6 +334,6 @@ Each service subdirectory contains `service.go` (core logic) and `grpc.go` (gRPC
 | Category | Count |
 |----------|-------|
 | **Go source files** | ~145 |
-| **Binary targets** | 8 (nexus + 7 crypto microservices + nexusctl CLI) |
+| **Binary targets** | 8 (cipherlake + 7 crypto microservices + cipherlakectl CLI) |
 | **Protobuf services** | 7 |
 | **Internal packages** | ~30 distinct packages |

@@ -1,4 +1,4 @@
-package nexus.encryption
+package cipherlake.encryption
 
 # Default: encryption is required for all objects
 default required = true

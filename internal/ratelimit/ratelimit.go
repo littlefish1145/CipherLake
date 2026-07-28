@@ -15,11 +15,11 @@ var (
 )
 
 type SlidingWindowCounter struct {
-	mu       sync.Mutex
-	windows  map[string]*windowState
-	duration time.Duration
+	mu        sync.Mutex
+	windows   map[string]*windowState
+	duration  time.Duration
 	precision time.Duration
-	limit    int64
+	limit     int64
 }
 
 type windowState struct {
@@ -204,18 +204,18 @@ func (l *TokenBucketLimiter) RemoveBucket(key string) {
 }
 
 type BandwidthLimiter struct {
-	mu          sync.Mutex
-	limits      map[string]*bwState
-	defaultBPS  int64
-	burstBytes  int64
+	mu         sync.Mutex
+	limits     map[string]*bwState
+	defaultBPS int64
+	burstBytes int64
 }
 
 type bwState struct {
-	tokens     float64
-	lastCheck  time.Time
-	bps        int64
-	burst      int64
-	mu         sync.Mutex
+	tokens    float64
+	lastCheck time.Time
+	bps       int64
+	burst     int64
+	mu        sync.Mutex
 }
 
 func NewBandwidthLimiter(defaultBPS, burstBytes int64) *BandwidthLimiter {
@@ -288,33 +288,33 @@ func (b *BandwidthLimiter) SetLimit(key string, bps int64) {
 }
 
 type MultiLevelLimiter struct {
-	globalLimiter   *SlidingWindowCounter
-	ipLimiter       *SlidingWindowCounter
-	userLimiter     *TokenBucketLimiter
-	bucketLimiter   *TokenBucketLimiter
-	apiLimiters     map[string]*TokenBucketLimiter
-	bwLimiter       *BandwidthLimiter
-	whitelist       map[string]bool
-	stats           *LimiterStats
-	mu              sync.RWMutex
-	config          *MultiLevelConfig
+	globalLimiter *SlidingWindowCounter
+	ipLimiter     *SlidingWindowCounter
+	userLimiter   *TokenBucketLimiter
+	bucketLimiter *TokenBucketLimiter
+	apiLimiters   map[string]*TokenBucketLimiter
+	bwLimiter     *BandwidthLimiter
+	whitelist     map[string]bool
+	stats         *LimiterStats
+	mu            sync.RWMutex
+	config        *MultiLevelConfig
 }
 
 type MultiLevelConfig struct {
-	GlobalRPS          int64
-	GlobalBurst        int
-	IPRPS              int64
-	IPBurst            int
-	UserRPS            int
-	UserBurst          int
-	BucketRPS          int
-	BucketBurst        int
-	UploadBytesPerSec  int64
-	UploadBurstBytes   int64
-	APILimits          map[string]APILimit
-	Whitelist          []string
-	WindowDuration     time.Duration
-	WindowPrecision    time.Duration
+	GlobalRPS         int64
+	GlobalBurst       int
+	IPRPS             int64
+	IPBurst           int
+	UserRPS           int
+	UserBurst         int
+	BucketRPS         int
+	BucketBurst       int
+	UploadBytesPerSec int64
+	UploadBurstBytes  int64
+	APILimits         map[string]APILimit
+	Whitelist         []string
+	WindowDuration    time.Duration
+	WindowPrecision   time.Duration
 }
 
 type APILimit struct {
@@ -323,14 +323,14 @@ type APILimit struct {
 }
 
 type LimiterStats struct {
-	GlobalAllowed   int64
-	GlobalRejected  int64
-	IPRejected      int64
-	UserRejected    int64
-	BucketRejected  int64
-	APIRejected     int64
-	BWRejected      int64
-	TotalRequests   int64
+	GlobalAllowed  int64
+	GlobalRejected int64
+	IPRejected     int64
+	UserRejected   int64
+	BucketRejected int64
+	APIRejected    int64
+	BWRejected     int64
+	TotalRequests  int64
 }
 
 func NewMultiLevelLimiter(cfg *MultiLevelConfig) *MultiLevelLimiter {
@@ -368,9 +368,9 @@ func NewMultiLevelLimiter(cfg *MultiLevelConfig) *MultiLevelLimiter {
 }
 
 type RateLimitResult struct {
-	Allowed   bool
-	Key       string
-	LimitType string
+	Allowed    bool
+	Key        string
+	LimitType  string
 	RetryAfter int
 }
 
@@ -557,34 +557,34 @@ type CircuitBreaker struct {
 }
 
 type circuitBreakerInternal struct {
-	mu              sync.Mutex
-	name            string
-	maxRequests     uint32
-	interval        time.Duration
-	timeout         time.Duration
-	errorThreshold  float64
+	mu               sync.Mutex
+	name             string
+	maxRequests      uint32
+	interval         time.Duration
+	timeout          time.Duration
+	errorThreshold   float64
 	successThreshold uint32
-	state           CircuitState
-	failures        int64
-	successes       int64
-	requests        int64
-	lastStateChange time.Time
-	halfOpenAllowed uint32
+	state            CircuitState
+	failures         int64
+	successes        int64
+	requests         int64
+	lastStateChange  time.Time
+	halfOpenAllowed  uint32
 }
 
 type CircuitBreakerConfig struct {
-	Name            string
-	MaxRequests     uint32
-	Interval        time.Duration
-	Timeout         time.Duration
-	ErrorThreshold  float64
+	Name             string
+	MaxRequests      uint32
+	Interval         time.Duration
+	Timeout          time.Duration
+	ErrorThreshold   float64
 	SuccessThreshold uint32
 }
 
 type CircuitState int
 
 const (
-	StateClosed   CircuitState = iota
+	StateClosed CircuitState = iota
 	StateOpen
 	StateHalfOpen
 )
@@ -602,15 +602,15 @@ func (cb *CircuitBreaker) Register(name string, cfg *CircuitBreakerConfig) {
 
 	cb.configs[name] = cfg
 	cb.breakers[name] = &circuitBreakerInternal{
-		name:            cfg.Name,
-		maxRequests:     cfg.MaxRequests,
-		interval:        cfg.Interval,
-		timeout:         cfg.Timeout,
-		errorThreshold:  cfg.ErrorThreshold,
+		name:             cfg.Name,
+		maxRequests:      cfg.MaxRequests,
+		interval:         cfg.Interval,
+		timeout:          cfg.Timeout,
+		errorThreshold:   cfg.ErrorThreshold,
 		successThreshold: cfg.SuccessThreshold,
-		state:           StateClosed,
-		lastStateChange: time.Now(),
-		halfOpenAllowed: cfg.MaxRequests,
+		state:            StateClosed,
+		lastStateChange:  time.Now(),
+		halfOpenAllowed:  cfg.MaxRequests,
 	}
 }
 

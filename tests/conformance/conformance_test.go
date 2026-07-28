@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	s3sdk "nexus/sdk/go/s3"
+	s3sdk "cipherlake/sdk/go/s3"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -18,18 +18,18 @@ import (
 
 const (
 	testEndpoint  = "http://localhost:9000"
-	testAccessKey = "nexus-test"
-	testSecretKey = "nexus-test-secret"
+	testAccessKey = "cipherlake-test"
+	testSecretKey = "cipherlake-test-secret"
 	testRegion    = "us-east-1"
 )
 
 func TestMain(m *testing.M) {
-	// Conformance tests require a running Nexus S3 gateway at localhost:9000.
+	// Conformance tests require a running CipherLake S3 gateway at localhost:9000.
 	// Skip the suite gracefully when the endpoint is not reachable.
-	if os.Getenv("NEXUS_FORCE_CONFORMANCE") == "" {
+	if os.Getenv("CIPHERLAKE_FORCE_CONFORMANCE") == "" {
 		client := &http.Client{Timeout: 2 * time.Second}
 		if _, err := client.Get(testEndpoint); err != nil {
-			fmt.Fprintf(os.Stderr, "SKIP: conformance endpoint %s unreachable (%v); set NEXUS_FORCE_CONFORMANCE=1 to fail\n", testEndpoint, err)
+			fmt.Fprintf(os.Stderr, "SKIP: conformance endpoint %s unreachable (%v); set CIPHERLAKE_FORCE_CONFORMANCE=1 to fail\n", testEndpoint, err)
 			os.Exit(0)
 		}
 	}
@@ -103,7 +103,7 @@ func TestPutGetDeleteObject(t *testing.T) {
 	defer client.DeleteBucket(ctx, bucket)
 
 	key := "test-object.txt"
-	content := []byte("Hello, Nexus conformance test!")
+	content := []byte("Hello, CipherLake conformance test!")
 
 	// Put object
 	if err := client.PutObject(ctx, bucket, key, bytes.NewReader(content)); err != nil {
@@ -269,7 +269,7 @@ func TestVersioning(t *testing.T) {
 	}
 	defer client.DeleteBucket(ctx, bucket)
 
-	// Versioning is a Nexus extension. This test verifies the bucket
+	// Versioning is a CipherLake extension. This test verifies the bucket
 	// is ready and objects can be overwritten (simulating versioning).
 	key := "versioned-object.txt"
 

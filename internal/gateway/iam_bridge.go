@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"nexus/internal/iam"
+	"cipherlake/internal/iam"
 )
 
 // IAMAuthBridge bridges the new IAM system with the existing AuthHandler
@@ -70,7 +70,7 @@ func (b *IAMAuthBridge) validateBasicAuthIAM(encoded string, r *http.Request) (*
 	secretKey := decoded.Password
 
 	// Try IAM access key first (AKIA prefix)
-	if strings.HasPrefix(accessKey, iam.AccessKeyIDPrefix) || strings.HasPrefix(accessKey, "ASIA") {
+	if strings.HasPrefix(accessKey, iam.AccessKeyIDPrefix) {
 		iamUser, ak, err := b.iamService.GetUserByAccessKeyID(accessKey)
 		if err == nil && ak != nil {
 			// Decrypt the secret key and compare
@@ -107,6 +107,10 @@ func (b *IAMAuthBridge) validateBasicAuthIAM(encoded string, r *http.Request) (*
 // validateAWSSignatureIAM validates AWS SigV4 signature using IAM access keys
 func (b *IAMAuthBridge) validateAWSSignatureIAM(r *http.Request) (*User, *iam.IAMUser, error) {
 	authorization := r.Header.Get("Authorization")
+
+	if authorization == "" && r.URL.Query().Get("X-Amz-Credential") != "" {
+		return b.validatePresignedURLIAM(r)
+	}
 
 	if authorization != "" {
 		if !strings.HasPrefix(authorization, "AWS4-HMAC-SHA256") {
@@ -169,6 +173,10 @@ func (b *IAMAuthBridge) validateAWSSignatureIAM(r *http.Request) (*User, *iam.IA
 	}
 
 	// Presigned URL
+	return b.validatePresignedURLIAM(r)
+}
+
+func (b *IAMAuthBridge) validatePresignedURLIAM(r *http.Request) (*User, *iam.IAMUser, error) {
 	accessKey := r.URL.Query().Get("X-Amz-Credential")
 	if accessKey == "" {
 		return nil, nil, fmt.Errorf("missing authorization header or presigned URL parameters")
@@ -193,6 +201,29 @@ func (b *IAMAuthBridge) validateAWSSignatureIAM(r *http.Request) (*User, *iam.IA
 
 			return iamUserToLegacy(iamUser), iamUser, nil
 		}
+	}
+
+	if strings.HasPrefix(accessKey, "ASIA") {
+		tempCred, err := b.iamService.GetTempCredentialByAccessKeyID(accessKey)
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid temporary credentials")
+		}
+
+		sessionToken := r.URL.Query().Get("X-Amz-Security-Token")
+		if subtle.ConstantTimeCompare([]byte(sessionToken), []byte(tempCred.SessionToken)) != 1 {
+			return nil, nil, fmt.Errorf("invalid session token")
+		}
+
+		if err := verifySigV4PresignedURL(r, tempCred.SecretAccessKey); err != nil {
+			return nil, nil, fmt.Errorf("presigned URL signature verification failed")
+		}
+
+		return &User{
+			ID:          accessKey,
+			Name:        "sts:" + accessKey,
+			Role:        "user",
+			Permissions: []string{"read", "write", "delete"},
+		}, nil, nil
 	}
 
 	// Fall back to old auth
@@ -266,11 +297,11 @@ func (b *IAMAuthBridge) CheckTempCredentialAccess(accessKeyID, action, bucket, k
 	}
 
 	ctx := &iam.EvalContext{
-		Principal:  "sts:" + accessKeyID,
-		Action:     action,
-		Resource:   resource,
-		SourceIP:   extractClientIP(r),
-		Time:       time.Now(),
+		Principal: "sts:" + accessKeyID,
+		Action:    action,
+		Resource:  resource,
+		SourceIP:  extractClientIP(r),
+		Time:      time.Now(),
 	}
 
 	result := b.iamService.EvaluateAccess(ctx)

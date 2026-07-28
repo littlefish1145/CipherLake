@@ -1,6 +1,6 @@
 # Quick Start
 
-Get Nexus up and running in under 5 minutes using Docker Compose.
+Get CipherLake up and running in under 5 minutes using Docker Compose.
 
 ## Prerequisites
 
@@ -11,8 +11,8 @@ Get Nexus up and running in under 5 minutes using Docker Compose.
 ## Step 1: Clone and Configure
 
 ```bash
-git clone https://github.com/nexus/nexus.git
-cd nexus
+git clone https://github.com/cipherlake/cipherlake.git
+cd cipherlake
 cp config.yaml config.local.yaml
 ```
 
@@ -46,13 +46,13 @@ All services should show status `healthy`.
 curl http://localhost:9000/health
 
 # Create a bucket using the CLI
-./nexusctl bucket create my-first-bucket
+./cipherlakectl bucket create my-first-bucket
 
 # Upload a file
-./nexusctl object put my-first-bucket test.txt ./test.txt
+./cipherlakectl object put my-first-bucket test.txt ./test.txt
 
 # List objects
-./nexusctl object list my-first-bucket
+./cipherlakectl object list my-first-bucket
 ```
 
 ## Step 4: Use the S3 API
@@ -75,7 +75,7 @@ import (
     "log"
     "strings"
 
-    s3sdk "nexus/sdk/go/s3"
+    s3sdk "cipherlake/sdk/go/s3"
 )
 
 func main() {
@@ -90,7 +90,7 @@ func main() {
     }
 
     ctx := context.Background()
-    err = client.PutObject(ctx, "my-bucket", "hello.txt", strings.NewReader("Hello, Nexus!"))
+    err = client.PutObject(ctx, "my-bucket", "hello.txt", strings.NewReader("Hello, CipherLake!"))
     if err != nil {
         log.Fatal(err)
     }
@@ -101,9 +101,9 @@ func main() {
 Using the Python SDK:
 
 ```python
-from nexus import NexusClient
+from cipherlake import CipherLakeClient
 
-client = NexusClient(
+client = CipherLakeClient(
     endpoint_url="http://localhost:9000",
     access_key="my-access-key",
     secret_key="my-secret-key",

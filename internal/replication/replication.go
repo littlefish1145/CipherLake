@@ -16,29 +16,29 @@ import (
 )
 
 type ReplicationRule struct {
-	ID           string            `json:"id"`
-	Name         string            `json:"name"`
-	SourceBucket string            `json:"source_bucket"`
-	TargetBucket string            `json:"target_bucket"`
-	TargetEndpoint string          `json:"target_endpoint"`
-	TargetRegion string            `json:"target_region"`
-	PrefixFilter []string          `json:"prefix_filter,omitempty"`
-	Status       ReplicationStatus `json:"status"`
-	Priority     int               `json:"priority"`
-	Enabled      bool              `json:"enabled"`
-	ACLDisabled  bool             `json:"acl_disabled"`
-	DeleteMarker bool             `json:"delete_marker"`
-	CreateNewVersions bool        `json:"create_new_versions"`
-	BandwidthLimit int64          `json:"bandwidth_limit_bytes_per_sec"`
-	Schedule     string            `json:"schedule"`
-	LastSyncAt   time.Time        `json:"last_sync_at"`
-	SyncInterval time.Duration     `json:"sync_interval"`
+	ID                string            `json:"id"`
+	Name              string            `json:"name"`
+	SourceBucket      string            `json:"source_bucket"`
+	TargetBucket      string            `json:"target_bucket"`
+	TargetEndpoint    string            `json:"target_endpoint"`
+	TargetRegion      string            `json:"target_region"`
+	PrefixFilter      []string          `json:"prefix_filter,omitempty"`
+	Status            ReplicationStatus `json:"status"`
+	Priority          int               `json:"priority"`
+	Enabled           bool              `json:"enabled"`
+	ACLDisabled       bool              `json:"acl_disabled"`
+	DeleteMarker      bool              `json:"delete_marker"`
+	CreateNewVersions bool              `json:"create_new_versions"`
+	BandwidthLimit    int64             `json:"bandwidth_limit_bytes_per_sec"`
+	Schedule          string            `json:"schedule"`
+	LastSyncAt        time.Time         `json:"last_sync_at"`
+	SyncInterval      time.Duration     `json:"sync_interval"`
 }
 
 type ReplicationStatus string
 
 const (
-	StatusPending   ReplicationStatus = "pending"
+	StatusPending  ReplicationStatus = "pending"
 	StatusSyncing  ReplicationStatus = "syncing"
 	StatusComplete ReplicationStatus = "complete"
 	StatusFailed   ReplicationStatus = "failed"
@@ -53,12 +53,12 @@ type ReplicationJob struct {
 	Status      ReplicationStatus `json:"status"`
 	Attempt     int64             `json:"attempt"`
 	MaxAttempts int               `json:"max_attempts"`
-	StartedAt   time.Time        `json:"started_at"`
-	CompletedAt *time.Time       `json:"completed_at,omitempty"`
-	Error       string           `json:"error,omitempty"`
-	ETag        string           `json:"etag"`
-	Size        int64            `json:"size"`
-	Checksum    string           `json:"checksum"`
+	StartedAt   time.Time         `json:"started_at"`
+	CompletedAt *time.Time        `json:"completed_at,omitempty"`
+	Error       string            `json:"error,omitempty"`
+	ETag        string            `json:"etag"`
+	Size        int64             `json:"size"`
+	Checksum    string            `json:"checksum"`
 }
 
 type ReplicationManager struct {
@@ -72,13 +72,24 @@ type ReplicationManager struct {
 	stopCh       chan struct{}
 	allowPrivate bool
 	started      bool
+	stopOnce     sync.Once
+	wg           sync.WaitGroup // tracks worker goroutines
+}
+
+type ReplicationWorker struct {
+	rule      *ReplicationRule
+	client    *ReplicationClient
+	jobs      chan *ReplicationJob
+	stopCh    chan struct{}
+	stopOnce  sync.Once
+	bandwidth int64
 }
 
 type ReplicationStats struct {
-	TotalSyncs        int64
-	SuccessfulSyncs   int64
+	TotalSyncs       int64
+	SuccessfulSyncs  int64
 	FailedSyncs      int64
-	BytesTransferred  int64
+	BytesTransferred int64
 	PendingJobs      int64
 	AvgLatencyMs     float64
 }
@@ -96,16 +107,8 @@ type WALEntry struct {
 	Operation string    `json:"operation"`
 	Status    string    `json:"status"`
 	Timestamp time.Time `json:"timestamp"`
-	Checksum  uint32   `json:"checksum"`
-	Retries   int      `json:"retries"`
-}
-
-type ReplicationWorker struct {
-	rule      *ReplicationRule
-	client    *ReplicationClient
-	jobs      chan *ReplicationJob
-	stopCh    chan struct{}
-	bandwidth int64
+	Checksum  uint32    `json:"checksum"`
+	Retries   int       `json:"retries"`
 }
 
 func NewReplicationManager(cfg *ReplicationConfig) *ReplicationManager {
@@ -337,7 +340,8 @@ func (m *ReplicationManager) AddRule(rule *ReplicationRule) error {
 	m.workers[rule.ID] = worker
 
 	if m.started {
-		go worker.run()
+		m.wg.Add(1)
+		go m.runWorker(worker)
 	}
 
 	return nil
@@ -348,12 +352,19 @@ func (m *ReplicationManager) RemoveRule(ruleID string) error {
 	defer m.mu.Unlock()
 
 	if worker, ok := m.workers[ruleID]; ok {
-		close(worker.stopCh)
+		worker.stop()
 		delete(m.workers, ruleID)
 	}
 
 	delete(m.rules, ruleID)
 	return nil
+}
+
+// stop signals the worker to exit and is safe to call multiple times.
+func (w *ReplicationWorker) stop() {
+	w.stopOnce.Do(func() {
+		close(w.stopCh)
+	})
 }
 
 func (w *ReplicationWorker) run() {
@@ -399,7 +410,7 @@ func (w *ReplicationWorker) syncObject(ctx context.Context, job *ReplicationJob)
 
 	err := w.client.PutObject(ctx, w.rule.TargetBucket, job.ObjectKey, nil, job.Size, map[string]string{
 		"X-Replication-Source": job.Bucket,
-		"X-Replication-Rule":  job.RuleID,
+		"X-Replication-Rule":   job.RuleID,
 	})
 
 	if err != nil {
@@ -480,11 +491,11 @@ func (m *ReplicationManager) ListRules() []*ReplicationRule {
 func (m *ReplicationManager) GetStats() *ReplicationStats {
 	return &ReplicationStats{
 		TotalSyncs:       atomic.LoadInt64(&m.stats.TotalSyncs),
-		SuccessfulSyncs: atomic.LoadInt64(&m.stats.SuccessfulSyncs),
-		FailedSyncs:     atomic.LoadInt64(&m.stats.FailedSyncs),
+		SuccessfulSyncs:  atomic.LoadInt64(&m.stats.SuccessfulSyncs),
+		FailedSyncs:      atomic.LoadInt64(&m.stats.FailedSyncs),
 		BytesTransferred: atomic.LoadInt64(&m.stats.BytesTransferred),
-		PendingJobs:     atomic.LoadInt64(&m.stats.PendingJobs),
-		AvgLatencyMs:    m.stats.AvgLatencyMs,
+		PendingJobs:      atomic.LoadInt64(&m.stats.PendingJobs),
+		AvgLatencyMs:     m.stats.AvgLatencyMs,
 	}
 }
 
@@ -498,22 +509,32 @@ func (m *ReplicationManager) Start() error {
 	m.started = true
 
 	for _, worker := range m.workers {
-		go worker.run()
+		m.wg.Add(1)
+		go m.runWorker(worker)
 	}
 
 	return nil
 }
 
+// runWorker wraps worker.run() with WaitGroup tracking so Stop() can wait
+// for all workers to exit.
+func (m *ReplicationManager) runWorker(w *ReplicationWorker) {
+	defer m.wg.Done()
+	w.run()
+}
+
 func (m *ReplicationManager) Stop() error {
-	close(m.stopCh)
+	m.stopOnce.Do(func() {
+		close(m.stopCh)
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
+		m.mu.Lock()
+		for _, worker := range m.workers {
+			worker.stop()
+		}
+		m.mu.Unlock()
 
-	for _, worker := range m.workers {
-		close(worker.stopCh)
-	}
-
+		m.wg.Wait()
+	})
 	return nil
 }
 
@@ -550,8 +571,8 @@ type ConflictResolution string
 
 const (
 	ConflictLastWriteWins ConflictResolution = "last_write_wins"
-	ConflictSourceWins   ConflictResolution = "source_wins"
-	ConflictFail         ConflictResolution = "fail"
+	ConflictSourceWins    ConflictResolution = "source_wins"
+	ConflictFail          ConflictResolution = "fail"
 )
 
 type SyncStatus struct {

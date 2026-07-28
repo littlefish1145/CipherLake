@@ -28,8 +28,8 @@ func FuzzConditionMatches(f *testing.F) {
 		"production", "staging", "development",
 		"1", "100", "3.14", "-5",
 		"true", "false",
-		"arn:nexus:s3:::bucket/key",
-		"arn:nexus:iam:::user/admin",
+		"arn:cipherlake:s3:::bucket/key",
+		"arn:cipherlake:iam:::user/admin",
 		"", "*",
 	}
 
@@ -70,10 +70,10 @@ func FuzzPolicyEvaluation(f *testing.F) {
 		action   string
 		resource string
 	}{
-		{"Allow", "s3:GetObject", "arn:nexus:s3:::bucket/key"},
-		{"Deny", "s3:DeleteObject", "arn:nexus:s3:::bucket/key"},
+		{"Allow", "s3:GetObject", "arn:cipherlake:s3:::bucket/key"},
+		{"Deny", "s3:DeleteObject", "arn:cipherlake:s3:::bucket/key"},
 		{"Allow", "*", "*"},
-		{"Allow", "s3:*", "arn:nexus:s3:::*"},
+		{"Allow", "s3:*", "arn:cipherlake:s3:::*"},
 		{"Deny", "iam:*", "*"},
 	}
 
@@ -101,7 +101,7 @@ func FuzzPolicyEvaluation(f *testing.F) {
 		ctx := &EvalContext{
 			Principal: "test-user",
 			Action:    "s3:GetObject",
-			Resource:  "arn:nexus:s3:::mybucket/mykey",
+			Resource:  "arn:cipherlake:s3:::mybucket/mykey",
 			Time:      time.Now(),
 		}
 
@@ -115,18 +115,18 @@ func FuzzPolicyEvaluation(f *testing.F) {
 // FuzzArnMatching fuzzes ARN pattern matching with random patterns and ARNs.
 func FuzzArnMatching(f *testing.F) {
 	patterns := []string{
-		"arn:nexus:s3:::bucket/*",
-		"arn:nexus:s3:::bucket/key",
-		"arn:nexus:s3:::*",
+		"arn:cipherlake:s3:::bucket/*",
+		"arn:cipherlake:s3:::bucket/key",
+		"arn:cipherlake:s3:::*",
 		"*",
-		"arn:nexus:s3:::bucket/prefix/*/suffix",
-		"arn:nexus:iam:::user/*",
+		"arn:cipherlake:s3:::bucket/prefix/*/suffix",
+		"arn:cipherlake:iam:::user/*",
 	}
 	arns := []string{
-		"arn:nexus:s3:::bucket/key",
-		"arn:nexus:s3:::bucket/images/photo.png",
-		"arn:nexus:iam:::user/admin",
-		"arn:nexus:s3:::otherbucket/key",
+		"arn:cipherlake:s3:::bucket/key",
+		"arn:cipherlake:s3:::bucket/images/photo.png",
+		"arn:cipherlake:iam:::user/admin",
+		"arn:cipherlake:s3:::otherbucket/key",
 	}
 
 	for _, pattern := range patterns {
@@ -352,8 +352,8 @@ func FuzzNullCondition(f *testing.F) {
 
 // FuzzSimulate fuzzes the full Simulate path.
 func FuzzSimulate(f *testing.F) {
-	f.Add("s3:GetObject", "arn:nexus:s3:::bucket/key", "user1")
-	f.Add("iam:CreateUser", "arn:nexus:iam:::user/test", "admin")
+	f.Add("s3:GetObject", "arn:cipherlake:s3:::bucket/key", "user1")
+	f.Add("iam:CreateUser", "arn:cipherlake:iam:::user/test", "admin")
 
 	f.Fuzz(func(t *testing.T, action, resource, principal string) {
 		if len(action) > 200 || len(resource) > 500 || len(principal) > 200 {
@@ -393,7 +393,7 @@ func FuzzPolicyDocumentParsing(f *testing.F) {
 		ctx := &EvalContext{
 			Principal: "test-user",
 			Action:    "s3:GetObject",
-			Resource:  "arn:nexus:s3:::bucket/key",
+			Resource:  "arn:cipherlake:s3:::bucket/key",
 			Time:      time.Now(),
 		}
 
@@ -457,7 +457,7 @@ func FuzzSCP(f *testing.F) {
 		ctx := &EvalContext{
 			Principal: "test-user",
 			Action:    "s3:GetObject",
-			Resource:  "arn:nexus:s3:::bucket/key",
+			Resource:  "arn:cipherlake:s3:::bucket/key",
 			Time:      time.Now(),
 		}
 
@@ -494,7 +494,7 @@ func FuzzBoundary(f *testing.F) {
 		ctx := &EvalContext{
 			Principal: "test-user",
 			Action:    "s3:GetObject",
-			Resource:  "arn:nexus:s3:::bucket/key",
+			Resource:  "arn:cipherlake:s3:::bucket/key",
 			Time:      time.Now(),
 		}
 
@@ -527,9 +527,9 @@ func FuzzStringOrSlice(f *testing.F) {
 
 // FuzzExtractBucket fuzzes the bucket extraction from ARN.
 func FuzzExtractBucket(f *testing.F) {
-	f.Add("arn:nexus:s3:::mybucket/mykey")
-	f.Add("arn:nexus:s3:::mybucket")
-	f.Add("arn:nexus:iam:::user/admin")
+	f.Add("arn:cipherlake:s3:::mybucket/mykey")
+	f.Add("arn:cipherlake:s3:::mybucket")
+	f.Add("arn:cipherlake:iam:::user/admin")
 	f.Add("not-an-arn")
 
 	f.Fuzz(func(t *testing.T, resource string) {

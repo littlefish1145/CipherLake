@@ -1,6 +1,6 @@
 # Performance Tuning
 
-Optimize Nexus for your workload with these tuning strategies.
+Optimize CipherLake for your workload with these tuning strategies.
 
 ## Gateway Tuning
 
@@ -87,7 +87,7 @@ For local storage backend, use SSDs and tune the filesystem:
 
 ```bash
 # Mount options for ext4 on SSD
-mount -t ext4 -o noatime,discard /dev/sdb1 /var/lib/nexus/data
+mount -t ext4 -o noatime,discard /dev/sdb1 /var/lib/cipherlake/data
 ```
 
 ### S3 Backend
@@ -111,7 +111,7 @@ For single-node deployments:
 ```yaml
 metadata:
   backend: "boltdb"
-  path: "/var/lib/nexus/metadata.db"
+  path: "/var/lib/cipherlake/metadata.db"
   boltdb:
     no_freelist_sync: true
     freelist_type: "map"
@@ -227,15 +227,15 @@ observability:
 
 ## Benchmarking
 
-Use `nexusctl` to benchmark your deployment:
+Use `cipherlakectl` to benchmark your deployment:
 
 ```bash
 # Write benchmark
-nexusctl benchmark write --objects 10000 --size 1MB --concurrency 50
+cipherlakectl benchmark write --objects 10000 --size 1MB --concurrency 50
 
 # Read benchmark
-nexusctl benchmark read --objects 10000 --concurrency 100
+cipherlakectl benchmark read --objects 10000 --concurrency 100
 
 # Mixed workload
-nexusctl benchmark mixed --read-ratio 0.8 --concurrency 50
+cipherlakectl benchmark mixed --read-ratio 0.8 --concurrency 50
 ```

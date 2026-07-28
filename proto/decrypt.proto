@@ -1,10 +1,10 @@
 syntax = "proto3";
 
-package nexus.decrypt;
+package cipherlake.decrypt;
 
-option go_package = "nexus/proto/decrypt";
+option go_package = "cipherlake/proto/decrypt";
 
-import "common.proto";
+import "cipherlake/common.proto";
 
 // DecryptService - Decrypts data using DEK
 // No persistent keys - uses DEK passed in request
@@ -24,13 +24,13 @@ service DecryptService {
 
 message DecryptRequest {
   // DEK encrypted with ECDH-derived session key
-  nexus.common.ECDHEncryptedDEK ecdh_encrypted_dek = 1;
+  cipherlake.common.ECDHEncryptedDEK ecdh_encrypted_dek = 1;
   
   // Client's ECDH private key
   bytes client_ecdh_private_key = 2;
   
   // Service's ephemeral ECDH public key from KeyUnwrapService
-  nexus.common.ECDHPublicKey service_ecdh_pub = 3;
+  cipherlake.common.ECDHPublicKey service_ecdh_pub = 3;
   
   // Encryption algorithm
   string algorithm = 4;
@@ -49,13 +49,13 @@ message DecryptResponse {
   // Indicates this is the last chunk
   bool is_last = 3;
   
-  nexus.common.Error error = 4;
+  cipherlake.common.Error error = 4;
 }
 
 message DecryptChunkRequest {
-  nexus.common.ECDHEncryptedDEK ecdh_encrypted_dek = 1;
+  cipherlake.common.ECDHEncryptedDEK ecdh_encrypted_dek = 1;
   bytes client_ecdh_private_key = 2;
-  nexus.common.ECDHPublicKey service_ecdh_pub = 3;
+  cipherlake.common.ECDHPublicKey service_ecdh_pub = 3;
   bytes ciphertext = 4;
   bytes nonce = 5;
   bytes auth_tag = 6;
@@ -65,7 +65,7 @@ message DecryptChunkRequest {
 
 message DecryptChunkResponse {
   bytes plaintext = 1;
-  nexus.common.Error error = 2;
+  cipherlake.common.Error error = 2;
 }
 
 message HealthRequest {}

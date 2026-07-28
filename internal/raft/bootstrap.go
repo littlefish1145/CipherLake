@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"cipherlake/internal/config"
 	"github.com/hashicorp/raft"
-	"nexus/internal/config"
 )
 
 // BootstrapSingle bootstraps a single-node Raft cluster.
@@ -133,6 +133,52 @@ func (n *RaftNode) DemoteVoter(nodeID string) error {
 	)
 	if err := f.Error(); err != nil {
 		return fmt.Errorf("failed to demote voter %s: %w", nodeID, err)
+	}
+	return nil
+}
+
+// BootstrapStatic bootstraps a Raft cluster with a fixed peer set.
+// It adds the local node plus every address in cfg.EffectiveClusterPeers()
+// as a voter. Peer ServerIDs are taken from cfg.ClusterPeerIDs when
+// provided (same order), otherwise the peer address is used as the ID.
+// The call is idempotent: if the cluster is already bootstrapped it
+// returns nil.
+func (n *RaftNode) BootstrapStatic(cfg *config.RaftConfig) error {
+	peers := cfg.EffectiveClusterPeers()
+	peerIDs := cfg.ClusterPeerIDs
+	localAddr := raft.ServerAddress(cfg.ListenAddr)
+	servers := []raft.Server{
+		{
+			ID:      raft.ServerID(cfg.NodeID),
+			Address: localAddr,
+		},
+	}
+	for i, peer := range peers {
+		peer := peer
+		if peer == "" {
+			continue
+		}
+		// Skip the local node; it was added above with its configured
+		// NodeID. The remaining peers are remote voters.
+		if raft.ServerAddress(peer) == localAddr {
+			continue
+		}
+		id := raft.ServerID(peer)
+		if i < len(peerIDs) && peerIDs[i] != "" {
+			id = raft.ServerID(peerIDs[i])
+		}
+		servers = append(servers, raft.Server{
+			ID:      id,
+			Address: raft.ServerAddress(peer),
+		})
+	}
+	configuration := raft.Configuration{Servers: servers}
+	f := n.raft.BootstrapCluster(configuration)
+	if err := f.Error(); err != nil {
+		if err == raft.ErrCantBootstrap {
+			return nil
+		}
+		return fmt.Errorf("failed to bootstrap static cluster: %w", err)
 	}
 	return nil
 }

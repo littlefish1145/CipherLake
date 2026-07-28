@@ -1,6 +1,6 @@
 # Kubernetes Deployment
 
-Deploy Nexus on Kubernetes using Helm.
+Deploy CipherLake on Kubernetes using Helm.
 
 ## Prerequisites
 
@@ -12,10 +12,10 @@ Deploy Nexus on Kubernetes using Helm.
 ## Quick Install
 
 ```bash
-helm repo add nexus https://nexus.github.io/charts
+helm repo add cipherlake https://cipherlake.github.io/charts
 helm repo update
-helm install nexus nexus/nexus \
-  --namespace nexus --create-namespace \
+helm install cipherlake cipherlake/cipherlake \
+  --namespace cipherlake --create-namespace \
   --set gateway.accessKey=my-access-key \
   --set gateway.secretKey=my-secret-key
 ```
@@ -44,11 +44,11 @@ gateway:
     enabled: true
     className: "nginx"
     hosts:
-      - nexus.example.com
+      - cipherlake.example.com
     tls:
-      - secretName: nexus-tls
+      - secretName: cipherlake-tls
         hosts:
-          - nexus.example.com
+          - cipherlake.example.com
 
 # Metadata (Raft) configuration
 metadata:
@@ -96,8 +96,8 @@ observability:
 Install with the override file:
 
 ```bash
-helm install nexus nexus/nexus \
-  --namespace nexus --create-namespace \
+helm install cipherlake cipherlake/cipherlake \
+  --namespace cipherlake --create-namespace \
   -f values-override.yaml
 ```
 
@@ -106,21 +106,21 @@ helm install nexus nexus/nexus \
 If deploying from source:
 
 ```bash
-helm install nexus ./examples/helm \
-  --namespace nexus --create-namespace \
+helm install cipherlake ./examples/helm \
+  --namespace cipherlake --create-namespace \
   -f values-override.yaml
 ```
 
 ## Persistent Storage
 
-Nexus requires persistent volumes for:
+CipherLake requires persistent volumes for:
 
 | Component | Mount Path | Recommended Size |
 |-----------|-----------|------------------|
-| Data      | /var/lib/nexus/data | 100Gi+ |
-| Metadata  | /var/lib/nexus/metadata | 50Gi |
-| Raft Log  | /var/lib/nexus/raft | 20Gi |
-| Vector Index | /var/lib/nexus/vector-index | 20Gi |
+| Data      | /var/lib/cipherlake/data | 100Gi+ |
+| Metadata  | /var/lib/cipherlake/metadata | 50Gi |
+| Raft Log  | /var/lib/cipherlake/raft | 20Gi |
+| Vector Index | /var/lib/cipherlake/vector-index | 20Gi |
 
 Use a StorageClass with SSD backing for production:
 
@@ -142,7 +142,7 @@ autoscaling:
 
 ## Network Policies
 
-Restrict access to Nexus services:
+Restrict access to CipherLake services:
 
 ```yaml
 networkPolicy:
@@ -161,8 +161,8 @@ networkPolicy:
 
 ```bash
 helm repo update
-helm upgrade nexus nexus/nexus \
-  --namespace nexus \
+helm upgrade cipherlake cipherlake/cipherlake \
+  --namespace cipherlake \
   -f values-override.yaml
 ```
 
@@ -171,9 +171,9 @@ For major version upgrades, review the migration guide first.
 ## Uninstalling
 
 ```bash
-helm uninstall nexus --namespace nexus
+helm uninstall cipherlake --namespace cipherlake
 ```
 
 !!! warning
-    Uninstalling deletes all Nexus pods. Persistent volumes may be retained
+    Uninstalling deletes all CipherLake pods. Persistent volumes may be retained
     depending on your StorageClass reclaim policy.

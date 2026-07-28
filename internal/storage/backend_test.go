@@ -307,6 +307,51 @@ func TestFileBackend_PutReader_AtomicWrite(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestFileBackend_PutKeepsExistingObjectOnSizeMismatch(t *testing.T) {
+	tmpDir := t.TempDir()
+	backend, err := NewFileBackend(tmpDir)
+	require.NoError(t, err)
+	ctx := context.Background()
+
+	original := []byte("original object")
+	err = backend.Put(ctx, "test/atomic-put", bytes.NewReader(original), int64(len(original)))
+	require.NoError(t, err)
+
+	replacement := []byte("short")
+	err = backend.Put(ctx, "test/atomic-put", bytes.NewReader(replacement), int64(len(replacement)+1))
+	require.Error(t, err)
+
+	reader, err := backend.Get(ctx, "test/atomic-put")
+	require.NoError(t, err)
+	defer reader.Close()
+
+	got, err := io.ReadAll(reader)
+	require.NoError(t, err)
+	assert.Equal(t, original, got)
+
+	err = filepath.Walk(tmpDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		base := filepath.Base(path)
+		if len(base) >= 4 && base[:4] == ".tmp" {
+			t.Errorf("temp file should not remain: %s", path)
+		}
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func TestFileBackend_ListMissingPrefixReturnsEmpty(t *testing.T) {
+	tmpDir := t.TempDir()
+	backend, err := NewFileBackend(tmpDir)
+	require.NoError(t, err)
+
+	keys, err := backend.List(context.Background(), "missing-prefix/")
+	require.NoError(t, err)
+	assert.Empty(t, keys)
+}
+
 func TestFileBackend_GetRange(t *testing.T) {
 	tmpDir := t.TempDir()
 	backend, err := NewFileBackend(tmpDir)

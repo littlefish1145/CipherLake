@@ -22,10 +22,10 @@ type BucketInfo struct {
 
 // SearchResult represents a vector search result.
 type SearchResult struct {
-	Key       string
-	Bucket    string
-	Score     float64
-	Metadata  map[string]string
+	Key      string
+	Bucket   string
+	Score    float64
+	Metadata map[string]string
 }
 
 // FTSResult represents a full-text search result.

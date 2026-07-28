@@ -17,17 +17,17 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 
-	"nexus/internal/services"
+	"cipherlake/internal/services"
 )
 
 // ServiceConfig holds common configuration for a gRPC service
 type ServiceConfig struct {
-	Name         string
-	Port         int
-	TLSConfig    *tls.Config
-	ConsulAddr   string
-	ServiceAddr  string
-	TTLSeconds   int
+	Name        string
+	Port        int
+	TLSConfig   *tls.Config
+	ConsulAddr  string
+	ServiceAddr string
+	TTLSeconds  int
 }
 
 // ServiceServer is the interface each service must implement

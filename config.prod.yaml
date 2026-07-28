@@ -3,7 +3,7 @@ version: "2.0"
 node:
   role: "all"
   listen_addr: ":8080"
-  data_dir: "/var/lib/nexus"
+  data_dir: "/var/lib/cipherlake"
   cluster_peers: []
 
 tiering:
@@ -20,11 +20,11 @@ encryption:
   kms_type: "local"
   vault_addr: ""
   vault_token_file: ""
-  vault_transit_key: "nexus"
+  vault_transit_key: "cipherlake"
   aws_kms_key_id: ""
   aws_region: "us-east-1"
   enable_dedup: true
-  master_key_path: "/etc/nexus/master.key"
+  master_key_path: "/etc/cipherlake/master.key"
 
 vector:
   enabled: false
@@ -36,7 +36,7 @@ vector:
   max_vectors: 1000000
 
 pipelines:
-  config_file: "/etc/nexus/pipelines.yaml"
+  config_file: "/etc/cipherlake/pipelines.yaml"
   max_concurrent: 10
   enabled: true
 
@@ -58,7 +58,7 @@ performance:
 logging:
   level: "info"
   format: "json"
-  output_path: "/var/log/nexus/nexus.log"
+  output_path: "/var/log/cipherlake/cipherlake.log"
 
 auth:
   require_auth: true
@@ -69,8 +69,8 @@ auth:
 
 tls:
   enabled: true
-  cert_file: "/etc/nexus/cert.pem"
-  key_file: "/etc/nexus/key.pem"
+  cert_file: "/etc/cipherlake/cert.pem"
+  key_file: "/etc/cipherlake/key.pem"
   auto_cert: false
   auto_cert_host: ""
   redirect_addr: ":80"

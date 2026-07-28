@@ -3,12 +3,15 @@ package gateway
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
-	"nexus/internal/auth"
+	"cipherlake/internal/auth"
+	"cipherlake/internal/iam"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,7 +47,7 @@ func TestGatewayAuthProvider_Authenticate_RequireAuth(t *testing.T) {
 
 func TestGatewayAuthProvider_Authenticate_LegacyUser(t *testing.T) {
 	tmpDir := t.TempDir()
-	t.Setenv("NEXUS_USER_STORE", filepath.Join(tmpDir, "users.json"))
+	t.Setenv("CIPHERLAKE_USER_STORE", filepath.Join(tmpDir, "users.json"))
 
 	authHandler := NewAuthHandlerWithConfig(&AuthConfig{
 		RequireAuth: true,
@@ -148,6 +151,13 @@ func TestLooksLikeIAMRequest(t *testing.T) {
 
 	req3 := httptest.NewRequest(http.MethodGet, "/", nil)
 	assert.False(t, looksLikeIAMRequest(req3))
+
+	req4 := httptest.NewRequest(http.MethodGet, "/?X-Amz-Credential=AKIAIOSFODNN7EXAMPLE/20260719/us-east-1/s3/aws4_request", nil)
+	assert.True(t, looksLikeIAMRequest(req4))
+
+	req5 := httptest.NewRequest(http.MethodGet, "/", nil)
+	req5.Header.Set("Authorization", "Basic "+basicAuth("ASIAIOSFODNN7EXAMPLE", "secret"))
+	assert.True(t, looksLikeIAMRequest(req5))
 }
 
 func TestMapActionToIAM(t *testing.T) {
@@ -156,4 +166,68 @@ func TestMapActionToIAM(t *testing.T) {
 	assert.Equal(t, "s3:DeleteObject", mapActionToIAM(auth.ActionDelete))
 	assert.Equal(t, "s3:*", mapActionToIAM(auth.ActionAdmin))
 	assert.Equal(t, "vector:Search", mapActionToIAM("vector:Search"))
+}
+
+func TestIAMAuthBridge_BasicAuthTemporaryCredential(t *testing.T) {
+	iamProvider := &fakeIAMProvider{
+		tempCred: &iam.TemporaryCredential{
+			AccessKeyID:     "ASIAIOSFODNN7EXAMPLE",
+			SecretAccessKey: "temp-secret",
+			SessionToken:    "session-token",
+			Expiration:      time.Now().Add(time.Hour),
+		},
+	}
+	authHandler := NewAuthHandlerWithConfig(&AuthConfig{RequireAuth: true})
+	bridge := NewIAMAuthBridge(iamProvider, authHandler)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	user, iamUser, err := bridge.AuthenticateWithIAM(reqWithBasicAuth(req, "ASIAIOSFODNN7EXAMPLE", "temp-secret"))
+
+	require.NoError(t, err)
+	require.NotNil(t, user)
+	assert.Nil(t, iamUser)
+	assert.Equal(t, "sts:ASIAIOSFODNN7EXAMPLE", user.Name)
+	assert.Equal(t, 0, iamProvider.userAccessKeyLookups, "ASIA credentials should not be looked up as IAM user access keys")
+	assert.Equal(t, 1, iamProvider.tempCredentialLookups)
+
+	identity := toAuthIdentity(user, nil)
+	require.NotNil(t, identity)
+	assert.Equal(t, "sts", identity.Source)
+	assert.True(t, identity.IsIAM)
+}
+
+func reqWithBasicAuth(req *http.Request, username, password string) *http.Request {
+	req.Header.Set("Authorization", "Basic "+basicAuth(username, password))
+	return req
+}
+
+type fakeIAMProvider struct {
+	userAccessKeyLookups  int
+	tempCredentialLookups int
+	tempCred              *iam.TemporaryCredential
+}
+
+func (f *fakeIAMProvider) GetUserByAccessKeyID(accessKeyID string) (*iam.IAMUser, *iam.AccessKey, error) {
+	f.userAccessKeyLookups++
+	return nil, nil, fmt.Errorf("not found")
+}
+
+func (f *fakeIAMProvider) DecryptSecretKey(encryptedSecret []byte) (string, error) {
+	return "", fmt.Errorf("not implemented")
+}
+
+func (f *fakeIAMProvider) GetTempCredentialByAccessKeyID(accessKeyID string) (*iam.TemporaryCredential, error) {
+	f.tempCredentialLookups++
+	if f.tempCred != nil && f.tempCred.AccessKeyID == accessKeyID {
+		return f.tempCred, nil
+	}
+	return nil, fmt.Errorf("not found")
+}
+
+func (f *fakeIAMProvider) GetUser(name string) (*iam.IAMUser, error) {
+	return nil, fmt.Errorf("not found")
+}
+
+func (f *fakeIAMProvider) EvaluateAccess(ctx *iam.EvalContext) *iam.EvalResult {
+	return &iam.EvalResult{Decision: iam.DecisionImplicitDeny}
 }

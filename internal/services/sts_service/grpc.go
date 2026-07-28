@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"nexus/internal/iam"
+	"cipherlake/internal/iam"
 
-	pb "nexus/proto/sts"
+	pb "cipherlake/proto/sts"
 
 	"go.uber.org/zap"
 )
@@ -171,13 +171,13 @@ func iamUserToProto(user *iam.IAMUser) *pb.IAMUserProto {
 		return nil
 	}
 	pbUser := &pb.IAMUserProto{
-		Id:                user.ID,
-		Name:              user.Name,
-		DisplayName:       user.DisplayName,
-		Groups:            user.Groups,
-		AttachedPolicies:  user.AttachedPolicies,
+		Id:                 user.ID,
+		Name:               user.Name,
+		DisplayName:        user.DisplayName,
+		Groups:             user.Groups,
+		AttachedPolicies:   user.AttachedPolicies,
 		PermissionBoundary: user.PermissionBoundary,
-		CreatedAtUnix:     user.CreatedAt.Unix(),
+		CreatedAtUnix:      user.CreatedAt.Unix(),
 	}
 	for _, ak := range user.AccessKeys {
 		pbUser.AccessKeys = append(pbUser.AccessKeys, accessKeyToProto(&ak))

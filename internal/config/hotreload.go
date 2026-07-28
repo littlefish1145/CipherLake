@@ -15,33 +15,33 @@ import (
 // hotReloadableFields defines which config fields can be changed at runtime
 // without requiring a restart. The keys are dot-separated field paths.
 var hotReloadableFields = map[string]bool{
-	"logging.level":        true,
-	"logging.format":       true,
-	"logging.output_path":  true,
-	"logging.access_log_dir": true,
-	"ratelimit.enabled":            true,
-	"ratelimit.global_rps":         true,
-	"ratelimit.global_burst":       true,
-	"ratelimit.ip_rps":             true,
-	"ratelimit.ip_burst":           true,
-	"ratelimit.user_rps":           true,
-	"ratelimit.user_burst":         true,
-	"ratelimit.bucket_rps":         true,
-	"ratelimit.bucket_burst":       true,
+	"logging.level":                  true,
+	"logging.format":                 true,
+	"logging.output_path":            true,
+	"logging.access_log_dir":         true,
+	"ratelimit.enabled":              true,
+	"ratelimit.global_rps":           true,
+	"ratelimit.global_burst":         true,
+	"ratelimit.ip_rps":               true,
+	"ratelimit.ip_burst":             true,
+	"ratelimit.user_rps":             true,
+	"ratelimit.user_burst":           true,
+	"ratelimit.bucket_rps":           true,
+	"ratelimit.bucket_burst":         true,
 	"ratelimit.upload_bytes_per_sec": true,
-	"ratelimit.upload_burst_bytes": true,
-	"ratelimit.api_limits":         true,
-	"ratelimit.whitelist":          true,
-	"cache.ttl":                    true,
-	"cache.metadata_max_size":      true,
-	"cache.object_max_size":        true,
-	"cache.policy":                 true,
-	"events.enabled":        true,
-	"events.workers":        true,
-	"events.max_retries":    true,
-	"events.retry_base_ms":  true,
-	"events.webhook_timeout": true,
-	"events.dead_letter_dir": true,
+	"ratelimit.upload_burst_bytes":   true,
+	"ratelimit.api_limits":           true,
+	"ratelimit.whitelist":            true,
+	"cache.ttl":                      true,
+	"cache.metadata_max_size":        true,
+	"cache.object_max_size":          true,
+	"cache.policy":                   true,
+	"events.enabled":                 true,
+	"events.workers":                 true,
+	"events.max_retries":             true,
+	"events.retry_base_ms":           true,
+	"events.webhook_timeout":         true,
+	"events.dead_letter_dir":         true,
 }
 
 // requiresRestartFields defines field prefixes that require a restart.
@@ -55,9 +55,9 @@ var requiresRestartPrefixes = []string{
 
 // FieldChange represents a single field change between two configs.
 type FieldChange struct {
-	Field     string
-	OldValue  interface{}
-	NewValue  interface{}
+	Field      string
+	OldValue   interface{}
+	NewValue   interface{}
 	Reloadable bool
 }
 

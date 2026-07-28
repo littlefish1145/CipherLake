@@ -12,12 +12,12 @@ import (
 // CompactionManager handles background compaction of FTS segments
 // and enforces disk quota.
 type CompactionManager struct {
-	idx         *InvertedIndex
+	idx          *InvertedIndex
 	maxIndexSize int64 // max index size in bytes
-	running     int32
-	stopCh      chan struct{}
-	wg          sync.WaitGroup
-	indexSize   int64 // current index size in bytes
+	running      int32
+	stopCh       chan struct{}
+	wg           sync.WaitGroup
+	indexSize    int64 // current index size in bytes
 }
 
 // NewCompactionManager creates a new compaction manager.
@@ -119,7 +119,7 @@ func (cm *CompactionManager) checkDiskQuota() {
 	atomic.StoreInt64(&cm.indexSize, size)
 
 	if cm.maxIndexSize > 0 && size > cm.maxIndexSize {
-		fmt.Printf("[nexus-fts] WARNING: FTS index size %d bytes exceeds quota %d bytes. Indexing new documents will be rejected.\n",
+		fmt.Printf("[cipherlake-fts] WARNING: FTS index size %d bytes exceeds quota %d bytes. Indexing new documents will be rejected.\n",
 			size, cm.maxIndexSize)
 	}
 }

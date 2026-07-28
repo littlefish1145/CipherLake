@@ -18,9 +18,9 @@ import (
 
 var (
 	ErrPipelineNotFound   = errors.New("pipeline not found")
-	ErrPluginNotFound    = errors.New("plugin not found")
+	ErrPluginNotFound     = errors.New("plugin not found")
 	ErrProcessingFailed   = errors.New("processing failed")
-	ErrInvalidPipeline   = errors.New("invalid pipeline configuration")
+	ErrInvalidPipeline    = errors.New("invalid pipeline configuration")
 	ErrUnsupportedContent = errors.New("unsupported content type")
 )
 
@@ -58,19 +58,19 @@ type ObjectOutput struct {
 }
 
 type ProcessResult struct {
-	Outputs        []*ObjectOutput
+	Outputs         []*ObjectOutput
 	UpdatedMetadata map[string]string
-	Error         error
-	Skipped       bool
+	Error           error
+	Skipped         bool
 }
 
 type Pipeline struct {
-	Name      string         `yaml:"name"`
-	Trigger   TriggerType    `yaml:"trigger"`
-	Filter    string         `yaml:"filter"`
-	Steps     []PipelineStep `yaml:"steps"`
-	Enabled   bool           `yaml:"enabled"`
-	Priority  int            `yaml:"priority"`
+	Name     string         `yaml:"name"`
+	Trigger  TriggerType    `yaml:"trigger"`
+	Filter   string         `yaml:"filter"`
+	Steps    []PipelineStep `yaml:"steps"`
+	Enabled  bool           `yaml:"enabled"`
+	Priority int            `yaml:"priority"`
 }
 
 type PipelineStep struct {
@@ -89,12 +89,24 @@ type PipelineConfig struct {
 }
 
 type PipelineExecutor struct {
-	mu          sync.RWMutex
-	plugins     map[string]PipelinePlugin
-	config      *PipelineConfig
-	results     map[string]*PipelineExecution
-	workers     chan struct{}
-	maxWorkers  int
+	mu         sync.RWMutex
+	plugins    map[string]PipelinePlugin
+	config     *PipelineConfig
+	results    map[string]*PipelineExecution
+	workers    chan struct{}
+	maxWorkers int
+
+	// wasmProvider is consulted when a step's plugin name is not found
+	// in the in-process plugin table. It allows WASM plugins registered in
+	// the plugin loader service to act as pipeline steps (P4-1).
+	wasmProvider WASMStepProvider
+}
+
+// WASMStepProvider resolves a pipeline step name to a PipelinePlugin.
+// The plugin loader service implements this interface so that YAML
+// pipeline configurations can reference WASM steps by name.
+type WASMStepProvider interface {
+	GetPipelineStep(name string) (PipelinePlugin, bool)
 }
 
 type PipelineExecution struct {
@@ -147,6 +159,15 @@ func (e *PipelineExecutor) RegisterPlugin(plugin PipelinePlugin) error {
 	e.plugins[plugin.Name()] = plugin
 
 	return nil
+}
+
+// SetWASMStepProvider wires the executor to a WASM step provider (P4-1).
+// When a pipeline step references a plugin name that is not registered
+// in-process, the provider is asked to resolve it to a WASM step.
+func (e *PipelineExecutor) SetWASMStepProvider(provider WASMStepProvider) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.wasmProvider = provider
 }
 
 func (e *PipelineExecutor) LoadConfig(configPath string) error {
@@ -391,8 +412,13 @@ func (e *PipelineExecutor) getPlugin(name string) (PipelinePlugin, bool) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
-	plugin, ok := e.plugins[name]
-	return plugin, ok
+	if plugin, ok := e.plugins[name]; ok {
+		return plugin, true
+	}
+	if e.wasmProvider != nil {
+		return e.wasmProvider.GetPipelineStep(name)
+	}
+	return nil, false
 }
 
 func (e *PipelineExecutor) expandOutputPath(pattern, originalKey string, output *ObjectOutput) string {

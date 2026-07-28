@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"cipherlake/internal/vector"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"nexus/internal/vector"
 )
 
 type vectorIndexPlugin struct {
@@ -53,7 +53,7 @@ func newTestVectorManager(t *testing.T) *vector.VectorManager {
 		EmbeddingProvider: "mock",
 		Milvus: &vector.MilvusConfig{
 			Address:        "localhost:19530",
-			CollectionName: "nexus_test_vectors",
+			CollectionName: "cipherlake_test_vectors",
 			IndexType:      "HNSW",
 		},
 	})
@@ -122,7 +122,7 @@ func TestStorageComputePipeline_VectorIndexing(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = vm.IndexWithEmbedding(ctx, "test-bucket", "docs/guide.txt", "User guide for the Nexus storage platform", map[string]string{
+	err = vm.IndexWithEmbedding(ctx, "test-bucket", "docs/guide.txt", "User guide for the CipherLake storage platform", map[string]string{
 		"content_type": "text/plain",
 	})
 	require.NoError(t, err)
@@ -172,9 +172,9 @@ pipelines:
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	textContent := "Nexus is a distributed object storage system with compute capabilities"
+	textContent := "CipherLake is a distributed object storage system with compute capabilities"
 	input := &ObjectInput{
-		Key:          "docs/nexus-intro.txt",
+		Key:          "docs/cipherlake-intro.txt",
 		Bucket:       "test-bucket",
 		Content:      strings.NewReader(textContent),
 		Size:         int64(len(textContent)),
@@ -195,7 +195,7 @@ pipelines:
 
 	found := false
 	for _, r := range searchResults {
-		if r.ObjectKey == "docs/nexus-intro.txt" && r.Bucket == "test-bucket" {
+		if r.ObjectKey == "docs/cipherlake-intro.txt" && r.Bucket == "test-bucket" {
 			found = true
 			assert.Equal(t, "documentation", r.Metadata["category"])
 			break

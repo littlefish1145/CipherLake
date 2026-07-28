@@ -13,15 +13,15 @@ type TaskType string
 
 const (
 	TaskTieringDecision     TaskType = "tiering_decision"
-	TaskScrubCheck         TaskType = "scrub_check"
+	TaskScrubCheck          TaskType = "scrub_check"
 	TaskKeyRotation         TaskType = "key_rotation"
 	TaskMultipartCleanup    TaskType = "multipart_cleanup"
-	TaskHotIndexEviction   TaskType = "hot_index_eviction"
+	TaskHotIndexEviction    TaskType = "hot_index_eviction"
 	TaskColdIndexCompaction TaskType = "cold_index_compaction"
-	TaskMetadataCompaction TaskType = "metadata_compaction"
-	TaskReplicationSync    TaskType = "replication_sync"
-	TaskVersionCleanup     TaskType = "version_cleanup"
-	TaskLifecycleProcess   TaskType = "lifecycle_process"
+	TaskMetadataCompaction  TaskType = "metadata_compaction"
+	TaskReplicationSync     TaskType = "replication_sync"
+	TaskVersionCleanup      TaskType = "version_cleanup"
+	TaskLifecycleProcess    TaskType = "lifecycle_process"
 )
 
 type TaskConfig struct {
@@ -35,9 +35,9 @@ type TaskConfig struct {
 }
 
 type RetryPolicy struct {
-	MaxRetries    int
-	InitialDelay  time.Duration
-	MaxDelay      time.Duration
+	MaxRetries        int
+	InitialDelay      time.Duration
+	MaxDelay          time.Duration
 	BackoffMultiplier float64
 }
 
@@ -60,44 +60,71 @@ type Scheduler struct {
 	taskResultsMu  sync.RWMutex
 	runningTasks   map[TaskType]bool
 	runningTasksMu sync.RWMutex
-	mu            sync.RWMutex
-	maxHistory    int
-	disabled      map[TaskType]bool
-	disabledMu    sync.RWMutex
+	mu             sync.RWMutex
+	maxHistory     int
+	disabled       map[TaskType]bool
+	disabledMu     sync.RWMutex
+	cronIDs        map[TaskType]cron.EntryID
 }
 
 func NewScheduler() *Scheduler {
+	// Accept both standard 5-field cron and 6-field cron-with-seconds so
+	// that callers (e.g. plugin loader manifest schedules) can use either.
+	parser := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 	return &Scheduler{
-		cron:        cron.New(cron.WithSeconds()),
-		tasks:       make(map[TaskType]*TaskConfig),
-		taskResults: make(map[TaskType][]*TaskResult),
+		cron:         cron.New(cron.WithParser(parser)),
+		tasks:        make(map[TaskType]*TaskConfig),
+		taskResults:  make(map[TaskType][]*TaskResult),
 		runningTasks: make(map[TaskType]bool),
-		maxHistory:  100,
-		disabled:    make(map[TaskType]bool),
+		maxHistory:   100,
+		disabled:     make(map[TaskType]bool),
+		cronIDs:      make(map[TaskType]cron.EntryID),
 	}
 }
 
-func (s *Scheduler) RegisterTask(config *TaskConfig) error {
+func (s *Scheduler) RegisterTask(config *TaskConfig) (cron.EntryID, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if config.Schedule == "" {
-		return fmt.Errorf("schedule is required for task %s", config.Type)
-	}
-
 	if config.Handler == nil {
-		return fmt.Errorf("handler is required for task %s", config.Type)
+		return 0, fmt.Errorf("handler is required for task %s", config.Type)
 	}
 
 	s.tasks[config.Type] = config
 
-	_, err := s.cron.AddFunc(config.Schedule, func() {
+	// Schedule is optional: tasks without a schedule are on-demand-only and
+	// invoked exclusively via RunTaskNow. They still need to be registered so
+	// that RunTaskNow can look them up and respect their RetryPolicy.
+	if config.Schedule == "" {
+		return 0, nil
+	}
+
+	entryID, err := s.cron.AddFunc(config.Schedule, func() {
 		s.executeTask(context.Background(), config.Type)
 	})
 	if err != nil {
-		return fmt.Errorf("failed to add task %s: %w", config.Type, err)
+		return 0, fmt.Errorf("failed to add task %s: %w", config.Type, err)
+	}
+	s.cronIDs[config.Type] = entryID
+
+	return entryID, nil
+}
+
+// UnregisterTask removes a registered task from the scheduler and stops
+// future cron invocations. In-flight executions are not interrupted.
+func (s *Scheduler) UnregisterTask(taskType TaskType) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, ok := s.tasks[taskType]; !ok {
+		return fmt.Errorf("task %s not found", taskType)
 	}
 
+	if entryID, ok := s.cronIDs[taskType]; ok {
+		s.cron.Remove(entryID)
+		delete(s.cronIDs, taskType)
+	}
+	delete(s.tasks, taskType)
 	return nil
 }
 
@@ -160,25 +187,33 @@ func (s *Scheduler) executeTask(ctx context.Context, taskType TaskType) error {
 	}
 
 	var err error
-	maxRetries := 1
+	retryPolicy := &RetryPolicy{
+		MaxRetries:        1,
+		InitialDelay:      time.Second,
+		MaxDelay:          time.Minute,
+		BackoffMultiplier: 2,
+	}
 	if config.RetryPolicy != nil {
-		maxRetries = config.RetryPolicy.MaxRetries
+		retryPolicy = config.RetryPolicy
 	}
 
-	for attempt := 0; attempt <= maxRetries; attempt++ {
+	for attempt := 0; attempt <= retryPolicy.MaxRetries; attempt++ {
 		result.RetryCount = attempt
 
 		if attempt > 0 {
-			delay := config.RetryPolicy.InitialDelay
-			if config.RetryPolicy.BackoffMultiplier > 0 {
+			delay := retryPolicy.InitialDelay
+			if retryPolicy.BackoffMultiplier > 0 {
 				for i := 0; i < attempt; i++ {
-					delay = time.Duration(float64(delay) * config.RetryPolicy.BackoffMultiplier)
-					if delay > config.RetryPolicy.MaxDelay {
-						delay = config.RetryPolicy.MaxDelay
+					delay = time.Duration(float64(delay) * retryPolicy.BackoffMultiplier)
+					if delay > retryPolicy.MaxDelay {
+						delay = retryPolicy.MaxDelay
 					}
 				}
 			}
-			time.Sleep(delay)
+			if retryErr := waitForRetry(ctx, delay); retryErr != nil {
+				err = retryErr
+				break
+			}
 		}
 
 		err = config.Handler(ctx)
@@ -198,6 +233,18 @@ func (s *Scheduler) executeTask(ctx context.Context, taskType TaskType) error {
 	s.recordResult(taskType, result)
 
 	return err
+}
+
+func waitForRetry(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func (s *Scheduler) recordResult(taskType TaskType, result *TaskResult) {
@@ -310,11 +357,11 @@ type TaskStatus struct {
 }
 
 type TaskStats struct {
-	TotalRuns     int
-	Successes    int
-	Failures     int
-	AvgDuration  time.Duration
-	MaxRetries   int
+	TotalRuns   int
+	Successes   int
+	Failures    int
+	AvgDuration time.Duration
+	MaxRetries  int
 }
 
 func (s *Scheduler) GetTaskStats(taskType TaskType) *TaskStats {
@@ -359,8 +406,8 @@ func NewTaskBuilder(scheduler *Scheduler, taskType TaskType) *TaskBuilder {
 	return &TaskBuilder{
 		scheduler: scheduler,
 		config: &TaskConfig{
-			Type:      taskType,
-			Enabled:   true,
+			Type:        taskType,
+			Enabled:     true,
 			Concurrency: 1,
 		},
 	}
@@ -383,9 +430,9 @@ func (tb *TaskBuilder) Concurrency(concurrency int) *TaskBuilder {
 
 func (tb *TaskBuilder) Retry(maxRetries int, initialDelay, maxDelay time.Duration, multiplier float64) *TaskBuilder {
 	tb.config.RetryPolicy = &RetryPolicy{
-		MaxRetries:         maxRetries,
-		InitialDelay:       initialDelay,
-		MaxDelay:           maxDelay,
+		MaxRetries:        maxRetries,
+		InitialDelay:      initialDelay,
+		MaxDelay:          maxDelay,
 		BackoffMultiplier: multiplier,
 	}
 	return tb
@@ -397,7 +444,8 @@ func (tb *TaskBuilder) DependsOn(tasks ...TaskType) *TaskBuilder {
 }
 
 func (tb *TaskBuilder) Register() error {
-	return tb.scheduler.RegisterTask(tb.config)
+	_, err := tb.scheduler.RegisterTask(tb.config)
+	return err
 }
 
 func DefaultTaskConfigs() map[TaskType]*TaskConfig {
@@ -407,10 +455,10 @@ func DefaultTaskConfigs() map[TaskType]*TaskConfig {
 			Schedule:    "0 */6 * * *",
 			Concurrency: 1,
 			RetryPolicy: &RetryPolicy{
-				MaxRetries:         3,
-				InitialDelay:        1 * time.Minute,
-				MaxDelay:            10 * time.Minute,
-				BackoffMultiplier:  2.0,
+				MaxRetries:        3,
+				InitialDelay:      1 * time.Minute,
+				MaxDelay:          10 * time.Minute,
+				BackoffMultiplier: 2.0,
 			},
 		},
 		TaskScrubCheck: {
@@ -418,10 +466,10 @@ func DefaultTaskConfigs() map[TaskType]*TaskConfig {
 			Schedule:    "0 2 * * 0",
 			Concurrency: 4,
 			RetryPolicy: &RetryPolicy{
-				MaxRetries:         2,
-				InitialDelay:        5 * time.Minute,
-				MaxDelay:            30 * time.Minute,
-				BackoffMultiplier:  3.0,
+				MaxRetries:        2,
+				InitialDelay:      5 * time.Minute,
+				MaxDelay:          30 * time.Minute,
+				BackoffMultiplier: 3.0,
 			},
 		},
 		TaskKeyRotation: {
@@ -429,10 +477,10 @@ func DefaultTaskConfigs() map[TaskType]*TaskConfig {
 			Schedule:    "0 3 1 * *",
 			Concurrency: 1,
 			RetryPolicy: &RetryPolicy{
-				MaxRetries:         1,
-				InitialDelay:        10 * time.Minute,
-				MaxDelay:            1 * time.Hour,
-				BackoffMultiplier:  2.0,
+				MaxRetries:        1,
+				InitialDelay:      10 * time.Minute,
+				MaxDelay:          1 * time.Hour,
+				BackoffMultiplier: 2.0,
 			},
 		},
 		TaskMultipartCleanup: {
@@ -440,10 +488,10 @@ func DefaultTaskConfigs() map[TaskType]*TaskConfig {
 			Schedule:    "0 */1 * * *",
 			Concurrency: 2,
 			RetryPolicy: &RetryPolicy{
-				MaxRetries:         1,
-				InitialDelay:        30 * time.Second,
-				MaxDelay:            5 * time.Minute,
-				BackoffMultiplier:  2.0,
+				MaxRetries:        1,
+				InitialDelay:      30 * time.Second,
+				MaxDelay:          5 * time.Minute,
+				BackoffMultiplier: 2.0,
 			},
 		},
 		TaskHotIndexEviction: {
@@ -456,10 +504,10 @@ func DefaultTaskConfigs() map[TaskType]*TaskConfig {
 			Schedule:    "0 4 * * 0",
 			Concurrency: 1,
 			RetryPolicy: &RetryPolicy{
-				MaxRetries:         1,
-				InitialDelay:        1 * time.Hour,
-				MaxDelay:            6 * time.Hour,
-				BackoffMultiplier:  2.0,
+				MaxRetries:        1,
+				InitialDelay:      1 * time.Hour,
+				MaxDelay:          6 * time.Hour,
+				BackoffMultiplier: 2.0,
 			},
 		},
 		TaskLifecycleProcess: {

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/robfig/cron/v3"
 )
 
 // Supported manifest + host API versions. Bumping SupportedManifestVersion
@@ -54,12 +55,24 @@ type Manifest struct {
 	TrustTierRequested int `json:"trust_tier_requested" yaml:"trust_tier_requested"`
 
 	Capabilities []string       `json:"capabilities,omitempty" yaml:"capabilities,omitempty"`
-	Hooks         []ManifestHook `json:"hooks,omitempty" yaml:"hooks,omitempty"`
-	Routes        []ManifestRoute `json:"routes,omitempty" yaml:"routes,omitempty"`
-	StateSchema   []ManifestStateKey `json:"state_schema,omitempty" yaml:"state_schema,omitempty"`
-	Resources     *ManifestResources `json:"resources,omitempty" yaml:"resources,omitempty"`
-	NetworkEgress []string       `json:"network_egress,omitempty" yaml:"network_egress,omitempty"`
-	DependsOn     []string       `json:"depends_on,omitempty" yaml:"depends_on,omitempty"`
+	Hooks              []ManifestHook `json:"hooks,omitempty" yaml:"hooks,omitempty"`
+	Routes             []ManifestRoute `json:"routes,omitempty" yaml:"routes,omitempty"`
+	StateSchema        []ManifestStateKey `json:"state_schema,omitempty" yaml:"state_schema,omitempty"`
+	Resources          *ManifestResources `json:"resources,omitempty" yaml:"resources,omitempty"`
+	NetworkEgress      []string       `json:"network_egress,omitempty" yaml:"network_egress,omitempty"`
+	DependsOn          []string       `json:"depends_on,omitempty" yaml:"depends_on,omitempty"`
+	EventSubscriptions []ManifestEventSubscription `json:"event_subscriptions,omitempty" yaml:"event_subscriptions,omitempty"`
+
+	// TaskSchedules declares cron schedules the loader registers on
+	// install (spec §3.13, P4-3). Each trigger calls the plugin's
+	// on_task entry point (or the configured handler).
+	TaskSchedules []ManifestTaskSchedule `json:"task_schedules,omitempty" yaml:"task_schedules,omitempty"`
+
+	// PipelineSteps declares the pipeline step names this plugin exposes
+	// (spec §3.12, P4-1). Each step maps to the plugin's on_pipeline_step
+	// entry point (or the configured handler). The plugin must also hold
+	// the matching "pipeline:step:<name>" capability.
+	PipelineSteps []ManifestPipelineStep `json:"pipeline_steps,omitempty" yaml:"pipeline_steps,omitempty"`
 
 	// Grants allows other plugins to read this plugin's state (spec §3.14
 	// A13, P5-3). Each grant names the reader plugin and a key prefix
@@ -116,6 +129,19 @@ type ManifestGrant struct {
 	Keys   []string `json:"keys" yaml:"keys"` // glob patterns
 }
 
+// ManifestTaskSchedule declares a cron schedule for a plugin (P4-3).
+type ManifestTaskSchedule struct {
+	Schedule string `json:"schedule" yaml:"schedule"` // cron expression
+	Payload  string `json:"payload,omitempty" yaml:"payload,omitempty"`
+	Handler  string `json:"handler,omitempty" yaml:"handler,omitempty"` // default "on_task"
+}
+
+// ManifestPipelineStep declares a pipeline step exposed by a plugin (P4-1).
+type ManifestPipelineStep struct {
+	Name    string `json:"name" yaml:"name"`       // step name referenced by YAML pipelines
+	Handler string `json:"handler,omitempty" yaml:"handler,omitempty"` // default "on_pipeline_step"
+}
+
 // ParseManifest decodes a manifest from JSON bytes and runs validation.
 // Callers that already have a parsed struct can call Validate directly.
 func ParseManifest(raw []byte) (*Manifest, error) {
@@ -165,6 +191,12 @@ func (m *Manifest) Validate() error {
 		if err := validateCapability(cap); err != nil {
 			return ErrManifestInvalid{Field: fmt.Sprintf("capabilities[%d]", i), Reason: err.Error()}
 		}
+		if IsTier2Only(cap) && m.TrustTierRequested < TierCore {
+			return ErrManifestInvalid{
+				Field:  fmt.Sprintf("capabilities[%d]", i),
+				Reason: fmt.Sprintf("capability %q requires trust_tier_requested = 2", cap),
+			}
+		}
 	}
 	for i, h := range m.Hooks {
 		if err := validateHook(&h); err != nil {
@@ -180,6 +212,74 @@ func (m *Manifest) Validate() error {
 		if !pluginNameRe.MatchString(dep) {
 			return ErrManifestInvalid{Field: fmt.Sprintf("depends_on[%d]", i), Reason: "invalid plugin name"}
 		}
+	}
+	for i, sub := range m.EventSubscriptions {
+		if len(sub.Events) == 0 {
+			return ErrManifestInvalid{Field: fmt.Sprintf("event_subscriptions[%d].events", i), Reason: "at least one event pattern is required"}
+		}
+		for j, pat := range sub.Events {
+			if pat == "" {
+				return ErrManifestInvalid{Field: fmt.Sprintf("event_subscriptions[%d].events[%d]", i, j), Reason: "empty event pattern"}
+			}
+		}
+	}
+	if len(m.TaskSchedules) > 0 && !hasCapability(m.Capabilities, "task:schedule") {
+		return ErrManifestInvalid{Field: "task_schedules", Reason: "manifest declares task schedules but capability \"task:schedule\" is not granted"}
+	}
+	for i, ts := range m.TaskSchedules {
+		if err := validateTaskSchedule(i, &ts); err != nil {
+			return err
+		}
+	}
+	seenSteps := make(map[string]bool)
+	for i, ps := range m.PipelineSteps {
+		if err := validatePipelineStep(i, &ps, m.Capabilities); err != nil {
+			return err
+		}
+		if seenSteps[ps.Name] {
+			return ErrManifestInvalid{Field: fmt.Sprintf("pipeline_steps[%d].name", i), Reason: fmt.Sprintf("duplicate pipeline step name %q", ps.Name)}
+		}
+		seenSteps[ps.Name] = true
+	}
+	return nil
+}
+
+// hasCapability reports whether caps contains the exact capability string.
+func hasCapability(caps []string, cap string) bool {
+	for _, c := range caps {
+		if c == cap {
+			return true
+		}
+	}
+	return false
+}
+
+// taskScheduleCronParser accepts standard 5-field cron and 6-field cron-with-seconds,
+// matching the parser used by internal/scheduler.
+var taskScheduleCronParser = cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
+
+// validateTaskSchedule validates a single manifest task schedule.
+func validateTaskSchedule(idx int, ts *ManifestTaskSchedule) error {
+	if ts.Schedule == "" {
+		return ErrManifestInvalid{Field: fmt.Sprintf("task_schedules[%d].schedule", idx), Reason: "schedule is required"}
+	}
+	if _, err := taskScheduleCronParser.Parse(ts.Schedule); err != nil {
+		return ErrManifestInvalid{Field: fmt.Sprintf("task_schedules[%d].schedule", idx), Reason: fmt.Sprintf("invalid cron expression: %v", err)}
+	}
+	return nil
+}
+
+// validatePipelineStep validates a single manifest pipeline step declaration.
+func validatePipelineStep(idx int, ps *ManifestPipelineStep, caps []string) error {
+	if ps.Name == "" {
+		return ErrManifestInvalid{Field: fmt.Sprintf("pipeline_steps[%d].name", idx), Reason: "pipeline step name is required"}
+	}
+	if !pluginNameRe.MatchString(ps.Name) {
+		return ErrManifestInvalid{Field: fmt.Sprintf("pipeline_steps[%d].name", idx), Reason: fmt.Sprintf("invalid pipeline step name %q", ps.Name)}
+	}
+	requiredCap := "pipeline:step:" + ps.Name
+	if !hasCapability(caps, requiredCap) {
+		return ErrManifestInvalid{Field: fmt.Sprintf("pipeline_steps[%d]", idx), Reason: fmt.Sprintf("pipeline step %q requires capability %q", ps.Name, requiredCap)}
 	}
 	return nil
 }

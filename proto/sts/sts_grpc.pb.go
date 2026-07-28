@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             v6.33.2
-// source: proto/sts.proto
+// source: sts.proto
 
 package sts
 
@@ -1403,5 +1403,5 @@ var STSService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/sts.proto",
+	Metadata: "sts.proto",
 }

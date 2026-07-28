@@ -116,9 +116,9 @@ func TestWebhookSender_Send_Success(t *testing.T) {
 	var receivedEventType string
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		receivedSig = r.Header.Get("X-Nexus-Signature")
-		receivedDelivery = r.Header.Get("X-Nexus-Delivery")
-		receivedEventType = r.Header.Get("X-Nexus-Event-Type")
+		receivedSig = r.Header.Get("X-CipherLake-Signature")
+		receivedDelivery = r.Header.Get("X-CipherLake-Delivery")
+		receivedEventType = r.Header.Get("X-CipherLake-Event-Type")
 		receivedPayload, _ = io.ReadAll(r.Body)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -558,4 +558,207 @@ func TestMatchEventTypePattern(t *testing.T) {
 	assert.True(t, matchEventTypePattern("s3:ObjectCreated:Put", "s3:ObjectCreated:Put"))
 	assert.False(t, matchEventTypePattern("s3:ObjectCreated:Put", "s3:ObjectCreated:Post"))
 	assert.False(t, matchEventTypePattern("s3:ObjectCreated:*", "s3:ObjectRemoved:Delete"))
+}
+
+// --- Lifecycle idempotency and shutdown regression tests ---
+
+// TestDeadLetterQueue_StopIdempotent verifies that calling Stop() multiple
+// times on a DLQ does not panic (close on closed channel would panic).
+func TestDeadLetterQueue_StopIdempotent(t *testing.T) {
+	metrics := NewMetrics()
+	dlq := NewDeadLetterQueue(t.TempDir(), 3, 100, metrics)
+	sender := NewWebhookSender(5 * time.Second)
+	dlq.Start(sender)
+
+	dlq.Stop()
+	dlq.Stop()
+	dlq.Stop()
+}
+
+// TestDeadLetterQueue_StopWaitsForRetryGoroutine verifies that Stop() blocks
+// until the retry goroutine has exited.
+func TestDeadLetterQueue_StopWaitsForRetryGoroutine(t *testing.T) {
+	metrics := NewMetrics()
+	dlq := NewDeadLetterQueue(t.TempDir(), 3, 100, metrics)
+	sender := NewWebhookSender(5 * time.Second)
+	dlq.Start(sender)
+
+	// Use a channel to observe the retry goroutine exiting. We approximate
+	// this by checking that Stop() returns in a timely manner and that a
+	// subsequent Enqueue does not panic from a goroutine that should be gone.
+	done := make(chan struct{})
+	go func() {
+		dlq.Stop()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("DLQ Stop() did not return within 5 seconds")
+	}
+
+	// Enqueue after stop should not panic and should fall back to disk.
+	event := &Event{EventID: "post-stop", EventType: "s3:ObjectCreated:Put", Key: "k.txt"}
+	rule := &NotificationRule{
+		ID:          "r",
+		Events:      []string{"s3:ObjectCreated:*"},
+		Destination: DestinationConfig{Type: "webhook", URL: "http://example.invalid"},
+	}
+	assert.NotPanics(t, func() {
+		dlq.Enqueue(event, rule, 99, "after stop")
+	})
+}
+
+// TestDeadLetterQueue_StartIdempotent verifies that calling Start() multiple
+// times does not spawn duplicate retry goroutines.
+func TestDeadLetterQueue_StartIdempotent(t *testing.T) {
+	metrics := NewMetrics()
+	dlq := NewDeadLetterQueue(t.TempDir(), 3, 100, metrics)
+	sender := NewWebhookSender(5 * time.Second)
+
+	dlq.Start(sender)
+	dlq.Start(sender)
+	dlq.Start(sender)
+	dlq.Stop()
+}
+
+// TestEventBus_StartStopIdempotent verifies that Start() and Stop() can be
+// called multiple times without panicking.
+func TestEventBus_StartStopIdempotent(t *testing.T) {
+	bus := NewEventBus(4, 5*time.Second, t.TempDir(), 3, 100)
+	bus.Start()
+	bus.Start() // idempotent
+	bus.Start() // idempotent
+
+	bus.Stop()
+	bus.Stop() // idempotent
+	bus.Stop() // idempotent
+}
+
+// TestEventBus_StopWaitsForDispatchLoop verifies that Stop() waits for the
+// dispatch loop goroutine to exit. We approximate this by checking that
+// Stop() returns quickly even when the event channel is non-empty, and
+// that a Publish after Stop does not hang.
+func TestEventBus_StopWaitsForDispatchLoop(t *testing.T) {
+	bus := NewEventBus(2, 5*time.Second, t.TempDir(), 3, 100)
+	bus.Start()
+
+	// Stop should return in a timely manner even with no events published.
+	done := make(chan struct{})
+	go func() {
+		bus.Stop()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("EventBus Stop() did not return within 5 seconds")
+	}
+}
+
+// TestEventBus_PublishAfterStopDoesNotHang verifies that calling Publish
+// after Stop() (or concurrently with Stop()) does not block forever.
+func TestEventBus_PublishAfterStopDoesNotHang(t *testing.T) {
+	bus := NewEventBus(2, 5*time.Second, t.TempDir(), 3, 100)
+	bus.Start()
+	bus.Stop()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	done := make(chan struct{})
+	go func() {
+		// Publish after stop should return immediately (event dropped).
+		bus.Publish(ctx, &Event{
+			EventType: "s3:ObjectCreated:Put",
+			Bucket:    "b",
+			Key:       "k",
+		})
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-ctx.Done():
+		t.Fatal("Publish after Stop blocked until context timeout")
+	}
+}
+
+// TestEventBus_StopDrainsInFlightEvents verifies that Stop() waits for
+// in-flight events to be delivered before returning.
+func TestEventBus_StopDrainsInFlightEvents(t *testing.T) {
+	var delivered atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		delivered.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	bus := NewEventBus(4, 5*time.Second, t.TempDir(), 3, 100)
+	bus.Start()
+	bus.SetSSRFBypass(true)
+
+	rule := &NotificationRule{
+		ID:     "drain-rule",
+		Events: []string{"s3:ObjectCreated:*"},
+		Destination: DestinationConfig{
+			Type: "webhook",
+			URL:  server.URL,
+		},
+	}
+	require.NoError(t, bus.Subscribe("drain-bucket", rule))
+
+	// Publish events then immediately stop. Stop should wait for delivery.
+	const n = 10
+	for i := 0; i < n; i++ {
+		bus.Publish(context.Background(), &Event{
+			EventType: "s3:ObjectCreated:Put",
+			Bucket:    "drain-bucket",
+			Key:       fmt.Sprintf("k-%d.txt", i),
+		})
+	}
+
+	bus.Stop()
+
+	assert.Equal(t, int32(n), delivered.Load(), "all in-flight events should be delivered before Stop returns")
+}
+
+// TestEventBus_StartOnceOnly verifies that calling Start() twice does not
+// spawn duplicate dispatch loops that would cause double-delivery.
+func TestEventBus_StartOnceOnly(t *testing.T) {
+	var delivered atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		delivered.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	bus := NewEventBus(4, 5*time.Second, t.TempDir(), 3, 100)
+	bus.Start()
+	bus.SetSSRFBypass(true)
+	// Call Start again - should be a no-op.
+	bus.Start()
+
+	rule := &NotificationRule{
+		ID:          "once-rule",
+		Events:      []string{"s3:ObjectCreated:*"},
+		Destination: DestinationConfig{Type: "webhook", URL: server.URL},
+	}
+	require.NoError(t, bus.Subscribe("once-bucket", rule))
+
+	bus.Publish(context.Background(), &Event{
+		EventType: "s3:ObjectCreated:Put",
+		Bucket:    "once-bucket",
+		Key:       "k.txt",
+	})
+
+	assert.Eventually(t, func() bool {
+		return delivered.Load() == 1
+	}, 2*time.Second, 50*time.Millisecond)
+
+	bus.Stop()
+
+	// Should still be exactly 1 - no double delivery from duplicate Start.
+	assert.Equal(t, int32(1), delivered.Load())
 }

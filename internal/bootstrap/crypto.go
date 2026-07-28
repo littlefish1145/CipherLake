@@ -2,18 +2,19 @@ package bootstrap
 
 import (
 	"fmt"
+	"io"
 
 	"go.uber.org/zap"
 
-	"nexus/internal/config"
-	"nexus/internal/kms"
-	"nexus/internal/services"
-	"nexus/internal/services/token_service"
-	"nexus/internal/services/keygen_service"
-	"nexus/internal/services/keyunwrap_service"
-	"nexus/internal/services/encrypt_service"
-	"nexus/internal/services/decrypt_service"
-	"nexus/internal/services/keystore_service"
+	"cipherlake/internal/config"
+	"cipherlake/internal/kms"
+	"cipherlake/internal/services"
+	"cipherlake/internal/services/decrypt_service"
+	"cipherlake/internal/services/encrypt_service"
+	"cipherlake/internal/services/keygen_service"
+	"cipherlake/internal/services/keystore_service"
+	"cipherlake/internal/services/keyunwrap_service"
+	"cipherlake/internal/services/token_service"
 )
 
 // InitializeCryptoServices creates an EncryptionCoordinator based on config.
@@ -168,10 +169,9 @@ func initializeLocal(cfg *config.Config) (*services.EncryptionCoordinator, error
 		TokenService:     tokenSvc,
 		KeyGenService:    keyGenSvc,
 		KeyUnwrapService: keyUnwrapSvc,
-		EncryptService:   encryptSvc,
-		DecryptService:   decryptSvc,
 		KeyStoreService:  keyStoreSvc,
 		OPAClient:        opaClient,
+		ServiceClosers:   []io.Closer{encryptSvc, decryptSvc},
 	}), nil
 }
 

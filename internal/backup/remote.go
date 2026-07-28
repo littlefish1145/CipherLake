@@ -11,15 +11,15 @@ import (
 	"os"
 	"path/filepath"
 
-	"nexus/internal/kms"
+	"cipherlake/internal/kms"
 )
 
 type RemoteConfig struct {
-	Type     string `json:"type"`      // "s3", "local"
-	Endpoint string `json:"endpoint"`  // S3 endpoint or local path
-	Bucket   string `json:"bucket"`    // S3 bucket name
-	Region   string `json:"region"`    // S3 region
-	Prefix   string `json:"prefix"`    // Key prefix in S3 or subdirectory in local
+	Type     string `json:"type"`     // "s3", "local"
+	Endpoint string `json:"endpoint"` // S3 endpoint or local path
+	Bucket   string `json:"bucket"`   // S3 bucket name
+	Region   string `json:"region"`   // S3 region
+	Prefix   string `json:"prefix"`   // Key prefix in S3 or subdirectory in local
 }
 
 // EncryptBackup encrypts a backup file with AES-256-GCM using the provided key.

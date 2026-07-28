@@ -10,6 +10,7 @@ import (
 	"time"
 
 	bolt "go.etcd.io/bbolt"
+	"go.uber.org/zap"
 )
 
 const taskBucket = "tasks"
@@ -72,7 +73,9 @@ func (s *BoltStore) GetPending(ctx context.Context, limit int) ([]*Task, error) 
 		return b.ForEach(func(k, v []byte) error {
 			var t Task
 			if err := json.Unmarshal(v, &t); err != nil {
-				return nil // Skip corrupted records.
+				zap.L().Warn("bolt task store: skipping corrupted record",
+					zap.ByteString("key", k), zap.Error(err))
+				return nil
 			}
 			if t.Status == StatusPending {
 				pending = append(pending, &t)
@@ -89,6 +92,92 @@ func (s *BoltStore) GetPending(ctx context.Context, limit int) ([]*Task, error) 
 		pending = pending[:limit]
 	}
 	return pending, nil
+}
+
+func (s *BoltStore) ClaimPending(ctx context.Context, limit int) ([]*Task, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var pending []*Task
+	err := s.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(taskBucket))
+		if err := b.ForEach(func(k, v []byte) error {
+			var task Task
+			if err := json.Unmarshal(v, &task); err != nil {
+				zap.L().Warn("bolt task store: skipping corrupted record during claim",
+					zap.ByteString("key", k), zap.Error(err))
+				return nil
+			}
+			if task.Status == StatusPending {
+				pending = append(pending, &task)
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+
+		pending = sortTasks(pending)
+		if limit > 0 && len(pending) > limit {
+			pending = pending[:limit]
+		}
+
+		now := time.Now()
+		for _, task := range pending {
+			task.Status = StatusProcessing
+			task.Attempts++
+			task.UpdatedAt = now
+			data, err := json.Marshal(task)
+			if err != nil {
+				return fmt.Errorf("failed to marshal claimed task: %w", err)
+			}
+			if err := b.Put([]byte(task.ID), data); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return pending, nil
+}
+
+func (s *BoltStore) RecoverProcessing(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(taskBucket))
+		var processing []*Task
+		if err := b.ForEach(func(k, v []byte) error {
+			var task Task
+			if err := json.Unmarshal(v, &task); err != nil {
+				zap.L().Warn("bolt task store: skipping corrupted record during recover",
+					zap.ByteString("key", k), zap.Error(err))
+				return nil
+			}
+			if task.Status == StatusProcessing {
+				processing = append(processing, &task)
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+
+		now := time.Now()
+		for _, task := range processing {
+			task.Status = StatusPending
+			task.UpdatedAt = now
+			data, err := json.Marshal(task)
+			if err != nil {
+				return fmt.Errorf("failed to marshal recovered task: %w", err)
+			}
+			if err := b.Put([]byte(task.ID), data); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (s *BoltStore) GetByID(ctx context.Context, id string) (*Task, error) {
@@ -145,6 +234,8 @@ func (s *BoltStore) ListDeadLetter(ctx context.Context, limit int) ([]*Task, err
 		return b.ForEach(func(k, v []byte) error {
 			var t Task
 			if err := json.Unmarshal(v, &t); err != nil {
+				zap.L().Warn("bolt task store: skipping corrupted record during dead-letter list",
+					zap.ByteString("key", k), zap.Error(err))
 				return nil
 			}
 			if t.Status == StatusDeadLetter {

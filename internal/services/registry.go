@@ -22,12 +22,12 @@ type ServiceRegistry struct {
 
 // ServiceConfig defines configuration for a microservice
 type ServiceConfig struct {
-	Name        string
-	ID          string
-	Address     string
-	Port        int
-	Tags        []string
-	TTL         time.Duration
+	Name          string
+	ID            string
+	Address       string
+	Port          int
+	Tags          []string
+	TTL           time.Duration
 	CheckInterval time.Duration
 }
 

@@ -14,9 +14,9 @@ import (
 
 // MasterKey manages the encryption key used to protect Secret Keys at rest
 type MasterKey struct {
-	key      []byte // 32 bytes for AES-256
-	keyPath  string
-	loaded   bool
+	key     []byte // 32 bytes for AES-256
+	keyPath string
+	loaded  bool
 }
 
 // NewMasterKey loads or creates a master key from the specified path
