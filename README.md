@@ -455,3 +455,8 @@ go test ./... -count=1
 ## 许可证
 
 [MIT](LICENSE)
+```text
+ /\_/\  
+( o.o ) 
+ > ^ <
+```
