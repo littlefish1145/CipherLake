@@ -38,8 +38,8 @@ import (
 	"sync"
 	"unsafe"
 
-	"nexus/internal/vector/vse"
-	"nexus/internal/vector/vse/engine/quantizer"
+	"cipherlake/internal/vector/vse"
+	"cipherlake/internal/vector/vse/engine/quantizer"
 )
 
 // ---------------------------------------------------------------------------
@@ -47,17 +47,17 @@ import (
 // ---------------------------------------------------------------------------
 
 type gpuSegData struct {
-	dCodes     unsafe.Pointer // PQ codes (nv × M bytes)
-	dCodebook  unsafe.Pointer // PQ codebook (M × 256 × subdim float32)
-	dCentroids unsafe.Pointer // centroids (nc × dim float32)
-	dVectors   unsafe.Pointer // exact vectors (nv × dim float32), optional
-	dNorms     unsafe.Pointer // vec norms² (nv × float32), optional
-	dGlobalIDs unsafe.Pointer // global IDs (nv × uint64)
+	dCodes                 unsafe.Pointer // PQ codes (nv × M bytes)
+	dCodebook              unsafe.Pointer // PQ codebook (M × 256 × subdim float32)
+	dCentroids             unsafe.Pointer // centroids (nc × dim float32)
+	dVectors               unsafe.Pointer // exact vectors (nv × dim float32), optional
+	dNorms                 unsafe.Pointer // vec norms² (nv × float32), optional
+	dGlobalIDs             unsafe.Pointer // global IDs (nv × uint64)
 	nv, dim, nc, M, subdim int
 
 	// GPU-side IVF lists (CSR format)
-	dClusterOffsets  unsafe.Pointer // [nc+1] int32
-	dClusterMembers   unsafe.Pointer // [total] int32, flattened vector indices
+	dClusterOffsets unsafe.Pointer // [nc+1] int32
+	dClusterMembers unsafe.Pointer // [total] int32, flattened vector indices
 
 	// Vamana graph data (CSR format)
 	dNbrOffsets unsafe.Pointer // [nv+1] int32
@@ -77,26 +77,26 @@ type gpuSegData struct {
 // ---------------------------------------------------------------------------
 
 type cudaKernels struct {
-	mod                C.CUmodule
-	pqDistTable        C.CUfunction
-	pqADC              C.CUfunction
-	pqADCGather        C.CUfunction
-	centroidDist       C.CUfunction
-	computeNorms       C.CUfunction
-	l2FromDot          C.CUfunction
-	cosineFromDot      C.CUfunction
-	topkSelect         C.CUfunction
-	gatherDot          C.CUfunction
-	gatherL2           C.CUfunction
-	gatherCosine        C.CUfunction
-	topkSelectGather    C.CUfunction
-	topkSelectIndices   C.CUfunction
-	gatherIVFCandidates  C.CUfunction
+	mod                   C.CUmodule
+	pqDistTable           C.CUfunction
+	pqADC                 C.CUfunction
+	pqADCGather           C.CUfunction
+	centroidDist          C.CUfunction
+	computeNorms          C.CUfunction
+	l2FromDot             C.CUfunction
+	cosineFromDot         C.CUfunction
+	topkSelect            C.CUfunction
+	gatherDot             C.CUfunction
+	gatherL2              C.CUfunction
+	gatherCosine          C.CUfunction
+	topkSelectGather      C.CUfunction
+	topkSelectIndices     C.CUfunction
+	gatherIVFCandidates   C.CUfunction
 	batchedTopKSelectGids C.CUfunction
-	mergeTopKPositions   C.CUfunction
-	centroidSelectTopK   C.CUfunction
-	vamanaExpand         C.CUfunction
-	vamanaMergeFrontier  C.CUfunction
+	mergeTopKPositions    C.CUfunction
+	centroidSelectTopK    C.CUfunction
+	vamanaExpand          C.CUfunction
+	vamanaMergeFrontier   C.CUfunction
 }
 
 // ---------------------------------------------------------------------------
@@ -228,7 +228,9 @@ func newGPUImpl(cfg Config) gpuImpl {
 func (m *cudaManager) init() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.initDone { return nil }
+	if m.initDone {
+		return nil
+	}
 
 	if err := cuCheck(C.cuInit(0)); err != nil {
 		return fmt.Errorf("cuInit: %w", err)
@@ -274,7 +276,9 @@ func (m *cudaManager) init() error {
 func (m *cudaManager) close() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if !m.initDone { return }
+	if !m.initDone {
+		return
+	}
 	for id, d := range m.segments {
 		m.freeSegData(d)
 		delete(m.segments, id)
@@ -282,9 +286,15 @@ func (m *cudaManager) close() {
 	if m.queryPool != nil {
 		m.queryPool.free()
 	}
-	if m.kernels != nil { C.cuModuleUnload(m.kernels.mod) }
-	if m.stream != nil { C.cuStreamDestroy(m.stream) }
-	if m.handle != nil { C.cublasDestroy(m.handle) }
+	if m.kernels != nil {
+		C.cuModuleUnload(m.kernels.mod)
+	}
+	if m.stream != nil {
+		C.cuStreamDestroy(m.stream)
+	}
+	if m.handle != nil {
+		C.cublasDestroy(m.handle)
+	}
 	if m.ctx != nil {
 		C.cuDevicePrimaryCtxRelease(m.dev)
 	}
@@ -413,16 +423,18 @@ func (m *cudaManager) fastLaunchSmem(fn C.CUfunction, gridX, gridY, blockX, bloc
 		C.uint(smem), nil, cArgs,
 	))
 
-	for i := 0; i < n; i++ { C.free(argPtrs[i]) }
+	for i := 0; i < n; i++ {
+		C.free(argPtrs[i])
+	}
 	C.free(cArgs)
 	return err
 }
 
 // argPtr returns a pointer to v that stays alive until the kernel completes.
 // For device pointers (unsafe.Pointer), v is the pointer value itself.
-func intArg(v *C.int) unsafe.Pointer  { return unsafe.Pointer(v) }
-func uintArg(v *C.uint) unsafe.Pointer { return unsafe.Pointer(v) }
-func floatArg(v *C.float) unsafe.Pointer { return unsafe.Pointer(v) }
+func intArg(v *C.int) unsafe.Pointer         { return unsafe.Pointer(v) }
+func uintArg(v *C.uint) unsafe.Pointer       { return unsafe.Pointer(v) }
+func floatArg(v *C.float) unsafe.Pointer     { return unsafe.Pointer(v) }
 func ptrArg(v unsafe.Pointer) unsafe.Pointer { return unsafe.Pointer(&v) } // pointer to pointer
 
 // ---------------------------------------------------------------------------
@@ -466,8 +478,10 @@ func (m *cudaManager) pinSegment(meta *vse.SegmentMeta, vectors []byte,
 	// --- PQ codes ---
 	pqCodes := make([]byte, nv*M)
 	for i := 0; i < nv; i++ {
-		code, err := pq.Encode(flatVecs[i*dim:(i+1)*dim])
-		if err != nil { return fmt.Errorf("encode vec %d: %w", i, err) }
+		code, err := pq.Encode(flatVecs[i*dim : (i+1)*dim])
+		if err != nil {
+			return fmt.Errorf("encode vec %d: %w", i, err)
+		}
 		copy(pqCodes[i*M:(i+1)*M], code)
 	}
 
@@ -524,22 +538,46 @@ func (m *cudaManager) pinSegment(meta *vse.SegmentMeta, vectors []byte,
 	}
 
 	// Upload IVF lists to GPU (CSR format)
-	if err := alloc(&d.dClusterOffsets, (nc+1)*4, "clusterOffsets"); err != nil { return err }
-	if err := upload(d.dClusterOffsets, unsafe.Pointer(&d.clusterOffsets[0]), (nc+1)*4, "clusterOffsets"); err != nil { return err }
+	if err := alloc(&d.dClusterOffsets, (nc+1)*4, "clusterOffsets"); err != nil {
+		return err
+	}
+	if err := upload(d.dClusterOffsets, unsafe.Pointer(&d.clusterOffsets[0]), (nc+1)*4, "clusterOffsets"); err != nil {
+		return err
+	}
 	if total > 0 {
-		if err := alloc(&d.dClusterMembers, total*4, "clusterMembers"); err != nil { return err }
-		if err := upload(d.dClusterMembers, unsafe.Pointer(&d.clusterMembers[0]), total*4, "clusterMembers"); err != nil { return err }
+		if err := alloc(&d.dClusterMembers, total*4, "clusterMembers"); err != nil {
+			return err
+		}
+		if err := upload(d.dClusterMembers, unsafe.Pointer(&d.clusterMembers[0]), total*4, "clusterMembers"); err != nil {
+			return err
+		}
 	}
 
-	if err := alloc(&d.dCodes, nv*M, "codes"); err != nil { return err }
-	if err := alloc(&d.dCodebook, len(cbFlat)*4, "codebook"); err != nil { return err }
-	if err := alloc(&d.dCentroids, len(centFlat)*4, "centroids"); err != nil { return err }
-	if err := alloc(&d.dGlobalIDs, nv*8, "globalIDs"); err != nil { return err }
+	if err := alloc(&d.dCodes, nv*M, "codes"); err != nil {
+		return err
+	}
+	if err := alloc(&d.dCodebook, len(cbFlat)*4, "codebook"); err != nil {
+		return err
+	}
+	if err := alloc(&d.dCentroids, len(centFlat)*4, "centroids"); err != nil {
+		return err
+	}
+	if err := alloc(&d.dGlobalIDs, nv*8, "globalIDs"); err != nil {
+		return err
+	}
 
-	if err := upload(d.dCodes, unsafe.Pointer(&pqCodes[0]), nv*M, "codes"); err != nil { return err }
-	if err := upload(d.dCodebook, unsafe.Pointer(&cbFlat[0]), len(cbFlat)*4, "codebook"); err != nil { return err }
-	if err := upload(d.dCentroids, unsafe.Pointer(&centFlat[0]), len(centFlat)*4, "centroids"); err != nil { return err }
-	if err := upload(d.dGlobalIDs, unsafe.Pointer(&gids[0]), nv*8, "gids"); err != nil { return err }
+	if err := upload(d.dCodes, unsafe.Pointer(&pqCodes[0]), nv*M, "codes"); err != nil {
+		return err
+	}
+	if err := upload(d.dCodebook, unsafe.Pointer(&cbFlat[0]), len(cbFlat)*4, "codebook"); err != nil {
+		return err
+	}
+	if err := upload(d.dCentroids, unsafe.Pointer(&centFlat[0]), len(centFlat)*4, "centroids"); err != nil {
+		return err
+	}
+	if err := upload(d.dGlobalIDs, unsafe.Pointer(&gids[0]), nv*8, "gids"); err != nil {
+		return err
+	}
 
 	// Cache host-side copies for rerank (avoid repeated D2H transfers)
 	d.hostGids = make([]uint64, nv)
@@ -547,9 +585,15 @@ func (m *cudaManager) pinSegment(meta *vse.SegmentMeta, vectors []byte,
 
 	// Optional: upload exact vectors for rerank
 	if m.cfg.RerankCandidates > 0 {
-		if err := alloc(&d.dVectors, nv*dim*4, "vectors"); err != nil { return err }
-		if err := alloc(&d.dNorms, nv*4, "norms"); err != nil { return err }
-		if err := upload(d.dVectors, unsafe.Pointer(&flatVecs[0]), nv*dim*4, "vectors"); err != nil { return err }
+		if err := alloc(&d.dVectors, nv*dim*4, "vectors"); err != nil {
+			return err
+		}
+		if err := alloc(&d.dNorms, nv*4, "norms"); err != nil {
+			return err
+		}
+		if err := upload(d.dVectors, unsafe.Pointer(&flatVecs[0]), nv*dim*4, "vectors"); err != nil {
+			return err
+		}
 		// compute norms on GPU
 		m.launchNorms(m.kernels.computeNorms, d.dVectors, d.dNorms, nv, dim)
 		// cache norms on host for rerank
@@ -569,7 +613,9 @@ func (m *cudaManager) unpinSegment(segID vse.SegmentID) error {
 	defer unlock()
 	defer m.mu.Unlock()
 	d, ok := m.segments[uint32(segID)]
-	if !ok { return nil }
+	if !ok {
+		return nil
+	}
 	m.freeSegData(d)
 	delete(m.segments, uint32(segID))
 	return nil
@@ -577,7 +623,9 @@ func (m *cudaManager) unpinSegment(segID vse.SegmentID) error {
 
 func (m *cudaManager) freeSegData(d *gpuSegData) {
 	for _, p := range []unsafe.Pointer{d.dCodes, d.dCodebook, d.dCentroids, d.dVectors, d.dNorms, d.dGlobalIDs, d.dClusterOffsets, d.dClusterMembers, d.dNbrOffsets, d.dNbrData} {
-		if p != nil { C.cuMemFree(C.CUdeviceptr(uintptr(p))) }
+		if p != nil {
+			C.cuMemFree(C.CUdeviceptr(uintptr(p)))
+		}
 	}
 }
 
@@ -606,7 +654,9 @@ func (m *cudaManager) search(segID vse.SegmentID, req SearchRequest) ([]vse.Sear
 }
 
 func (m *cudaManager) batchSearch(segID vse.SegmentID, reqs []SearchRequest) []BatchResult {
-	if len(reqs) == 0 { return nil }
+	if len(reqs) == 0 {
+		return nil
+	}
 	m.mu.Lock()
 	threadUnlock := m.cudaLock()
 	d, ok := m.segments[uint32(segID)]
@@ -614,7 +664,9 @@ func (m *cudaManager) batchSearch(segID vse.SegmentID, reqs []SearchRequest) []B
 	if !ok {
 		threadUnlock()
 		results := make([]BatchResult, len(reqs))
-		for i := range results { results[i].Err = fmt.Errorf("segment %d not on GPU", segID) }
+		for i := range results {
+			results[i].Err = fmt.Errorf("segment %d not on GPU", segID)
+		}
 		return results
 	}
 	defer threadUnlock()
@@ -638,10 +690,18 @@ func (m *cudaManager) batchSearch(segID vse.SegmentID, reqs []SearchRequest) []B
 // ---------------------------------------------------------------------------
 
 func (m *cudaManager) pqSearch(d *gpuSegData, query []float32, topK, nProbe int, metric vse.MetricType) ([]vse.SearchResult, error) {
-	if nProbe <= 0 { nProbe = m.cfg.NProbe }
-	if topK <= 0 { topK = 10 }
-	if topK > d.nv { topK = d.nv }
-	if nProbe > d.nc { nProbe = d.nc }
+	if nProbe <= 0 {
+		nProbe = m.cfg.NProbe
+	}
+	if topK <= 0 {
+		topK = 10
+	}
+	if topK > d.nv {
+		topK = d.nv
+	}
+	if nProbe > d.nc {
+		nProbe = d.nc
+	}
 
 	if err := m.queryPool.ensureCapacity(d.dim, d.nv, d.M, d.nc); err != nil {
 		return nil, err
@@ -665,17 +725,23 @@ func (m *cudaManager) pqSearch(d *gpuSegData, query []float32, topK, nProbe int,
 	// GPU: 在 GPU 上直接选 top-nProbe 个质心（消除 D2H→CPU→H2D 往返）
 	// centroid_select_topk kernel: 单 block, thread 0 扫描全部 nc
 	var dProbeCentroids unsafe.Pointer
-	if err := cuMalloc(&dProbeCentroids, nProbe*4); err != nil { return nil, err }
+	if err := cuMalloc(&dProbeCentroids, nProbe*4); err != nil {
+		return nil, err
+	}
 	defer C.cuMemFree(C.CUdeviceptr(uintptr(dProbeCentroids)))
 	m.launchCentroidSelectTopk(m.kernels.centroidSelectTopK,
 		dCDists, dProbeCentroids, d.nc, nProbe)
 
 	// GPU: 从 IVF lists 收集候选索引
 	var dCandIdx unsafe.Pointer
-	if err := cuMalloc(&dCandIdx, d.nv*4); err != nil { return nil, err }
+	if err := cuMalloc(&dCandIdx, d.nv*4); err != nil {
+		return nil, err
+	}
 	defer C.cuMemFree(C.CUdeviceptr(uintptr(dCandIdx)))
 	var dCandCount unsafe.Pointer
-	if err := cuMalloc(&dCandCount, 4); err != nil { return nil, err }
+	if err := cuMalloc(&dCandCount, 4); err != nil {
+		return nil, err
+	}
 	defer C.cuMemFree(C.CUdeviceptr(uintptr(dCandCount)))
 
 	if err := m.launchGatherIVFCandidates(m.kernels.gatherIVFCandidates,
@@ -683,19 +749,27 @@ func (m *cudaManager) pqSearch(d *gpuSegData, query []float32, topK, nProbe int,
 		dCandIdx, dCandCount, nProbe); err != nil {
 		return nil, err
 	}
-	if err := cuStreamSync(m.stream); err != nil { return nil, err }
+	if err := cuStreamSync(m.stream); err != nil {
+		return nil, err
+	}
 
 	// D2H: 候选数量（4 bytes）
 	var nCand32 int32
-	if err := cuMemcpyD2H(unsafe.Pointer(&nCand32), dCandCount, 4); err != nil { return nil, err }
+	if err := cuMemcpyD2H(unsafe.Pointer(&nCand32), dCandCount, 4); err != nil {
+		return nil, err
+	}
 	nCand := int(nCand32)
-	if nCand == 0 { return nil, nil }
+	if nCand == 0 {
+		return nil, nil
+	}
 
 	rerankK := topK
 	if m.cfg.RerankCandidates > 0 && d.dVectors != nil {
 		rerankK = m.cfg.RerankCandidates
 	}
-	if rerankK > nCand { rerankK = nCand }
+	if rerankK > nCand {
+		rerankK = nCand
+	}
 
 	// GPU: PQ 距离表
 	m.launchPQDistTable(m.kernels.pqDistTable, dQ, d.dCodebook, dTable, 1, d.dim, d.M, d.subdim)
@@ -707,7 +781,10 @@ func (m *cudaManager) pqSearch(d *gpuSegData, query []float32, topK, nProbe int,
 
 	// 生成 PQ 粗排候选列表（GPU topK 或 CPU fallback）
 	// 两种路径都产生排序好的 allCands[0:rerankK]
-	type cand struct{ vecIdx int32; dist float32 }
+	type cand struct {
+		vecIdx int32
+		dist   float32
+	}
 	const maxGpuTopKSmem = 4096
 	var allCands []cand
 
@@ -716,26 +793,36 @@ func (m *cudaManager) pqSearch(d *gpuSegData, query []float32, topK, nProbe int,
 		numBlocks := (nCand + 255) / 256
 
 		var dBlockPos unsafe.Pointer
-		if err := cuMalloc(&dBlockPos, numBlocks*rerankK*4); err != nil { return nil, err }
+		if err := cuMalloc(&dBlockPos, numBlocks*rerankK*4); err != nil {
+			return nil, err
+		}
 		defer C.cuMemFree(C.CUdeviceptr(uintptr(dBlockPos)))
 		var dBlockCounts unsafe.Pointer
-		if err := cuMalloc(&dBlockCounts, numBlocks*4); err != nil { return nil, err }
+		if err := cuMalloc(&dBlockCounts, numBlocks*4); err != nil {
+			return nil, err
+		}
 		defer C.cuMemFree(C.CUdeviceptr(uintptr(dBlockCounts)))
 
 		m.launchTopKSelectIndices(m.kernels.topkSelectIndices,
 			dDists, dBlockPos, dBlockCounts, nCand, rerankK)
 
 		var dMergedDists, dMergedVecIdx unsafe.Pointer
-		if err := cuMalloc(&dMergedDists, rerankK*4); err != nil { return nil, err }
+		if err := cuMalloc(&dMergedDists, rerankK*4); err != nil {
+			return nil, err
+		}
 		defer C.cuMemFree(C.CUdeviceptr(uintptr(dMergedDists)))
-		if err := cuMalloc(&dMergedVecIdx, rerankK*4); err != nil { return nil, err }
+		if err := cuMalloc(&dMergedVecIdx, rerankK*4); err != nil {
+			return nil, err
+		}
 		defer C.cuMemFree(C.CUdeviceptr(uintptr(dMergedVecIdx)))
 
 		m.launchMergeTopKPositions(m.kernels.mergeTopKPositions,
 			dBlockPos, dBlockCounts, dDists, dCandIdx,
 			dMergedDists, dMergedVecIdx, numBlocks, rerankK)
 
-		if err := cuStreamSync(m.stream); err != nil { return nil, err }
+		if err := cuStreamSync(m.stream); err != nil {
+			return nil, err
+		}
 
 		mergedDists := make([]float32, rerankK)
 		mergedVecIdx := make([]int32, rerankK)
@@ -748,12 +835,16 @@ func (m *cudaManager) pqSearch(d *gpuSegData, query []float32, topK, nProbe int,
 
 		allCands = make([]cand, 0, rerankK)
 		for i := 0; i < rerankK; i++ {
-			if mergedVecIdx[i] < 0 { break }
+			if mergedVecIdx[i] < 0 {
+				break
+			}
 			allCands = append(allCands, cand{vecIdx: mergedVecIdx[i], dist: mergedDists[i]})
 		}
 	} else {
 		// CPU 路径：D2H 全部候选 + CPU 排序
-		if err := cuStreamSync(m.stream); err != nil { return nil, err }
+		if err := cuStreamSync(m.stream); err != nil {
+			return nil, err
+		}
 
 		pqDists := make([]float32, nCand)
 		if err := cuMemcpyD2H(unsafe.Pointer(&pqDists[0]), dDists, nCand*4); err != nil {
@@ -769,12 +860,16 @@ func (m *cudaManager) pqSearch(d *gpuSegData, query []float32, topK, nProbe int,
 			allCands[i] = cand{vecIdx: candIdxHost[i], dist: pqDists[i]}
 		}
 		sort.Slice(allCands, func(i, j int) bool { return allCands[i].dist < allCands[j].dist })
-		if len(allCands) > rerankK { allCands = allCands[:rerankK] }
+		if len(allCands) > rerankK {
+			allCands = allCands[:rerankK]
+		}
 	}
 
 	// 无 rerank：直接返回 PQ topK
 	if m.cfg.RerankCandidates == 0 || d.dVectors == nil || len(allCands) <= topK {
-		if len(allCands) > topK { allCands = allCands[:topK] }
+		if len(allCands) > topK {
+			allCands = allCands[:topK]
+		}
 		res := make([]vse.SearchResult, len(allCands))
 		for i, c := range allCands {
 			if int(c.vecIdx) >= 0 && int(c.vecIdx) < len(d.hostGids) {
@@ -786,8 +881,12 @@ func (m *cudaManager) pqSearch(d *gpuSegData, query []float32, topK, nProbe int,
 
 	// === Unified rerank 路径 ===
 	rerankVecIdx := make([]int32, len(allCands))
-	for i, c := range allCands { rerankVecIdx[i] = c.vecIdx }
-	if err := m.queryPool.ensureRerankCapacity(len(rerankVecIdx)); err != nil { return nil, err }
+	for i, c := range allCands {
+		rerankVecIdx[i] = c.vecIdx
+	}
+	if err := m.queryPool.ensureRerankCapacity(len(rerankVecIdx)); err != nil {
+		return nil, err
+	}
 	dRerankCandIdx := m.queryPool.dRerankIdx
 	if err := cuMemcpyH2DAsync(dRerankCandIdx, unsafe.Pointer(&rerankVecIdx[0]), len(rerankVecIdx)*4, m.stream); err != nil {
 		return nil, err
@@ -795,7 +894,9 @@ func (m *cudaManager) pqSearch(d *gpuSegData, query []float32, topK, nProbe int,
 
 	// GPU: gather 精确距离
 	var qNorm2 float32
-	for i := 0; i < d.dim; i++ { qNorm2 += query[i] * query[i] }
+	for i := 0; i < d.dim; i++ {
+		qNorm2 += query[i] * query[i]
+	}
 	dRerankDists := m.queryPool.dRerankD
 
 	switch metric {
@@ -818,11 +919,17 @@ func (m *cudaManager) pqSearch(d *gpuSegData, query []float32, topK, nProbe int,
 	if nCandRerank > topK && topK <= maxGpuTopKSmem {
 		numB := (nCandRerank + 255) / 256
 		var dPartialDists, dPartialGids, dPartialCounts unsafe.Pointer
-		if err := cuMalloc(&dPartialDists, numB*topK*4); err != nil { return nil, err }
+		if err := cuMalloc(&dPartialDists, numB*topK*4); err != nil {
+			return nil, err
+		}
 		defer C.cuMemFree(C.CUdeviceptr(uintptr(dPartialDists)))
-		if err := cuMalloc(&dPartialGids, numB*topK*8); err != nil { return nil, err }
+		if err := cuMalloc(&dPartialGids, numB*topK*8); err != nil {
+			return nil, err
+		}
 		defer C.cuMemFree(C.CUdeviceptr(uintptr(dPartialGids)))
-		if err := cuMalloc(&dPartialCounts, numB*4); err != nil { return nil, err }
+		if err := cuMalloc(&dPartialCounts, numB*4); err != nil {
+			return nil, err
+		}
 		defer C.cuMemFree(C.CUdeviceptr(uintptr(dPartialCounts)))
 
 		if err := m.launchTopKSelectGather(m.kernels.topkSelectGather,
@@ -831,7 +938,9 @@ func (m *cudaManager) pqSearch(d *gpuSegData, query []float32, topK, nProbe int,
 			nCandRerank, topK); err != nil {
 			return nil, err
 		}
-		if err := cuStreamSync(m.stream); err != nil { return nil, err }
+		if err := cuStreamSync(m.stream); err != nil {
+			return nil, err
+		}
 
 		partialDists := make([]float32, numB*topK)
 		partialGids := make([]uint64, numB*topK)
@@ -846,7 +955,10 @@ func (m *cudaManager) pqSearch(d *gpuSegData, query []float32, topK, nProbe int,
 			return nil, err
 		}
 
-		type svMerge struct{ gid uint64; score float32 }
+		type svMerge struct {
+			gid   uint64
+			score float32
+		}
 		var merged []svMerge
 		for b := 0; b < numB; b++ {
 			cnt := int(partialCounts[b])
@@ -859,7 +971,9 @@ func (m *cudaManager) pqSearch(d *gpuSegData, query []float32, topK, nProbe int,
 		} else {
 			sort.Slice(merged, func(i, j int) bool { return merged[i].score < merged[j].score })
 		}
-		if len(merged) > topK { merged = merged[:topK] }
+		if len(merged) > topK {
+			merged = merged[:topK]
+		}
 
 		res := make([]vse.SearchResult, len(merged))
 		for i, s := range merged {
@@ -869,13 +983,18 @@ func (m *cudaManager) pqSearch(d *gpuSegData, query []float32, topK, nProbe int,
 	}
 
 	// Fallback: D2H 全部 + CPU 排序
-	if err := cuStreamSync(m.stream); err != nil { return nil, err }
+	if err := cuStreamSync(m.stream); err != nil {
+		return nil, err
+	}
 	exactDists := make([]float32, nCandRerank)
 	if err := cuMemcpyD2H(unsafe.Pointer(&exactDists[0]), dRerankDists, nCandRerank*4); err != nil {
 		return nil, err
 	}
 
-	type svFallback struct{ idx int32; score float32 }
+	type svFallback struct {
+		idx   int32
+		score float32
+	}
 	all := make([]svFallback, nCandRerank)
 	for i := 0; i < nCandRerank; i++ {
 		all[i] = svFallback{idx: rerankVecIdx[i], score: exactDists[i]}
@@ -885,7 +1004,9 @@ func (m *cudaManager) pqSearch(d *gpuSegData, query []float32, topK, nProbe int,
 	} else {
 		sort.Slice(all, func(i, j int) bool { return all[i].score < all[j].score })
 	}
-	if len(all) > topK { all = all[:topK] }
+	if len(all) > topK {
+		all = all[:topK]
+	}
 
 	res := make([]vse.SearchResult, len(all))
 	for i, s := range all {
@@ -919,7 +1040,9 @@ func (m *cudaManager) batchPQSearch(d *gpuSegData, reqs []SearchRequest) []Batch
 
 	// Centroid distances via cuBLAS Sgemm
 	var dCD unsafe.Pointer
-	if err := cuMalloc(&dCD, nq*d.nc*4); err != nil { return errBatch(err) }
+	if err := cuMalloc(&dCD, nq*d.nc*4); err != nil {
+		return errBatch(err)
+	}
 	defer C.cuMemFree(C.CUdeviceptr(uintptr(dCD)))
 
 	alpha := C.float(-2.0)
@@ -936,14 +1059,18 @@ func (m *cudaManager) batchPQSearch(d *gpuSegData, reqs []SearchRequest) []Batch
 
 	// PQ distance tables
 	var dTbl unsafe.Pointer
-	if err := cuMalloc(&dTbl, nq*d.M*256*4); err != nil { return errBatch(err) }
+	if err := cuMalloc(&dTbl, nq*d.M*256*4); err != nil {
+		return errBatch(err)
+	}
 	defer C.cuMemFree(C.CUdeviceptr(uintptr(dTbl)))
 
 	m.launchPQDistTable(m.kernels.pqDistTable, dQ, d.dCodebook, dTbl, nq, d.dim, d.M, d.subdim)
 
 	// PQ-ADC for all queries × all vectors
 	var dDists unsafe.Pointer
-	if err := cuMalloc(&dDists, nq*d.nv*4); err != nil { return errBatch(err) }
+	if err := cuMalloc(&dDists, nq*d.nv*4); err != nil {
+		return errBatch(err)
+	}
 	defer C.cuMemFree(C.CUdeviceptr(uintptr(dDists)))
 
 	threads := 128
@@ -963,15 +1090,25 @@ func (m *cudaManager) batchPQSearch(d *gpuSegData, reqs []SearchRequest) []Batch
 	topKMax := 0
 	for _, req := range reqs {
 		k := req.TopK
-		if k <= 0 { k = 10 }
-		if k > topKMax { topKMax = k }
+		if k <= 0 {
+			k = 10
+		}
+		if k > topKMax {
+			topKMax = k
+		}
 	}
-	if topKMax > d.nv { topKMax = d.nv }
+	if topKMax > d.nv {
+		topKMax = d.nv
+	}
 
 	var dOutDists, dOutGids unsafe.Pointer
-	if err := cuMalloc(&dOutDists, nq*topKMax*4); err != nil { return errBatch(err) }
+	if err := cuMalloc(&dOutDists, nq*topKMax*4); err != nil {
+		return errBatch(err)
+	}
 	defer C.cuMemFree(C.CUdeviceptr(uintptr(dOutDists)))
-	if err := cuMalloc(&dOutGids, nq*topKMax*8); err != nil { return errBatch(err) }
+	if err := cuMalloc(&dOutGids, nq*topKMax*8); err != nil {
+		return errBatch(err)
+	}
 	defer C.cuMemFree(C.CUdeviceptr(uintptr(dOutGids)))
 
 	m.launchBatchTopKSelectGids(m.kernels.batchedTopKSelectGids,
@@ -989,8 +1126,12 @@ func (m *cudaManager) batchPQSearch(d *gpuSegData, reqs []SearchRequest) []Batch
 	results := make([]BatchResult, nq)
 	for q := 0; q < nq; q++ {
 		k := reqs[q].TopK
-		if k <= 0 { k = 10 }
-		if k > topKMax { k = topKMax }
+		if k <= 0 {
+			k = 10
+		}
+		if k > topKMax {
+			k = topKMax
+		}
 
 		rowDists := hostDists[q*topKMax : q*topKMax+k]
 		rowGids := hostGids[q*topKMax : q*topKMax+k]
@@ -1167,15 +1308,25 @@ func (m *cudaManager) vamanaSearchGPU(segID vse.SegmentID, query []float32, topK
 		}
 		return nil
 	}
-	if err := alloc(&dFIDs, beamL*4); err != nil { return nil, nil, err }
+	if err := alloc(&dFIDs, beamL*4); err != nil {
+		return nil, nil, err
+	}
 	defer C.cuMemFree(C.CUdeviceptr(uintptr(dFIDs)))
-	if err := alloc(&dFDists, beamL*4); err != nil { return nil, nil, err }
+	if err := alloc(&dFDists, beamL*4); err != nil {
+		return nil, nil, err
+	}
 	defer C.cuMemFree(C.CUdeviceptr(uintptr(dFDists)))
-	if err := alloc(&dNewIDs, maxCand*4); err != nil { return nil, nil, err }
+	if err := alloc(&dNewIDs, maxCand*4); err != nil {
+		return nil, nil, err
+	}
 	defer C.cuMemFree(C.CUdeviceptr(uintptr(dNewIDs)))
-	if err := alloc(&dNewDists, maxCand*4); err != nil { return nil, nil, err }
+	if err := alloc(&dNewDists, maxCand*4); err != nil {
+		return nil, nil, err
+	}
 	defer C.cuMemFree(C.CUdeviceptr(uintptr(dNewDists)))
-	if err := alloc(&dCount, 4); err != nil { return nil, nil, err }
+	if err := alloc(&dCount, 4); err != nil {
+		return nil, nil, err
+	}
 	defer C.cuMemFree(C.CUdeviceptr(uintptr(dCount)))
 
 	dFrontierIDs[0] = 0 // start from node 0 (medoid)
@@ -1265,10 +1416,15 @@ func selectCandidates(cdists []float32, nProbe int, d *gpuSegData) []int {
 		return nil
 	}
 	nc := len(d.clusterOffsets) - 1
-	if nProbe > nc { nProbe = nc }
+	if nProbe > nc {
+		nProbe = nc
+	}
 
 	// Sort centroids by distance, pick top nProbe
-	type centroid struct{ idx int; dist float32 }
+	type centroid struct {
+		idx  int
+		dist float32
+	}
 	centroids := make([]centroid, nc)
 	for i := 0; i < nc; i++ {
 		centroids[i] = centroid{i, cdists[i]}
@@ -1276,14 +1432,18 @@ func selectCandidates(cdists []float32, nProbe int, d *gpuSegData) []int {
 	sort.Slice(centroids, func(i, j int) bool {
 		return centroids[i].dist < centroids[j].dist
 	})
-	if nProbe < nc { centroids = centroids[:nProbe] }
+	if nProbe < nc {
+		centroids = centroids[:nProbe]
+	}
 
 	// Count total candidates and collect member indices
 	total := 0
 	for _, c := range centroids {
 		total += int(d.clusterOffsets[c.idx+1] - d.clusterOffsets[c.idx])
 	}
-	if total == 0 { return nil }
+	if total == 0 {
+		return nil
+	}
 
 	candidates := make([]int, 0, total)
 	for _, c := range centroids {
@@ -1298,21 +1458,32 @@ func selectCandidates(cdists []float32, nProbe int, d *gpuSegData) []int {
 
 func makeRange(n int) []int {
 	r := make([]int, n)
-	for i := range r { r[i] = i }
+	for i := range r {
+		r[i] = i
+	}
 	return r
 }
 
 func topKResults(dists []float32, indices []int, d *gpuSegData, topK int) ([]vse.SearchResult, error) {
 	n := len(dists)
-	type sv struct{ idx int; score float32 }
+	type sv struct {
+		idx   int
+		score float32
+	}
 	all := make([]sv, n)
 	for i, d := range dists {
 		var realIdx int
-		if indices != nil { realIdx = indices[i] } else { realIdx = i }
+		if indices != nil {
+			realIdx = indices[i]
+		} else {
+			realIdx = i
+		}
 		all[i] = sv{realIdx, d}
 	}
 	sort.Slice(all, func(i, j int) bool { return all[i].score < all[j].score })
-	if len(all) > topK { all = all[:topK] }
+	if len(all) > topK {
+		all = all[:topK]
+	}
 
 	// Read global IDs
 	gids := make([]uint64, d.nv)
@@ -1323,7 +1494,9 @@ func topKResults(dists []float32, indices []int, d *gpuSegData, topK int) ([]vse
 	res := make([]vse.SearchResult, len(all))
 	for i, s := range all {
 		gid := uint64(0)
-		if s.idx < len(gids) { gid = gids[s.idx] }
+		if s.idx < len(gids) {
+			gid = gids[s.idx]
+		}
 		res[i] = vse.SearchResult{ID: vse.VectorID(gid), Score: s.score}
 	}
 	return res, nil
@@ -1333,7 +1506,9 @@ func topKResults(dists []float32, indices []int, d *gpuSegData, topK int) ([]vse
 // 用于 rerank 流程：先取 Top R 个候选，再用精确向量 rerank
 // 当 topK > 4096 时回退到 D2H + CPU 排序（shared memory 限制 48KB）
 func (m *cudaManager) gpuTopKCandidates(dDists unsafe.Pointer, d *gpuSegData, topK int) ([]int, []float32, error) {
-	if topK > d.nv { topK = d.nv }
+	if topK > d.nv {
+		topK = d.nv
+	}
 
 	// shared memory 限制：topK * (4+8) <= 48KB → topK <= 4096
 	const maxGpuTopK = 4096
@@ -1346,21 +1521,29 @@ func (m *cudaManager) gpuTopKCandidates(dDists unsafe.Pointer, d *gpuSegData, to
 	numBlocks := (d.nv + threads - 1) / threads
 
 	var dOutDists unsafe.Pointer
-	if err := cuMalloc(&dOutDists, numBlocks*topK*4); err != nil { return nil, nil, err }
+	if err := cuMalloc(&dOutDists, numBlocks*topK*4); err != nil {
+		return nil, nil, err
+	}
 	defer C.cuMemFree(C.CUdeviceptr(uintptr(dOutDists)))
 
 	var dOutGids unsafe.Pointer
-	if err := cuMalloc(&dOutGids, numBlocks*topK*8); err != nil { return nil, nil, err }
+	if err := cuMalloc(&dOutGids, numBlocks*topK*8); err != nil {
+		return nil, nil, err
+	}
 	defer C.cuMemFree(C.CUdeviceptr(uintptr(dOutGids)))
 
 	var dOutCounts unsafe.Pointer
-	if err := cuMalloc(&dOutCounts, numBlocks*4); err != nil { return nil, nil, err }
+	if err := cuMalloc(&dOutCounts, numBlocks*4); err != nil {
+		return nil, nil, err
+	}
 	defer C.cuMemFree(C.CUdeviceptr(uintptr(dOutCounts)))
 
 	if err := m.launchTopKSelect(m.kernels.topkSelect, dDists, d.dGlobalIDs, dOutDists, dOutGids, dOutCounts, d.nv, topK); err != nil {
 		return nil, nil, err
 	}
-	if err := cuStreamSync(m.stream); err != nil { return nil, nil, err }
+	if err := cuStreamSync(m.stream); err != nil {
+		return nil, nil, err
+	}
 
 	outDists := make([]float32, numBlocks*topK)
 	if err := cuMemcpyD2H(unsafe.Pointer(&outDists[0]), dOutDists, numBlocks*topK*4); err != nil {
@@ -1388,7 +1571,9 @@ func (m *cudaManager) gpuTopKCandidates(dDists unsafe.Pointer, d *gpuSegData, to
 		}
 	}
 	sort.Slice(merged, func(i, j int) bool { return merged[i].score < merged[j].score })
-	if len(merged) > topK { merged = merged[:topK] }
+	if len(merged) > topK {
+		merged = merged[:topK]
+	}
 
 	// 用缓存的 hostGids 构建 gid→local index 映射
 	gidToLocal := make(map[uint64]int, len(d.hostGids))
@@ -1422,7 +1607,9 @@ func (m *cudaManager) cpuTopKCandidates(dDists unsafe.Pointer, d *gpuSegData, to
 		all[i] = sv{idx: i, score: dist}
 	}
 	sort.Slice(all, func(i, j int) bool { return all[i].score < all[j].score })
-	if len(all) > topK { all = all[:topK] }
+	if len(all) > topK {
+		all = all[:topK]
+	}
 
 	indices := make([]int, len(all))
 	dists := make([]float32, len(all))
@@ -1437,7 +1624,9 @@ func (m *cudaManager) cpuTopKCandidates(dDists unsafe.Pointer, d *gpuSegData, to
 // 用于 flatSearch（精确搜索，无需 rerank）
 func (m *cudaManager) gpuTopKResults(dDists unsafe.Pointer, d *gpuSegData, topK int) ([]vse.SearchResult, error) {
 	candIndices, dists, err := m.gpuTopKCandidates(dDists, d, topK)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	res := make([]vse.SearchResult, len(candIndices))
 	for i, idx := range candIndices {
 		res[i] = vse.SearchResult{ID: vse.VectorID(d.hostGids[idx]), Score: dists[i]}
@@ -1448,8 +1637,12 @@ func (m *cudaManager) gpuTopKResults(dDists unsafe.Pointer, d *gpuSegData, topK 
 // rerankExact 全 GPU 距离计算 + CPU topK 排序，缓冲区复用
 func (m *cudaManager) rerankExact(d *gpuSegData, query []float32, candIndices []int, topK int, metric vse.MetricType) ([]vse.SearchResult, error) {
 	nCand := len(candIndices)
-	if nCand == 0 { return nil, nil }
-	if topK > nCand { topK = nCand }
+	if nCand == 0 {
+		return nil, nil
+	}
+	if topK > nCand {
+		topK = nCand
+	}
 
 	// 复用内存池缓冲区（避免每次 cuMalloc/cuMemFree）
 	if err := m.queryPool.ensureRerankCapacity(nCand); err != nil {
@@ -1460,14 +1653,18 @@ func (m *cudaManager) rerankExact(d *gpuSegData, query []float32, candIndices []
 
 	// 上传候选索引
 	candI32 := make([]int32, nCand)
-	for i, v := range candIndices { candI32[i] = int32(v) }
+	for i, v := range candIndices {
+		candI32[i] = int32(v)
+	}
 	if err := cuMemcpyH2DAsync(dCandIdx, unsafe.Pointer(&candI32[0]), nCand*4, m.stream); err != nil {
 		return nil, err
 	}
 
 	// 计算 qNorm2
 	var qNorm2 float32
-	for i := 0; i < d.dim; i++ { qNorm2 += query[i] * query[i] }
+	for i := 0; i < d.dim; i++ {
+		qNorm2 += query[i] * query[i]
+	}
 
 	dQ := m.queryPool.dQ
 
@@ -1485,7 +1682,9 @@ func (m *cudaManager) rerankExact(d *gpuSegData, query []float32, candIndices []
 			return nil, err
 		}
 	}
-	if err := cuStreamSync(m.stream); err != nil { return nil, err }
+	if err := cuStreamSync(m.stream); err != nil {
+		return nil, err
+	}
 
 	// Step 2: D2H 距离（nCand * 4 bytes，10000 个 = 40KB）
 	dists := make([]float32, nCand)
@@ -1507,7 +1706,9 @@ func (m *cudaManager) rerankExact(d *gpuSegData, query []float32, candIndices []
 	} else {
 		sort.Slice(all, func(i, j int) bool { return all[i].score < all[j].score })
 	}
-	if len(all) > topK { all = all[:topK] }
+	if len(all) > topK {
+		all = all[:topK]
+	}
 
 	res := make([]vse.SearchResult, len(all))
 	for i, s := range all {
@@ -1519,11 +1720,18 @@ func (m *cudaManager) rerankExact(d *gpuSegData, query []float32, candIndices []
 func topKFromDistRow(dists []float32, d *gpuSegData, topK int) []vse.SearchResult {
 	// Same as topKResults but without error return
 	n := len(dists)
-	type sv struct{ idx int; score float32 }
+	type sv struct {
+		idx   int
+		score float32
+	}
 	all := make([]sv, n)
-	for i, d := range dists { all[i] = sv{i, d} }
+	for i, d := range dists {
+		all[i] = sv{i, d}
+	}
 	sort.Slice(all, func(i, j int) bool { return all[i].score < all[j].score })
-	if len(all) > topK { all = all[:topK] }
+	if len(all) > topK {
+		all = all[:topK]
+	}
 
 	// Use cached hostGids instead of repeated D2H
 	res := make([]vse.SearchResult, len(all))
@@ -1542,7 +1750,9 @@ func errBatch(err error) []BatchResult { return []BatchResult{{Err: err}} }
 // ---------------------------------------------------------------------------
 
 func (m *cudaManager) launchCentroidDist(fn C.CUfunction, dQ, dCent, dDists unsafe.Pointer, nq, nc, dim int) {
-	cnq := C.int(nq); cnc := C.int(nc); cdim := C.int(dim)
+	cnq := C.int(nq)
+	cnc := C.int(nc)
+	cdim := C.int(dim)
 	m.fastLaunch(fn, uint32(nq), uint32(nc), 256, 1,
 		ptrArg(dQ), ptrArg(dCent), ptrArg(dDists),
 		intArg(&cnq), intArg(&cnc), intArg(&cdim),
@@ -1550,7 +1760,10 @@ func (m *cudaManager) launchCentroidDist(fn C.CUfunction, dQ, dCent, dDists unsa
 }
 
 func (m *cudaManager) launchPQDistTable(fn C.CUfunction, dQ, dCB, dTbl unsafe.Pointer, nq, dim, M, subdim int) {
-	cnq := C.int(nq); cdim := C.int(dim); cM := C.int(M); csub := C.int(subdim)
+	cnq := C.int(nq)
+	cdim := C.int(dim)
+	cM := C.int(M)
+	csub := C.int(subdim)
 	m.fastLaunch(fn, uint32(nq), uint32(M), 256, 2,
 		ptrArg(dQ), ptrArg(dCB), ptrArg(dTbl),
 		intArg(&cnq), intArg(&cdim), intArg(&cM), intArg(&csub),
@@ -1560,7 +1773,9 @@ func (m *cudaManager) launchPQDistTable(fn C.CUfunction, dQ, dCB, dTbl unsafe.Po
 func (m *cudaManager) launchPQADC(fn C.CUfunction, dTbl, dCodes, dDists unsafe.Pointer, nq, nv, M int) error {
 	threads := 128
 	blocks := (nv + threads - 1) / threads
-	cnq := C.int(nq); cnv := C.int(nv); cM := C.int(M)
+	cnq := C.int(nq)
+	cnv := C.int(nv)
+	cM := C.int(M)
 	return m.fastLaunch(fn, uint32(nq), uint32(blocks), uint32(threads), 1,
 		ptrArg(dTbl), ptrArg(dCodes), ptrArg(dDists),
 		intArg(&cnq), intArg(&cnv), intArg(&cM),
@@ -1570,7 +1785,9 @@ func (m *cudaManager) launchPQADC(fn C.CUfunction, dTbl, dCodes, dDists unsafe.P
 func (m *cudaManager) launchPQADCGather(fn C.CUfunction, dTbl, dCodes, dCands, dDists unsafe.Pointer, nq, nCand, M int) error {
 	threads := 128
 	blocks := (nCand + threads - 1) / threads
-	cnq := C.int(nq); cnCand := C.int(nCand); cM := C.int(M)
+	cnq := C.int(nq)
+	cnCand := C.int(nCand)
+	cM := C.int(M)
 	return m.fastLaunch(fn, uint32(nq), uint32(blocks), uint32(threads), 1,
 		ptrArg(dTbl), ptrArg(dCodes), ptrArg(dCands), ptrArg(dDists),
 		intArg(&cnq), intArg(&cnCand), intArg(&cM),
@@ -1580,7 +1797,8 @@ func (m *cudaManager) launchPQADCGather(fn C.CUfunction, dTbl, dCodes, dCands, d
 func (m *cudaManager) launchNorms(fn C.CUfunction, dVecs, dNorms unsafe.Pointer, nv, dim int) {
 	threads := 256
 	blocks := (nv + threads - 1) / threads
-	cnv := C.int(nv); cdim := C.int(dim)
+	cnv := C.int(nv)
+	cdim := C.int(dim)
 	m.fastLaunch(fn, uint32(blocks), 1, uint32(threads), 1,
 		ptrArg(dVecs), ptrArg(dNorms), intArg(&cnv), intArg(&cdim),
 	)
@@ -1744,17 +1962,23 @@ func (m *cudaManager) launchCentroidSelectTopk(fn C.CUfunction, dCDists, dOutInd
 // ---------------------------------------------------------------------------
 
 func cuCheck(err C.CUresult) error {
-	if err == C.CUDA_SUCCESS { return nil }
+	if err == C.CUDA_SUCCESS {
+		return nil
+	}
 	return fmt.Errorf("CUDA error %d", int(err))
 }
 
 func cuBlasCheck(err C.cublasStatus_t) error {
-	if err == C.CUBLAS_STATUS_SUCCESS { return nil }
+	if err == C.CUBLAS_STATUS_SUCCESS {
+		return nil
+	}
 	return fmt.Errorf("cuBLAS error %d", int(err))
 }
 
 func cuMalloc(ptr *unsafe.Pointer, size int) error {
-	if size <= 0 { return nil }
+	if size <= 0 {
+		return nil
+	}
 	var dp C.CUdeviceptr
 	if err := cuCheck(C.cuMemAlloc(&dp, C.size_t(size))); err != nil {
 		return err
@@ -1785,5 +2009,3 @@ func cuMemcpyD2HAsync(dst unsafe.Pointer, src unsafe.Pointer, size int, stream C
 func cuStreamSync(stream C.CUstream) error {
 	return cuCheck(C.cuStreamSynchronize(stream))
 }
-
-

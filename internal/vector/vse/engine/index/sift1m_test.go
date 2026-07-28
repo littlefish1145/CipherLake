@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"nexus/internal/vector/vse"
-	"nexus/internal/vector/vse/engine/quantizer"
-	"nexus/internal/vector/vse/simd"
+	"cipherlake/internal/vector/vse"
+	"cipherlake/internal/vector/vse/engine/quantizer"
+	"cipherlake/internal/vector/vse/simd"
 )
 
 // ---------------------------------------------------------------------------
@@ -96,6 +96,9 @@ func computeRecall(results []uint64, gt []int32, k int) (hit, total int) {
 // ---------------------------------------------------------------------------
 
 func TestSIFT1M_Flat(t *testing.T) {
+	if testing.Short() {
+		t.Skip("SIFT1M benchmark-style test skipped in short mode")
+	}
 	simd.Init()
 
 	baseVecs, dim, err := loadFvecs(dataDir + "/sift_base.fvecs")
@@ -169,6 +172,9 @@ func TestSIFT1M_Flat(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSIFT1M_HNSW(t *testing.T) {
+	if testing.Short() {
+		t.Skip("SIFT1M benchmark-style test skipped in short mode")
+	}
 	simd.Init()
 
 	baseVecs, dim, err := loadFvecs(dataDir + "/sift_base.fvecs")
@@ -195,7 +201,7 @@ func TestSIFT1M_HNSW(t *testing.T) {
 	t.Log("Building HNSW index (M=16, efSearch=128)...")
 	buildStart := time.Now()
 
-	hnsw := NewFlatHNSW(dim, 16, 128, 1.0 / math.Log(16.0), MetricEuclidean)
+	hnsw := NewFlatHNSW(dim, 16, 128, 1.0/math.Log(16.0), MetricEuclidean)
 	ids := make([]uint64, baseNv)
 	for i := range ids {
 		ids[i] = uint64(i + 1)
@@ -282,6 +288,9 @@ func TestSIFT1M_HNSW(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSIFT1M_IVFPQ(t *testing.T) {
+	if testing.Short() {
+		t.Skip("SIFT1M benchmark-style test skipped in short mode")
+	}
 	simd.Init()
 
 	// 加载训练集
@@ -407,6 +416,9 @@ func TestSIFT1M_IVFPQ(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSIFT1M_HNSW_Mmap(t *testing.T) {
+	if testing.Short() {
+		t.Skip("SIFT1M benchmark-style test skipped in short mode")
+	}
 	simd.Init()
 
 	baseVecs, dim, err := loadFvecs(dataDir + "/sift_base.fvecs")
@@ -430,7 +442,7 @@ func TestSIFT1M_HNSW_Mmap(t *testing.T) {
 
 	// 构建
 	t.Log("Building HNSW index...")
-	hnsw := NewFlatHNSW(dim, 16, 64, 1.0 / math.Log(16.0), MetricEuclidean)
+	hnsw := NewFlatHNSW(dim, 16, 64, 1.0/math.Log(16.0), MetricEuclidean)
 	ids := make([]uint64, baseNv)
 	for i := range ids {
 		ids[i] = uint64(i + 1)

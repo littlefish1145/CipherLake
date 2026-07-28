@@ -10,7 +10,9 @@
     "http:route",
     "state:kv",
     "vector:search",
-    "vector:search:memory/*"
+    "vector:search:memory/*",
+    "vector:index",
+    "vector:index:memory/*"
   ],
   "routes": [
     {

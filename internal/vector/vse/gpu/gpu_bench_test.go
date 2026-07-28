@@ -9,8 +9,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"nexus/internal/vector/vse"
-	"nexus/internal/vector/vse/engine/quantizer"
+	"cipherlake/internal/vector/vse"
+	"cipherlake/internal/vector/vse/engine/quantizer"
 )
 
 // ---------------------------------------------------------------------------
@@ -19,18 +19,22 @@ import (
 
 type benchData struct {
 	nv, dim, M, subdim, nc int
-	vecs          []float32
-	gids          []uint64
-	pq            *quantizer.PQQuantizer
-	ivf           *quantizer.IVF
-	meta          *vse.SegmentMeta
-	vectorsBin    []byte
+	vecs                   []float32
+	gids                   []uint64
+	pq                     *quantizer.PQQuantizer
+	ivf                    *quantizer.IVF
+	meta                   *vse.SegmentMeta
+	vectorsBin             []byte
 }
 
 func makeBenchData(nv, dim int, rng *rand.Rand) *benchData {
-	if dim < 4 { dim = 4 }
+	if dim < 4 {
+		dim = 4
+	}
 	subVecs := dim / 4
-	if subVecs < 1 { subVecs = 1 }
+	if subVecs < 1 {
+		subVecs = 1
+	}
 	subdim := dim / subVecs
 
 	nc := 256
@@ -150,7 +154,9 @@ func cpuFlatSearch(bd *benchData, query []float32, topK int) []vse.SearchResult 
 		}
 		pairs[i], pairs[best] = pairs[best], pairs[i]
 	}
-	if topK > bd.nv { topK = bd.nv }
+	if topK > bd.nv {
+		topK = bd.nv
+	}
 	res := make([]vse.SearchResult, topK)
 	for i := 0; i < topK; i++ {
 		res[i] = vse.SearchResult{
@@ -184,7 +190,9 @@ func cpuPQSearch(bd *benchData, query []float32, topK int) []vse.SearchResult {
 		}
 		pairs[i], pairs[best] = pairs[best], pairs[i]
 	}
-	if topK > bd.nv { topK = bd.nv }
+	if topK > bd.nv {
+		topK = bd.nv
+	}
 	res := make([]vse.SearchResult, topK)
 	for i := 0; i < topK; i++ {
 		res[i] = vse.SearchResult{

@@ -131,7 +131,7 @@ crypto_services:
 vector:
   enabled: true
   dim: 4
-  index_type: "milvus"
+  index_type: "vse"
   metric_type: "cosine"
   max_vectors: 10000000
   embedding_provider: "api"

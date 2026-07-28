@@ -6,7 +6,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"nexus/internal/vector/vse/simd"
+	"cipherlake/internal/vector/vse/simd"
 )
 
 func BenchmarkSimdDot(b *testing.B) {

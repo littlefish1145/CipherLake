@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"nexus/internal/vector/vse"
-	"nexus/internal/vector/vse/engine/segment"
+	"cipherlake/internal/vector/vse"
+	"cipherlake/internal/vector/vse/engine/segment"
 )
 
 type scoredResult struct {
@@ -26,13 +26,13 @@ type PlanResult struct {
 }
 
 type Planner struct {
-	mu            sync.RWMutex
-	hotSegs       []*segment.Segment
-	coldSegs      []*segment.Segment
-	topK          int
-	minHotResults int
-	searchWorkers int
-	totalQueries  atomic.Int64
+	mu             sync.RWMutex
+	hotSegs        []*segment.Segment
+	coldSegs       []*segment.Segment
+	topK           int
+	minHotResults  int
+	searchWorkers  int
+	totalQueries   atomic.Int64
 	hotOnlyQueries atomic.Int64
 
 	// scoredResult 切片池，避免每次查询 heap 分配
@@ -41,8 +41,8 @@ type Planner struct {
 	// 代价模型：hot/cold 延迟比采样
 	hotLatencyNs   atomic.Int64 // 热段累计延迟（纳秒）
 	hotQueryCount  atomic.Int64
-	coldLatencyNs   atomic.Int64 // 冷段累计延迟（纳秒）
-	coldQueryCount  atomic.Int64
+	coldLatencyNs  atomic.Int64 // 冷段累计延迟（纳秒）
+	coldQueryCount atomic.Int64
 
 	// SegmentManager 引用，用于 Cold→Hot 提升回调
 	segMgr *segment.SegmentManager
@@ -252,5 +252,3 @@ func mergeScored(src []scoredResult, topK int) []vse.SearchResult {
 	}
 	return out
 }
-
-

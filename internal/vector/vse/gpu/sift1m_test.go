@@ -10,8 +10,8 @@ import (
 	"sort"
 	"testing"
 
-	"nexus/internal/vector/vse"
-	"nexus/internal/vector/vse/engine/quantizer"
+	"cipherlake/internal/vector/vse"
+	"cipherlake/internal/vector/vse/engine/quantizer"
 )
 
 // ---------------------------------------------------------------------------
@@ -94,6 +94,9 @@ func buildVectorsBin(vecs []float32, dim, nv int) []byte {
 const dataDir = "../../../../data"
 
 func TestSIFT1MRecall(t *testing.T) {
+	if testing.Short() {
+		t.Skip("SIFT1M GPU benchmark-style test skipped in short mode")
+	}
 	// ---- Step 1: Load training set ----
 	t.Log("Loading sift_learn.fvecs...")
 	learnVecs, dim, err := loadFvecs(dataDir + "/sift_learn.fvecs")
@@ -427,7 +430,9 @@ func cpuFlatSearchSIFT(vecs []float32, dim, nv int, query []float32, topK int) [
 func assignToIVF(ivf *quantizer.IVF, vecs []float32, dim, nv int) [][]int {
 	lists := make([][]int, ivf.Ncentroids)
 	reportEvery := nv / 10
-	if reportEvery < 1 { reportEvery = 1 }
+	if reportEvery < 1 {
+		reportEvery = 1
+	}
 	for i := 0; i < nv; i++ {
 		if i%reportEvery == 0 {
 			fmt.Printf("    IVF assign: %d/%d (%.0f%%)\n", i, nv, float64(i)*100/float64(nv))
@@ -487,7 +492,9 @@ func BenchmarkSIFT1M_1M(b *testing.B) {
 
 	// Load learn set for training
 	learnVecs, dimLearn, err := loadFvecs(dataDir + "/sift_learn.fvecs")
-	if err != nil { b.Skipf("skip: %v", err) }
+	if err != nil {
+		b.Skipf("skip: %v", err)
+	}
 	learnNv := len(learnVecs) / dimLearn
 
 	// Train PQ
@@ -496,21 +503,29 @@ func BenchmarkSIFT1M_1M(b *testing.B) {
 	for i := 0; i < learnNv; i++ {
 		learnSlice[i] = learnVecs[i*dimLearn : (i+1)*dimLearn]
 	}
-	if err := pq.Train(learnSlice); err != nil { b.Fatalf("PQ train: %v", err) }
+	if err := pq.Train(learnSlice); err != nil {
+		b.Fatalf("PQ train: %v", err)
+	}
 
 	// Train IVF
 	ivf := quantizer.NewIVF(dimLearn, 256)
-	if err := ivf.Train(learnSlice); err != nil { b.Fatalf("IVF train: %v", err) }
+	if err := ivf.Train(learnSlice); err != nil {
+		b.Fatalf("IVF train: %v", err)
+	}
 
 	// Load 1M base set
 	baseVecs, dim, err := loadFvecs(dataDir + "/sift_base.fvecs")
-	if err != nil { b.Skipf("skip: %v", err) }
+	if err != nil {
+		b.Skipf("skip: %v", err)
+	}
 	baseNv := len(baseVecs) / dim
 	vectorsBin := buildVectorsBin(baseVecs, dim, baseNv)
 
 	// Load queries
 	queryVecs, _, err := loadFvecs(dataDir + "/sift_query.fvecs")
-	if err != nil { b.Skipf("skip: %v", err) }
+	if err != nil {
+		b.Skipf("skip: %v", err)
+	}
 	nq := 100
 	queryVecs = queryVecs[:nq*dim]
 
@@ -520,7 +535,9 @@ func BenchmarkSIFT1M_1M(b *testing.B) {
 		NProbe:           16,
 		PTXPath:          "kernels.ptx",
 	})
-	if err := mgr.Init(); err != nil { b.Fatalf("GPU init: %v", err) }
+	if err := mgr.Init(); err != nil {
+		b.Fatalf("GPU init: %v", err)
+	}
 	defer mgr.Close()
 
 	segID := vse.SegmentID(88)
@@ -542,7 +559,10 @@ func BenchmarkSIFT1M_1M(b *testing.B) {
 				diff := vec[di] - c[di]
 				d += diff * diff
 			}
-			if d < bestD { bestD = d; bestK = j }
+			if d < bestD {
+				bestD = d
+				bestK = j
+			}
 		}
 		ivf.Lists[bestK] = append(ivf.Lists[bestK], i)
 	}
@@ -572,7 +592,9 @@ func BenchmarkSIFT1M_1M(b *testing.B) {
 				NProbe: 16,
 				Metric: vse.MetricEuclidean,
 			})
-			if err != nil { b.Fatal(err) }
+			if err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 
@@ -587,7 +609,9 @@ func BenchmarkSIFT1M_1M(b *testing.B) {
 				Exact:  true,
 				Metric: vse.MetricEuclidean,
 			})
-			if err != nil { b.Fatal(err) }
+			if err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 

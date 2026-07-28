@@ -13,14 +13,14 @@ import (
 	"time"
 	"unsafe"
 
-	"nexus/internal/vector/vse"
-	"nexus/internal/vector/vse/engine/cache"
-	"nexus/internal/vector/vse/engine/index"
-	"nexus/internal/vector/vse/engine/quantizer"
-	"nexus/internal/vector/vse/gpu"
-	"nexus/internal/vector/vse/simd"
-	"nexus/internal/vector/vse/storage"
-	"nexus/internal/vector/vse/storage/mmap"
+	"cipherlake/internal/vector/vse"
+	"cipherlake/internal/vector/vse/engine/cache"
+	"cipherlake/internal/vector/vse/engine/index"
+	"cipherlake/internal/vector/vse/engine/quantizer"
+	"cipherlake/internal/vector/vse/gpu"
+	"cipherlake/internal/vector/vse/simd"
+	"cipherlake/internal/vector/vse/storage"
+	"cipherlake/internal/vector/vse/storage/mmap"
 )
 
 type Segment struct {

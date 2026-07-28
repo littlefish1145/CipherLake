@@ -10,8 +10,8 @@ import (
 	"sync"
 	"unsafe"
 
-	"nexus/internal/vector/vse/simd"
-	"nexus/internal/vector/vse/storage/mmap"
+	"cipherlake/internal/vector/vse/simd"
+	"cipherlake/internal/vector/vse/storage/mmap"
 )
 
 // VamanaGraph implements the Vamana graph index from the DiskANN paper.

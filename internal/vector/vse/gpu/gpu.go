@@ -15,20 +15,20 @@
 package gpu
 
 import (
+	"cipherlake/internal/vector/vse"
+	"cipherlake/internal/vector/vse/engine/quantizer"
 	"errors"
-	"nexus/internal/vector/vse"
-	"nexus/internal/vector/vse/engine/quantizer"
 )
 
 var ErrNoGPU = errors.New("GPU not available; build with -tags cuda")
 
 type Config struct {
-	Enabled          bool  // master switch
-	BatchThreshold   int   // min batch for full GPU pipeline
-	DimThreshold     int   // min dim for GPU PQ decode path
-	NProbe           int   // IVF nprobe for GPU path
-	RerankBatch      int   // min batch for exact GPU rerank
-	RerankCandidates int   // min candidates for exact GPU rerank
+	Enabled          bool   // master switch
+	BatchThreshold   int    // min batch for full GPU pipeline
+	DimThreshold     int    // min dim for GPU PQ decode path
+	NProbe           int    // IVF nprobe for GPU path
+	RerankBatch      int    // min batch for exact GPU rerank
+	RerankCandidates int    // min candidates for exact GPU rerank
 	PTXPath          string // path to pre-compiled kernels.ptx (empty = search default locations)
 }
 
@@ -90,7 +90,7 @@ type SearchRequest struct {
 	Query  []float32
 	TopK   int
 	Metric vse.MetricType
-	NProbe int // IVF nprobe (0 = use config default)
+	NProbe int  // IVF nprobe (0 = use config default)
 	Exact  bool // force exact (skip PQ)
 }
 
@@ -118,4 +118,3 @@ func (m *Manager) HasVamanaGraph(segID vse.SegmentID) bool {
 func (m *Manager) VamanaSearchGPU(segID vse.SegmentID, query []float32, topK, beamL int) ([]int32, []float32, error) {
 	return m.impl.vamanaSearchGPU(segID, query, topK, beamL)
 }
-
