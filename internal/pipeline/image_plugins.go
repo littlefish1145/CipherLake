@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	maxImageInputBytes  = 50 * 1024 * 1024
-	maxImagePixels      = 5000 * 5000
+	maxImageInputBytes = 50 * 1024 * 1024
+	maxImagePixels     = 5000 * 5000
 )
 
 type RealImageCompressPlugin struct {
@@ -94,10 +94,10 @@ func (p *RealImageCompressPlugin) Process(ctx context.Context, input *ObjectInpu
 			},
 		},
 		UpdatedMetadata: map[string]string{
-			"compression":      p.Format,
-			"quality":          fmt.Sprintf("%d", p.Quality),
-			"original_size":    fmt.Sprintf("%d", len(imgData)),
-			"compressed_size":  fmt.Sprintf("%d", outputBuf.Len()),
+			"compression":     p.Format,
+			"quality":         fmt.Sprintf("%d", p.Quality),
+			"original_size":   fmt.Sprintf("%d", len(imgData)),
+			"compressed_size": fmt.Sprintf("%d", outputBuf.Len()),
 		},
 	}, nil
 }
@@ -113,10 +113,10 @@ func (p *RealImageCompressPlugin) SupportedTypes() []string {
 }
 
 type RealImageResizePlugin struct {
-	Width      int
-	Height     int
+	Width          int
+	Height         int
 	MaintainAspect bool
-	Algorithm  draw.Scaler
+	Algorithm      draw.Scaler
 }
 
 func NewRealImageResizePlugin(width, height int, maintainAspect bool) *RealImageResizePlugin {
@@ -343,12 +343,12 @@ func (p *ImageMetadataExtractorPlugin) Process(ctx context.Context, input *Objec
 
 	bounds := img.Bounds()
 	metadata := map[string]string{
-		"width":         fmt.Sprintf("%d", bounds.Dx()),
-		"height":        fmt.Sprintf("%d", bounds.Dy()),
-		"format":        format,
-		"size_bytes":    fmt.Sprintf("%d", len(imgData)),
-		"color_model":   fmt.Sprintf("%v", img.ColorModel()),
-		"has_alpha":     fmt.Sprintf("%v", hasAlpha(img)),
+		"width":       fmt.Sprintf("%d", bounds.Dx()),
+		"height":      fmt.Sprintf("%d", bounds.Dy()),
+		"format":      format,
+		"size_bytes":  fmt.Sprintf("%d", len(imgData)),
+		"color_model": fmt.Sprintf("%v", img.ColorModel()),
+		"has_alpha":   fmt.Sprintf("%v", hasAlpha(img)),
 	}
 
 	return &ProcessResult{

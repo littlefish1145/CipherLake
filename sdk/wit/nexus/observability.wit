@@ -1,0 +1,58 @@
+// Nexus Plugin System — Host Observability Interface
+//
+// Log / metric / trace imports (spec §3.17).
+//
+// The loader wraps every host call in an OpenTelemetry span and a
+// metric observation automatically; these imports let the plugin add
+// its own labels/spans on top.
+
+package nexus:plugin@1.0.0;
+
+interface observability {
+    use nexus:plugin/types.{capability-token, capability-error, log-level, span-handle};
+
+    // log-emit emits a structured log entry. The loader prefixes the
+    // log with plugin_name and trace_id (so logs are searchable by
+    // plugin and correlated with traces).
+    //
+    // structured-json is a JSON-encoded object; the loader does not
+    // validate the schema but recommends fields: "msg", "level",
+    // "ts", "fields".
+    log-emit: func(
+        token: capability-token,
+        level: log-level,
+        structured-json: list<u8>,
+    ) -> result<_, capability-error>;
+
+    // metric-record emits a Prometheus metric. The loader auto-adds
+    // plugin_name as a label; the plugin supplies additional labels.
+    //
+    // Cardinality is capped per plugin (spec §3.17): max 50 metric
+    // names, max 20 label-value combinations per metric. Overflow
+    // emits a `plugin_metric_cardinality_overflow` counter.
+    metric-record: func(
+        token: capability-token,
+        name: string,
+        value: f64,
+        labels: list<tuple<string, string>>,
+    ) -> result<_, capability-error>;
+
+    // trace-span-start opens a new OpenTelemetry span as a child of
+    // the current gateway span (auto-propagated via traceparent).
+    //
+    // Returns a span-handle that must be passed to trace-span-end
+    // to close the span.
+    trace-span-start: func(
+        token: capability-token,
+        name: string,
+        attrs: list<tuple<string, string>>,
+    ) -> result<span-handle, capability-error>;
+
+    // trace-span-end closes a span opened by trace-span-start.
+    // Forgetting to call this leaks the span in memory until the
+    // instance is returned to the pool.
+    trace-span-end: func(
+        token: capability-token,
+        handle: span-handle,
+    ) -> result<_, capability-error>;
+}

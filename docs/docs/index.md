@@ -1,6 +1,6 @@
-# Nexus Object Storage
+# CipherLake Object Storage
 
-Nexus is an enterprise-grade, S3-compatible object storage system built with a
+CipherLake is an enterprise-grade, S3-compatible object storage system built with a
 microservices architecture. It provides advanced features including vector
 search, full-text search, server-side encryption, and multi-tier storage.
 
@@ -20,7 +20,7 @@ search, full-text search, server-side encryption, and multi-tier storage.
 
 ## Quick Links
 
-- [Quick Start Guide](getting-started/quickstart.md) - Get Nexus running in 5 minutes
+- [Quick Start Guide](getting-started/quickstart.md) - Get CipherLake running in 5 minutes
 - [Configuration Reference](getting-started/config.md) - All configuration options
 - [Deployment Guide](deployment/single-node.md) - Deploy to production
 - [API Reference](api/s3.md) - S3-compatible API documentation
@@ -48,4 +48,4 @@ search, full-text search, server-side encryption, and multi-tier storage.
 
 ## License
 
-Nexus is licensed under the Apache License 2.0.
+CipherLake is licensed under the Apache License 2.0.

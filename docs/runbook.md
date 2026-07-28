@@ -1,8 +1,8 @@
-# Nexus Alerting Runbook
+# CipherLake Alerting Runbook
 
 ## Alert: Encryption RPC Error Rate > 1% for 5 minutes
 
-**Metric:** `rate(nexus_encrypt_duration_seconds_count{status="error"}[5m]) / rate(nexus_encrypt_duration_seconds_count[5m]) > 0.01`
+**Metric:** `rate(cipherlake_encrypt_duration_seconds_count{status="error"}[5m]) / rate(cipherlake_encrypt_duration_seconds_count[5m]) > 0.01`
 
 **Severity:** Critical
 
@@ -24,7 +24,7 @@
 
 ## Alert: Replication Lag > 60 seconds
 
-**Metric:** `nexus_replication_lag_seconds > 60`
+**Metric:** `cipherlake_replication_lag_seconds > 60`
 
 **Severity:** Warning
 
@@ -53,7 +53,7 @@
 **Impact:** Approaching disk full condition can cause write failures, metadata corruption, and service degradation.
 
 **Diagnosis:**
-1. Check per-tier storage usage: `df -h /var/lib/nexus/{hot,warm,cold,archive}`
+1. Check per-tier storage usage: `df -h /var/lib/cipherlake/{hot,warm,cold,archive}`
 2. Identify large or orphaned objects
 3. Check if tiering is moving data correctly from hot to warm/cold
 4. Review multipart upload incomplete parts
@@ -68,14 +68,14 @@
 
 ## Alert: Vector Search P99 Latency > 1 second
 
-**Metric:** `histogram_quantile(0.99, rate(nexus_vector_search_duration_seconds_bucket[5m])) > 1`
+**Metric:** `histogram_quantile(0.99, rate(cipherlake_vector_search_duration_seconds_bucket[5m])) > 1`
 
 **Severity:** Warning
 
 **Impact:** Semantic search queries are slow, degrading user experience.
 
 **Diagnosis:**
-1. Check `nexus_vector_index_size_vectors` gauge — large indexes may need optimization
+1. Check `cipherlake_vector_index_size_vectors` gauge — large indexes may need optimization
 2. Review embedding API latency if using external provider
 3. Check CPU and memory usage on the gateway node
 4. Verify index type is appropriate for dataset size (HNSW vs IVF)
@@ -91,7 +91,7 @@
 
 ## Alert: Dead Letter Queue Growing
 
-**Metric:** `rate(nexus_event_delivery_total{status="dead_letter"}[5m]) > 0`
+**Metric:** `rate(cipherlake_event_delivery_total{status="dead_letter"}[5m]) > 0`
 
 **Severity:** Warning
 

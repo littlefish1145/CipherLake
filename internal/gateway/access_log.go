@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type AccessLogEntry struct {
@@ -19,6 +21,7 @@ type AccessLogEntry struct {
 	StatusCode int
 	BytesSent  int64
 	RequestID  string
+	Latency    time.Duration
 }
 
 type AccessLogger struct {
@@ -31,6 +34,8 @@ type AccessLogger struct {
 	flushInterval time.Duration
 	done          chan struct{}
 	wg            sync.WaitGroup
+	closeOnce     sync.Once
+	closeErr      error
 }
 
 func NewAccessLogger(dir string, maxSize int64) (*AccessLogger, error) {
@@ -74,7 +79,7 @@ func (l *AccessLogger) Log(entry AccessLogEntry) {
 		entry.Timestamp = time.Now()
 	}
 
-	line := fmt.Sprintf("%s %s %s %s %s %s %d %d %s\n",
+	line := fmt.Sprintf("%s %s %s %s %s %s %d %d %s %s\n",
 		entry.Timestamp.UTC().Format(time.RFC3339Nano),
 		entry.RemoteIP,
 		entry.UserID,
@@ -84,27 +89,34 @@ func (l *AccessLogger) Log(entry AccessLogEntry) {
 		entry.StatusCode,
 		entry.BytesSent,
 		entry.RequestID,
+		entry.Latency,
 	)
 
 	n, err := l.writer.WriteString(line)
 	if err != nil {
+		zap.L().Warn("access log: failed to write entry", zap.Error(err))
 		return
 	}
 	l.currentSize += int64(n)
 
 	if l.currentSize >= l.maxSize {
-		l.rotate()
+		if rotateErr := l.rotate(); rotateErr != nil {
+			zap.L().Warn("access log: failed to rotate after write", zap.Error(rotateErr))
+		}
 	}
 }
 
 func (l *AccessLogger) Close() error {
-	close(l.done)
-	l.wg.Wait()
+	l.closeOnce.Do(func() {
+		close(l.done)
+		l.wg.Wait()
 
-	l.mu.Lock()
-	defer l.mu.Unlock()
+		l.mu.Lock()
+		defer l.mu.Unlock()
 
-	return l.flushAndClose()
+		l.closeErr = l.flushAndClose()
+	})
+	return l.closeErr
 }
 
 func (l *AccessLogger) flushLoop() {
@@ -118,7 +130,9 @@ func (l *AccessLogger) flushLoop() {
 		case <-ticker.C:
 			l.mu.Lock()
 			if l.writer != nil {
-				l.writer.Flush()
+				if err := l.writer.Flush(); err != nil {
+					zap.L().Warn("access log: flush failed", zap.Error(err))
+				}
 			}
 			l.mu.Unlock()
 		case <-l.done:

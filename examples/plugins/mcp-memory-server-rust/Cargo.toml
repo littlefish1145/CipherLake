@@ -1,0 +1,20 @@
+[package]
+name = "mcp-memory-server"
+version = "0.1.0"
+edition = "2024"
+authors = ["Nexus Project"]
+description = "Standalone Rust example plugin for the Nexus plugin loader."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/cipherlake/nexus"
+
+[dependencies]
+
+[profile.release]
+# Optimize for size; the loader copies the wasm module into memory.
+opt-level = "z"
+lto = true
+panic = "abort"
+strip = true
+
+[profile.dev]
+panic = "abort"

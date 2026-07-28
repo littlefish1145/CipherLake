@@ -5,12 +5,12 @@ import (
 	"time"
 )
 
-// ARN prefix for Nexus resources
+// ARN prefix for CipherLake resources
 const (
-	ARNPrefix    = "arn:nexus:"
-	ServiceS3    = "s3"
-	ServiceIAM   = "iam"
-	ServiceSTS   = "sts"
+	ARNPrefix     = "arn:cipherlake:"
+	ServiceS3     = "s3"
+	ServiceIAM    = "iam"
+	ServiceSTS    = "sts"
 	ServiceVector = "vector"
 
 	// Access key ID prefix (AWS compatible)
@@ -33,35 +33,35 @@ const (
 
 // AccessKey represents an AWS-compatible access key pair
 type AccessKey struct {
-	AccessKeyID     string     `json:"access_key_id"`
-	SecretKeyEnc    []byte     `json:"secret_key_enc"`    // AES-256-GCM encrypted
-	Status          string     `json:"status"`             // Active, Inactive
-	CreatedAt       time.Time  `json:"created_at"`
-	LastUsedAt      *time.Time `json:"last_used_at,omitempty"`
-	Description     string     `json:"description,omitempty"`
+	AccessKeyID  string     `json:"access_key_id"`
+	SecretKeyEnc []byte     `json:"secret_key_enc"` // AES-256-GCM encrypted
+	Status       string     `json:"status"`         // Active, Inactive
+	CreatedAt    time.Time  `json:"created_at"`
+	LastUsedAt   *time.Time `json:"last_used_at,omitempty"`
+	Description  string     `json:"description,omitempty"`
 }
 
 // IAMUser represents an IAM user
 type IAMUser struct {
-	ID                string            `json:"id"`
-	Name              string            `json:"name"`
-	DisplayName       string            `json:"display_name,omitempty"`
-	AccessKeys        []AccessKey       `json:"access_keys"`
-	Groups            []string          `json:"groups"`
-	AttachedPolicies  []string          `json:"attached_policies"` // Policy ARNs or names
-	InlinePolicies    []PolicyDocument  `json:"inline_policies"`
+	ID                 string           `json:"id"`
+	Name               string           `json:"name"`
+	DisplayName        string           `json:"display_name,omitempty"`
+	AccessKeys         []AccessKey      `json:"access_keys"`
+	Groups             []string         `json:"groups"`
+	AttachedPolicies   []string         `json:"attached_policies"` // Policy ARNs or names
+	InlinePolicies     []PolicyDocument `json:"inline_policies"`
 	PermissionBoundary string           `json:"permission_boundary,omitempty"` // Policy name reference
-	PasswordHash      string            `json:"password_hash,omitempty"`
-	CreatedAt         time.Time         `json:"created_at"`
-	LastActivityAt    *time.Time        `json:"last_activity_at,omitempty"`
+	PasswordHash       string           `json:"password_hash,omitempty"`
+	CreatedAt          time.Time        `json:"created_at"`
+	LastActivityAt     *time.Time       `json:"last_activity_at,omitempty"`
 }
 
 // IAMGroup represents an IAM group
 type IAMGroup struct {
-	Name             string   `json:"name"`
-	Description      string   `json:"description,omitempty"`
-	Users            []string `json:"users"`
-	AttachedPolicies []string `json:"attached_policies"`
+	Name             string    `json:"name"`
+	Description      string    `json:"description,omitempty"`
+	Users            []string  `json:"users"`
+	AttachedPolicies []string  `json:"attached_policies"`
 	CreatedAt        time.Time `json:"created_at"`
 }
 
@@ -104,15 +104,15 @@ type PolicyDocument struct {
 
 // Statement represents a single policy statement
 type Statement struct {
-	Sid       string                 `json:"sid,omitempty"`
-	Effect    string                 `json:"effect"`
-	Action    StringOrSlice          `json:"action"`
-	NotAction StringOrSlice          `json:"not_action,omitempty"`
-	Resource  StringOrSlice          `json:"resource"`
-	NotResource StringOrSlice        `json:"not_resource,omitempty"`
-	Principal *Principal             `json:"principal,omitempty"`
-	NotPrincipal *Principal          `json:"not_principal,omitempty"`
-	Condition  map[string]map[string]interface{} `json:"condition,omitempty"`
+	Sid          string                            `json:"sid,omitempty"`
+	Effect       string                            `json:"effect"`
+	Action       StringOrSlice                     `json:"action"`
+	NotAction    StringOrSlice                     `json:"not_action,omitempty"`
+	Resource     StringOrSlice                     `json:"resource"`
+	NotResource  StringOrSlice                     `json:"not_resource,omitempty"`
+	Principal    *Principal                        `json:"principal,omitempty"`
+	NotPrincipal *Principal                        `json:"not_principal,omitempty"`
+	Condition    map[string]map[string]interface{} `json:"condition,omitempty"`
 }
 
 // Principal represents a policy principal (for bucket policies)
@@ -135,11 +135,11 @@ type TemporaryCredential struct {
 
 // AssumeRoleRequest represents an STS AssumeRole request
 type AssumeRoleRequest struct {
-	RoleARN          string `json:"role_arn"`
-	RoleSessionName  string `json:"role_session_name"`
-	DurationSeconds  int    `json:"duration_seconds,omitempty"`
-	ExternalID       string `json:"external_id,omitempty"`
-	Policy           string `json:"policy,omitempty"` // inline policy to scope down
+	RoleARN         string `json:"role_arn"`
+	RoleSessionName string `json:"role_session_name"`
+	DurationSeconds int    `json:"duration_seconds,omitempty"`
+	ExternalID      string `json:"external_id,omitempty"`
+	Policy          string `json:"policy,omitempty"` // inline policy to scope down
 }
 
 // GetSessionTokenRequest represents an STS GetSessionToken request
@@ -160,7 +160,7 @@ type GetFederationTokenRequest struct {
 type EvalContext struct {
 	Principal     string            // User ARN or anonymous
 	Action        string            // e.g., "s3:GetObject"
-	Resource      string            // e.g., "arn:nexus:s3:::images/photo.png"
+	Resource      string            // e.g., "arn:cipherlake:s3:::images/photo.png"
 	Conditions    map[string]string // key-value conditions for evaluation
 	SourceIP      string            // client IP
 	Time          time.Time         // request time
@@ -175,11 +175,11 @@ type EvalContext struct {
 
 // EvalResult is the result of policy evaluation
 type EvalResult struct {
-	Decision    Decision // Allow, Deny, ImplicitDeny
-	MatchedBy   string   // Which policy/statement matched
-	PolicyType  string   // "identity", "boundary", "scp", "resource"
-	PolicyName  string   // Name of the policy that matched
-	Details     string   // Human-readable explanation
+	Decision   Decision // Allow, Deny, ImplicitDeny
+	MatchedBy  string   // Which policy/statement matched
+	PolicyType string   // "identity", "boundary", "scp", "resource"
+	PolicyName string   // Name of the policy that matched
+	Details    string   // Human-readable explanation
 }
 
 // Decision represents an authorization decision
@@ -221,7 +221,7 @@ type CreateAccessKeyResult struct {
 	CreatedAt       time.Time `json:"created_at"`
 }
 
-// MakeARN creates a Nexus ARN
+// MakeARN creates a CipherLake ARN
 func MakeARN(service, resource string) string {
 	return ARNPrefix + service + ":::" + resource
 }
@@ -268,9 +268,9 @@ func IsVectorAction(action string) bool {
 
 // Well-known vector service actions
 const (
-	VectorActionSearch  = "vector:Search"
-	VectorActionIndex   = "vector:Index"
-	VectorActionDelete  = "vector:Delete"
-	VectorActionManage  = "vector:Manage"  // rebuild, config
-	VectorActionAll     = "vector:*"
+	VectorActionSearch = "vector:Search"
+	VectorActionIndex  = "vector:Index"
+	VectorActionDelete = "vector:Delete"
+	VectorActionManage = "vector:Manage" // rebuild, config
+	VectorActionAll    = "vector:*"
 )

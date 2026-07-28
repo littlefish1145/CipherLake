@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"nexus/internal/units"
+	"cipherlake/internal/units"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -66,7 +66,7 @@ version: "2.0"
 node:
   role: "all"
   listen_addr: ":8080"
-  data_dir: "/tmp/nexus"
+  data_dir: "/tmp/cipherlake"
 tiering:
   enabled: true
   hot_max_size: "16GB"

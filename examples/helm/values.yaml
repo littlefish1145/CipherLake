@@ -2,11 +2,11 @@
 gateway:
   replicas: 3
   image:
-    repository: ghcr.io/nexus/nexus
+    repository: ghcr.io/cipherlake/cipherlake
     tag: "1.0.0"
     pullPolicy: IfNotPresent
-  accessKey: "nexus"
-  secretKey: "nexus-secret"
+  accessKey: "cipherlake"
+  secretKey: "cipherlake-secret"
   resources:
     requests:
       cpu: "500m"

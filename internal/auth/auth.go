@@ -1,5 +1,5 @@
 // Package auth defines the unified authentication and authorization interfaces
-// used by the Nexus S3 gateway. Legacy local users and IAM users are both
+// used by the CipherLake S3 gateway. Legacy local users and IAM users are both
 // exposed through the same Identity abstraction.
 package auth
 

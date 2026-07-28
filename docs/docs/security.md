@@ -1,7 +1,7 @@
 # Security Whitepaper
 
 This document describes the security architecture, threat model, and
-hardening recommendations for Nexus Object Storage.
+hardening recommendations for CipherLake Object Storage.
 
 ## Threat Model
 
@@ -40,11 +40,11 @@ hardening recommendations for Nexus Object Storage.
 
 ### At Rest
 
-Nexus supports three server-side encryption modes:
+CipherLake supports three server-side encryption modes:
 
-#### SSE-S3 (Server-Side Encryption with Nexus-Managed Keys)
+#### SSE-S3 (Server-Side Encryption with CipherLake-Managed Keys)
 
-- Nexus generates and manages encryption keys
+- CipherLake generates and manages encryption keys
 - Each object is encrypted with a unique data key
 - Data keys are encrypted with a master key
 - Master keys are stored in the KeyStore service
@@ -71,7 +71,7 @@ encryption:
 #### SSE-C (Server-Side Encryption with Customer-Provided Keys)
 
 - Customer provides the encryption key with each request
-- Nexus never stores the plaintext key
+- CipherLake never stores the plaintext key
 - Key is used for the operation and then discarded
 
 ### In Transit
@@ -84,16 +84,16 @@ encryption:
 gateway:
   tls:
     enabled: true
-    cert_file: "/etc/nexus/tls/server.crt"
-    key_file: "/etc/nexus/tls/server.key"
+    cert_file: "/etc/cipherlake/tls/server.crt"
+    key_file: "/etc/cipherlake/tls/server.key"
     min_version: "1.2"
 
 services:
   tls:
     enabled: true
-    ca_file: "/etc/nexus/tls/ca.crt"
-    cert_file: "/etc/nexus/tls/service.crt"
-    key_file: "/etc/nexus/tls/service.key"
+    ca_file: "/etc/cipherlake/tls/ca.crt"
+    cert_file: "/etc/cipherlake/tls/service.crt"
+    key_file: "/etc/cipherlake/tls/service.key"
 ```
 
 ## Authentication and Authorization
@@ -119,13 +119,13 @@ services:
     {
       "Effect": "Allow",
       "Action": ["s3:GetObject", "s3:PutObject"],
-      "Resource": ["arn:nexus:s3:::data-bucket/*"],
+      "Resource": ["arn:cipherlake:s3:::data-bucket/*"],
       "Condition": {
         "StringEquals": {
-          "nexus:SourceIP": "10.0.0.0/8"
+          "cipherlake:SourceIP": "10.0.0.0/8"
         },
         "Bool": {
-          "nexus:SecureTransport": "true"
+          "cipherlake:SecureTransport": "true"
         }
       }
     }
@@ -160,13 +160,13 @@ services:
 
 1. **Audit logging**: Enable access logs for all API operations
 2. **Monitoring**: Set up alerts for suspicious activity
-3. **Regular updates**: Keep Nexus and dependencies updated
+3. **Regular updates**: Keep CipherLake and dependencies updated
 4. **Backup encryption**: Encrypt backups with separate keys
 
 ### Container Security
 
 1. **Distroless base image**: Minimize attack surface
-2. **Non-root user**: Run Nexus as non-root user
+2. **Non-root user**: Run CipherLake as non-root user
 3. **Read-only filesystem**: Mount config as read-only where possible
 4. **Security contexts**: In Kubernetes, use `runAsNonRoot: true`
 
@@ -182,7 +182,7 @@ securityContext:
 
 ## Compliance
 
-Nexus supports the following compliance requirements:
+CipherLake supports the following compliance requirements:
 
 | Requirement | Implementation |
 |-------------|---------------|
@@ -195,5 +195,5 @@ Nexus supports the following compliance requirements:
 
 ## Vulnerability Reporting
 
-Report security vulnerabilities to security@nexus.dev. Please do not file
+Report security vulnerabilities to security@cipherlake.dev. Please do not file
 public issues for security vulnerabilities.

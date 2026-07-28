@@ -269,7 +269,7 @@ func TestBool(t *testing.T) {
 
 func TestArnEquals(t *testing.T) {
 	pe := &PolicyEvaluator{}
-	ctx := &EvalContext{Conditions: map[string]string{"resource": "arn:nexus:s3:::mybucket/mykey"}}
+	ctx := &EvalContext{Conditions: map[string]string{"resource": "arn:cipherlake:s3:::mybucket/mykey"}}
 
 	tests := []struct {
 		operator string
@@ -277,10 +277,10 @@ func TestArnEquals(t *testing.T) {
 		expected interface{}
 		want     bool
 	}{
-		{"ArnEquals", "resource", "arn:nexus:s3:::mybucket/mykey", true},
-		{"ArnEquals", "resource", "arn:nexus:s3:::otherbucket/*", false},
-		{"ArnLike", "resource", "arn:nexus:s3:::mybucket/*", true},
-		{"ArnLike", "resource", "arn:nexus:s3:::*", true},
+		{"ArnEquals", "resource", "arn:cipherlake:s3:::mybucket/mykey", true},
+		{"ArnEquals", "resource", "arn:cipherlake:s3:::otherbucket/*", false},
+		{"ArnLike", "resource", "arn:cipherlake:s3:::mybucket/*", true},
+		{"ArnLike", "resource", "arn:cipherlake:s3:::*", true},
 	}
 
 	for _, tt := range tests {
@@ -430,7 +430,7 @@ func TestABACConditionIntegration(t *testing.T) {
 	ctx := &EvalContext{
 		Principal:     "user1",
 		Action:        "s3:GetObject",
-		Resource:      "arn:nexus:s3:::mybucket/key",
+		Resource:      "arn:cipherlake:s3:::mybucket/key",
 		ResourceTags:  map[string]string{"Project": "Alpha"},
 		PrincipalTags: map[string]string{"Project": "Alpha"},
 	}
@@ -465,7 +465,7 @@ func TestPermissionBoundaryAllows(t *testing.T) {
 	ctx := &EvalContext{
 		Principal: "user1",
 		Action:    "s3:GetObject",
-		Resource:  "arn:nexus:s3:::mybucket/key",
+		Resource:  "arn:cipherlake:s3:::mybucket/key",
 	}
 
 	// Boundary allows S3 read access
@@ -491,7 +491,7 @@ func TestPermissionBoundaryDenies(t *testing.T) {
 	ctx := &EvalContext{
 		Principal: "user1",
 		Action:    "s3:DeleteObject",
-		Resource:  "arn:nexus:s3:::mybucket/key",
+		Resource:  "arn:cipherlake:s3:::mybucket/key",
 	}
 
 	// Boundary only allows S3 read access
@@ -517,7 +517,7 @@ func TestPermissionBoundaryExplicitDeny(t *testing.T) {
 	ctx := &EvalContext{
 		Principal: "user1",
 		Action:    "s3:GetObject",
-		Resource:  "arn:nexus:s3:::mybucket/key",
+		Resource:  "arn:cipherlake:s3:::mybucket/key",
 	}
 
 	// Boundary explicitly denies S3 access
@@ -558,7 +558,7 @@ func TestSCPAllow(t *testing.T) {
 	ctx := &EvalContext{
 		Principal: "user1",
 		Action:    "s3:GetObject",
-		Resource:  "arn:nexus:s3:::mybucket/key",
+		Resource:  "arn:cipherlake:s3:::mybucket/key",
 	}
 
 	result := pe.evaluateSCP(ctx)
@@ -603,7 +603,7 @@ func TestSCPDeny(t *testing.T) {
 	ctx2 := &EvalContext{
 		Principal: "user1",
 		Action:    "s3:GetObject",
-		Resource:  "arn:nexus:s3:::mybucket/key",
+		Resource:  "arn:cipherlake:s3:::mybucket/key",
 	}
 
 	result2 := pe.evaluateSCP(ctx2)
@@ -702,7 +702,7 @@ func TestSimulateResponse(t *testing.T) {
 	ctx := &EvalContext{
 		Principal: "test-user",
 		Action:    "s3:GetObject",
-		Resource:  "arn:nexus:s3:::bucket/key",
+		Resource:  "arn:cipherlake:s3:::bucket/key",
 		Time:      time.Now(),
 	}
 
@@ -724,8 +724,8 @@ func TestIpInRange(t *testing.T) {
 		{"192.168.2.1", "192.168.1.0/24", false},
 		{"10.0.0.1", "10.0.0.0/8", true},
 		{"172.16.0.1", "172.16.0.0/12", true},
-		{"192.168.1.1", "192.168.1.1", true},  // exact match (no CIDR)
-		{"192.168.1.2", "192.168.1.1", false}, // exact match fails
+		{"192.168.1.1", "192.168.1.1", true},   // exact match (no CIDR)
+		{"192.168.1.2", "192.168.1.1", false},  // exact match fails
 		{"1.2.3.4", "*", true},                 // wildcard
 		{"invalid", "192.168.1.0/24", false},   // invalid IP
 		{"192.168.1.1", "invalid", false},      // invalid CIDR
@@ -760,7 +760,7 @@ func TestNumericComparisons(t *testing.T) {
 		{numericGreaterThan, "100", "50", true},
 		{numericGreaterThan, "50", "100", false},
 		{numericGreaterThan, "100", "100", false},
-		{numericEquals, "invalid", "invalid", true},   // fallback to string comparison
+		{numericEquals, "invalid", "invalid", true},    // fallback to string comparison
 		{numericLessThan, "invalid", "invalid", false}, // fallback to string comparison
 	}
 
@@ -782,12 +782,12 @@ func TestArnMatch(t *testing.T) {
 		arn     string
 		want    bool
 	}{
-		{"arn:nexus:s3:::mybucket/*", "arn:nexus:s3:::mybucket/key", true},
-		{"arn:nexus:s3:::mybucket/*", "arn:nexus:s3:::otherbucket/key", false},
-		{"arn:nexus:s3:::*", "arn:nexus:s3:::anybucket/anykey", true},
+		{"arn:cipherlake:s3:::mybucket/*", "arn:cipherlake:s3:::mybucket/key", true},
+		{"arn:cipherlake:s3:::mybucket/*", "arn:cipherlake:s3:::otherbucket/key", false},
+		{"arn:cipherlake:s3:::*", "arn:cipherlake:s3:::anybucket/anykey", true},
 		{"*", "anything", true},
-		{"arn:nexus:s3:::bucket/key", "arn:nexus:s3:::bucket/key", true},
-		{"arn:nexus:s3:::bucket/key", "arn:nexus:s3:::bucket/other", false},
+		{"arn:cipherlake:s3:::bucket/key", "arn:cipherlake:s3:::bucket/key", true},
+		{"arn:cipherlake:s3:::bucket/key", "arn:cipherlake:s3:::bucket/other", false},
 	}
 
 	for _, tt := range tests {
@@ -906,7 +906,7 @@ func TestParsePolicyDocument(t *testing.T) {
 				"Sid": "Statement1",
 				"Effect": "Allow",
 				"Action": ["s3:GetObject", "s3:PutObject"],
-				"Resource": "arn:nexus:s3:::mybucket/*",
+				"Resource": "arn:cipherlake:s3:::mybucket/*",
 				"Condition": {
 					"StringEquals": {
 						"aws:PrincipalTag/Team": "Backend"
@@ -960,7 +960,7 @@ func TestEvaluateWithBoundaryAndSCP(t *testing.T) {
 	ctx := &EvalContext{
 		Principal: "user1",
 		Action:    "s3:GetObject",
-		Resource:  "arn:nexus:s3:::mybucket/key",
+		Resource:  "arn:cipherlake:s3:::mybucket/key",
 	}
 
 	// SCP allows, but no identity policies → implicit deny

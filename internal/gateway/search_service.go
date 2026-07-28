@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"nexus/internal/auth"
-	"nexus/internal/common"
-	"nexus/internal/fts"
-	"nexus/internal/pipeline"
-	"nexus/internal/taskqueue"
-	"nexus/internal/vector"
+	"cipherlake/internal/auth"
+	"cipherlake/internal/common"
+	"cipherlake/internal/fts"
+	"cipherlake/internal/pipeline"
+	"cipherlake/internal/taskqueue"
+	"cipherlake/internal/vector"
 
 	"go.uber.org/zap"
 )
@@ -456,12 +456,20 @@ func (s *SearchService) ftsIndexObject(ctx context.Context, bucket, key, content
 
 	objMeta, err := s.gateway.metadata.GetObject(ctx, bucket, key)
 	if err != nil {
+		zap.L().Warn("fts: failed to fetch object metadata",
+			zap.String("bucket", bucket),
+			zap.String("key", key),
+			zap.Error(err))
 		return
 	}
 
 	storageTier := common.StorageTier(objMeta.StorageTier)
 	reader, _, err := s.gateway.store.Get(ctx, bucket, key, storageTier)
 	if err != nil {
+		zap.L().Warn("fts: failed to open object reader",
+			zap.String("bucket", bucket),
+			zap.String("key", key),
+			zap.Error(err))
 		return
 	}
 	defer reader.Close()
@@ -470,6 +478,10 @@ func (s *SearchService) ftsIndexObject(ctx context.Context, bucket, key, content
 	if objMeta.Encrypted && s.gateway.cryptoCoordinator != nil && len(objMeta.EncryptedDEK) > 0 {
 		decryptedReader, err := s.gateway.cryptoCoordinator.DecryptOperation(ctx, "", bucket, key, reader, "", objMeta.EncryptedDEK)
 		if err != nil {
+			zap.L().Warn("fts: failed to decrypt object",
+				zap.String("bucket", bucket),
+				zap.String("key", key),
+				zap.Error(err))
 			return
 		}
 		dataReader = decryptedReader
@@ -478,6 +490,10 @@ func (s *SearchService) ftsIndexObject(ctx context.Context, bucket, key, content
 	limitedReader := io.LimitReader(dataReader, 1024*1024)
 	content, err := io.ReadAll(limitedReader)
 	if err != nil {
+		zap.L().Warn("fts: failed to read object content",
+			zap.String("bucket", bucket),
+			zap.String("key", key),
+			zap.Error(err))
 		return
 	}
 
@@ -487,6 +503,11 @@ func (s *SearchService) ftsIndexObject(ctx context.Context, bucket, key, content
 	}
 
 	if err := s.gateway.ftsIndex.AddDocumentWithInfo(bucket, key, versionID, text); err != nil {
+		zap.L().Warn("fts: failed to add document to index",
+			zap.String("bucket", bucket),
+			zap.String("key", key),
+			zap.String("version_id", versionID),
+			zap.Error(err))
 		return
 	}
 }

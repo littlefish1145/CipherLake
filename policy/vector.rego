@@ -1,4 +1,4 @@
-package nexus.vector
+package cipherlake.vector
 
 # Default deny for all vector operations
 default allow = false
@@ -14,9 +14,9 @@ default allow = false
 #   vector:*       - All vector operations
 #
 # Resources:
-#   arn:nexus:vector:::index/<bucket>           - Bucket-level index
-#   arn:nexus:vector:::index/<bucket>/<key>     - Specific document
-#   arn:nexus:vector:::*                        - All indexes
+#   arn:cipherlake:vector:::index/<bucket>           - Bucket-level index
+#   arn:cipherlake:vector:::index/<bucket>/<key>     - Specific document
+#   arn:cipherlake:vector:::*                        - All indexes
 # ============================================================
 
 # Admin always has access

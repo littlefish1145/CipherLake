@@ -18,22 +18,22 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/crypto/hkdf"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/hkdf"
 
-	"nexus/internal/services"
+	"cipherlake/internal/services"
 )
 
 // KeyUnwrapService unwraps (decrypts) data encryption keys
 // Uses private key (SK_Decrypt) to decrypt encrypted DEK
 // Cannot encrypt - only has private key
 type KeyUnwrapService struct {
-	mu              sync.RWMutex
-	decryptPrivKey  *ecdsa.PrivateKey   // Long-term private key for decrypting DEK
-	keyID           string
-	keyPath         string
-	curve           elliptic.Curve
-	auditLog        *AuditLogger
+	mu             sync.RWMutex
+	decryptPrivKey *ecdsa.PrivateKey // Long-term private key for decrypting DEK
+	keyID          string
+	keyPath        string
+	curve          elliptic.Curve
+	auditLog       *AuditLogger
 }
 
 // AuditLogger for keyunwrap service

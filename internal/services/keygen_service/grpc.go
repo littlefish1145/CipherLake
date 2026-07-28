@@ -6,10 +6,10 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	pb "nexus/proto/keygen"
-	common "nexus/proto/common"
-	"nexus/internal/services/server"
-	"nexus/internal/services"
+	"cipherlake/internal/services"
+	"cipherlake/internal/services/server"
+	common "cipherlake/proto/common"
+	pb "cipherlake/proto/keygen"
 )
 
 // GRPCServer adapts KeyGenService to gRPC interface

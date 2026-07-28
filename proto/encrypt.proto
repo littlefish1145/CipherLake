@@ -1,10 +1,10 @@
 syntax = "proto3";
 
-package nexus.encrypt;
+package cipherlake.encrypt;
 
-option go_package = "nexus/proto/encrypt";
+option go_package = "cipherlake/proto/encrypt";
 
-import "common.proto";
+import "cipherlake/common.proto";
 
 // EncryptService - Encrypts data using DEK
 // No persistent keys - uses DEK passed in request
@@ -24,14 +24,14 @@ service EncryptService {
 
 message EncryptRequest {
   // DEK encrypted with ECDH-derived session key
-  nexus.common.ECDHEncryptedDEK ecdh_encrypted_dek = 1;
+  cipherlake.common.ECDHEncryptedDEK ecdh_encrypted_dek = 1;
   
   // Client's ECDH private key (for deriving shared secret)
   // Note: This is passed securely via mTLS channel
   bytes client_ecdh_private_key = 2;
   
   // Service's ephemeral ECDH public key from KeyGenService
-  nexus.common.ECDHPublicKey service_ecdh_pub = 3;
+  cipherlake.common.ECDHPublicKey service_ecdh_pub = 3;
   
   // Encryption algorithm
   string algorithm = 4;  // e.g., "AES-256-GCM"
@@ -56,13 +56,13 @@ message EncryptResponse {
   // Indicates this is the last chunk
   bool is_last = 5;
   
-  nexus.common.Error error = 6;
+  cipherlake.common.Error error = 6;
 }
 
 message EncryptChunkRequest {
-  nexus.common.ECDHEncryptedDEK ecdh_encrypted_dek = 1;
+  cipherlake.common.ECDHEncryptedDEK ecdh_encrypted_dek = 1;
   bytes client_ecdh_private_key = 2;
-  nexus.common.ECDHPublicKey service_ecdh_pub = 3;
+  cipherlake.common.ECDHPublicKey service_ecdh_pub = 3;
   bytes plaintext = 4;
   string algorithm = 5;
   bytes associated_data = 6;
@@ -72,7 +72,7 @@ message EncryptChunkResponse {
   bytes ciphertext = 1;
   bytes nonce = 2;
   bytes auth_tag = 3;
-  nexus.common.Error error = 4;
+  cipherlake.common.Error error = 4;
 }
 
 message HealthRequest {}

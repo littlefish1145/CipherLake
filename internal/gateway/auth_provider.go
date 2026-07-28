@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
-	"nexus/internal/auth"
-	"nexus/internal/iam"
+	"cipherlake/internal/auth"
+	"cipherlake/internal/iam"
 )
 
 // gatewayAuthProvider adapts the legacy AuthHandler and IAMAuthBridge to the
@@ -14,14 +15,16 @@ import (
 // handler and IAM bridge should be collapsed into implementations of
 // auth.Provider and auth.PermissionChecker.
 type gatewayAuthProvider struct {
-	authHandler *AuthHandler
-	iamBridge   *IAMAuthBridge
+	authHandler   *AuthHandler
+	iamBridge     *IAMAuthBridge
+	legacyChecker *legacyPermissionChecker
 }
 
 func newGatewayAuthProvider(authHandler *AuthHandler, iamBridge *IAMAuthBridge) *gatewayAuthProvider {
 	return &gatewayAuthProvider{
-		authHandler: authHandler,
-		iamBridge:   iamBridge,
+		authHandler:   authHandler,
+		iamBridge:     iamBridge,
+		legacyChecker: &legacyPermissionChecker{},
 	}
 }
 
@@ -64,11 +67,28 @@ func anonymousIdentity(anonymousRead bool) *auth.Identity {
 
 func looksLikeIAMRequest(r *http.Request) bool {
 	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
+	if authHeader != "" {
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) != 2 {
+			return false
+		}
+		switch strings.ToLower(parts[0]) {
+		case "aws4-hmac-sha256":
+			return true
+		case "basic":
+			decoded, err := decodeBasicAuth(parts[1])
+			return err == nil && isIAMAccessKey(decoded.Username)
+		default:
+			return containsAKIAOrASIA(authHeader)
+		}
+	}
+
+	credential := r.URL.Query().Get("X-Amz-Credential")
+	if credential == "" {
 		return false
 	}
-	return len(authHeader) >= 4 &&
-		(authHeader[:4] == "AWS4" || containsAKIAOrASIA(authHeader))
+	accessKey := strings.SplitN(credential, "/", 2)[0]
+	return isIAMAccessKey(accessKey)
 }
 
 func containsAKIAOrASIA(s string) bool {
@@ -87,6 +107,10 @@ func containsPrefix(s, prefix string) bool {
 	return false
 }
 
+func isIAMAccessKey(accessKey string) bool {
+	return strings.HasPrefix(accessKey, iam.AccessKeyIDPrefix) || strings.HasPrefix(accessKey, "ASIA")
+}
+
 func toAuthIdentity(u *User, iamUser *iam.IAMUser) *auth.Identity {
 	if u == nil {
 		return nil
@@ -103,6 +127,9 @@ func toAuthIdentity(u *User, iamUser *iam.IAMUser) *auth.Identity {
 		id.IsIAM = true
 		id.IAMUserID = iamUser.ID
 		id.Source = "iam"
+	} else if strings.HasPrefix(u.Name, "sts:") {
+		id.IsIAM = true
+		id.Source = "sts"
 	}
 	return id
 }
@@ -132,10 +159,12 @@ func (p *gatewayAuthProvider) Check(ctx context.Context, identity *auth.Identity
 	}
 
 	// Legacy permission check.
-	return p.checkLegacyPermission(identity, action, bucket)
+	return p.legacyChecker.Check(identity, action, bucket)
 }
 
-func (p *gatewayAuthProvider) checkLegacyPermission(identity *auth.Identity, action, bucket string) error {
+type legacyPermissionChecker struct{}
+
+func (c *legacyPermissionChecker) Check(identity *auth.Identity, action, bucket string) error {
 	if bucket != "" && identity.BucketPerms != nil {
 		var bucketPerms []string
 		if bp, ok := identity.BucketPerms[bucket]; ok {

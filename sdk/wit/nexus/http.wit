@@ -1,0 +1,24 @@
+// Nexus Plugin System — Host HTTP Interface
+//
+// Outbound HTTP fetch with URL whitelist enforcement (spec §3.10).
+
+package nexus:plugin@1.0.0;
+
+interface http {
+    use nexus:plugin/types.{capability-token, capability-error, http-request, http-response};
+
+    // fetch performs an HTTP request to an external URL.
+    //
+    // The URL must match the plugin's manifest-declared net:egress
+    // whitelist (spec §3.10). Whitelist mismatch returns ErrForbidden.
+    //
+    // Default timeout 10s, max response body 10MB. Larger responses
+    // are truncated and ErrQuotaExceeded is returned.
+    //
+    // All fetches are audit-logged: URL, method, status, bytes_in,
+    // bytes_out, timestamp (spec §3.10).
+    fetch: func(
+        token: capability-token,
+        request: http-request,
+    ) -> result<http-response, capability-error>;
+}

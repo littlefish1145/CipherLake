@@ -1,0 +1,53 @@
+// Nexus Plugin System — Host Stream Interface
+//
+// Streaming body access for around hooks (spec §3.9).
+//
+// Streams let a plugin inspect or transform large object bodies
+// without loading them into WASM linear memory.
+
+package nexus:plugin@1.0.0;
+
+interface stream {
+    use nexus:plugin/types.{capability-token, capability-error, stream-handle};
+
+    // open creates a new stream for writing object body bytes (used
+    // when a plugin wants to provide body via storage:put, or when
+    // an around hook wants to write a replacement body via
+    // ctx-write-stream on the hook context).
+    //
+    // Returns a stream-handle that can be passed to write-chunk
+    // and (eventually) close.
+    open: func(
+        token: capability-token,
+    ) -> result<stream-handle, capability-error>;
+
+    // read-chunk reads up to `len` bytes from a stream at `offset`
+    // (relative to the current stream position for read streams
+    // opened by storage:get). Returns the bytes actually read.
+    //
+    // Reading past EOF returns an empty list.
+    read-chunk: func(
+        token: capability-token,
+        handle: stream-handle,
+        offset: u64,
+        len: u32,
+    ) -> result<list<u8>, capability-error>;
+
+    // write-chunk appends bytes to a write stream (opened via open
+    // or via ctx-write-stream on a hook context).
+    write-chunk: func(
+        token: capability-token,
+        handle: stream-handle,
+        bytes: list<u8>,
+    ) -> result<_, capability-error>;
+
+    // close finalizes a stream. For write streams, the data becomes
+    // visible to the consumer (e.g. storage:put completes). For read
+    // streams, the underlying resource is released.
+    //
+    // Idempotent: closing an already-closed stream is a no-op.
+    close: func(
+        token: capability-token,
+        handle: stream-handle,
+    ) -> result<_, capability-error>;
+}

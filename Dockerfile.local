@@ -1,24 +1,24 @@
 FROM alpine:3.20
 
 RUN apk add --no-cache ca-certificates wget && \
-    addgroup -g 1000 -S nexus && \
-    adduser -u 1000 -S nexus -G nexus
+    addgroup -g 1000 -S cipherlake && \
+    adduser -u 1000 -S cipherlake -G cipherlake
 
-WORKDIR /home/nexus
+WORKDIR /home/cipherlake
 
-COPY nexus-linux /usr/local/bin/nexus
-COPY nexusctl-linux /usr/local/bin/nexusctl
-COPY config.yaml /etc/nexus/config.yaml
+COPY cipherlake-linux /usr/local/bin/cipherlake
+COPY cipherlakectl-linux /usr/local/bin/cipherlakectl
+COPY config.yaml /etc/cipherlake/config.yaml
 
-RUN chmod +x /usr/local/bin/nexus /usr/local/bin/nexusctl && \
-    mkdir -p /var/lib/nexus/data /var/lib/nexus/metadata /var/lib/nexus/keystore /etc/nexus && \
-    chown -R nexus:nexus /var/lib/nexus /etc/nexus
+RUN chmod +x /usr/local/bin/cipherlake /usr/local/bin/cipherlakectl && \
+    mkdir -p /var/lib/cipherlake/data /var/lib/cipherlake/metadata /var/lib/cipherlake/keystore /etc/cipherlake && \
+    chown -R cipherlake:cipherlake /var/lib/cipherlake /etc/cipherlake
 
-USER nexus
+USER cipherlake
 
 EXPOSE 8080
 
-VOLUME ["/var/lib/nexus", "/etc/nexus"]
+VOLUME ["/var/lib/cipherlake", "/etc/cipherlake"]
 
-ENTRYPOINT ["/usr/local/bin/nexus"]
-CMD ["--config", "/etc/nexus/config.yaml"]
+ENTRYPOINT ["/usr/local/bin/cipherlake"]
+CMD ["--config", "/etc/cipherlake/config.yaml"]

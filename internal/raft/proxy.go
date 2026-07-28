@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"nexus/internal/metadata"
+	"cipherlake/internal/metadata"
 )
 
 // RaftMetadataProxy wraps BoltDBMetadataStore and routes writes through Raft
@@ -14,9 +14,9 @@ import (
 // BoltDB operations. Reads always go to the local BoltDB (optionally with
 // linearizable read verification).
 type RaftMetadataProxy struct {
-	store    *metadata.BoltDBMetadataStore
-	node     *RaftNode
-	enabled  bool
+	store   *metadata.BoltDBMetadataStore
+	node    *RaftNode
+	enabled bool
 }
 
 // NewRaftMetadataProxy creates a new RaftMetadataProxy.
@@ -215,6 +215,12 @@ func (p *RaftMetadataProxy) DeleteUpload(ctx context.Context, bucket, key, uploa
 // ListUploads lists multipart uploads. Reads always go to local BoltDB.
 func (p *RaftMetadataProxy) ListUploads(ctx context.Context, bucket string) ([]*metadata.MultipartUpload, error) {
 	return p.store.ListUploads(ctx, bucket)
+}
+
+// ListExpiredUploads returns multipart uploads that have exceeded their
+// retention period. Reads always go to local BoltDB.
+func (p *RaftMetadataProxy) ListExpiredUploads(ctx context.Context) ([]*metadata.MultipartUpload, error) {
+	return p.store.ListExpiredUploads(ctx)
 }
 
 // AddPart adds a part to a multipart upload. If Raft is enabled, goes through RaftApply.

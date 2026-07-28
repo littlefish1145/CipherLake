@@ -7,10 +7,9 @@
 package keyunwrap
 
 import (
+	common "cipherlake/proto/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	common "nexus/proto/common"
-	_ "nexus/proto/token"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -253,24 +252,24 @@ var File_keyunwrap_proto protoreflect.FileDescriptor
 
 const file_keyunwrap_proto_rawDesc = "" +
 	"\n" +
-	"\x0fkeyunwrap.proto\x12\x0fnexus.keyunwrap\x1a\fcommon.proto\x1a\vtoken.proto\"\xcd\x01\n" +
-	"\x10UnwrapKeyRequest\x123\n" +
-	"\x05token\x18\x01 \x01(\v2\x1d.nexus.common.DelegationTokenR\x05token\x12?\n" +
-	"\rencrypted_dek\x18\x02 \x01(\v2\x1a.nexus.common.EncryptedDEKR\fencryptedDek\x12C\n" +
-	"\x0fclient_ecdh_pub\x18\x03 \x01(\v2\x1b.nexus.common.ECDHPublicKeyR\rclientEcdhPub\"\xd3\x01\n" +
-	"\x11UnwrapKeyResponse\x12L\n" +
-	"\x12ecdh_encrypted_dek\x18\x01 \x01(\v2\x1e.nexus.common.ECDHEncryptedDEKR\x10ecdhEncryptedDek\x12E\n" +
-	"\x10service_ecdh_pub\x18\x02 \x01(\v2\x1b.nexus.common.ECDHPublicKeyR\x0eserviceEcdhPub\x12)\n" +
-	"\x05error\x18\x03 \x01(\v2\x13.nexus.common.ErrorR\x05error\"\x0f\n" +
+	"\x0fkeyunwrap.proto\x12\x14cipherlake.keyunwrap\x1a\x17cipherlake/common.proto\"\xdc\x01\n" +
+	"\x10UnwrapKeyRequest\x128\n" +
+	"\x05token\x18\x01 \x01(\v2\".cipherlake.common.DelegationTokenR\x05token\x12D\n" +
+	"\rencrypted_dek\x18\x02 \x01(\v2\x1f.cipherlake.common.EncryptedDEKR\fencryptedDek\x12H\n" +
+	"\x0fclient_ecdh_pub\x18\x03 \x01(\v2 .cipherlake.common.ECDHPublicKeyR\rclientEcdhPub\"\xe2\x01\n" +
+	"\x11UnwrapKeyResponse\x12Q\n" +
+	"\x12ecdh_encrypted_dek\x18\x01 \x01(\v2#.cipherlake.common.ECDHEncryptedDEKR\x10ecdhEncryptedDek\x12J\n" +
+	"\x10service_ecdh_pub\x18\x02 \x01(\v2 .cipherlake.common.ECDHPublicKeyR\x0eserviceEcdhPub\x12.\n" +
+	"\x05error\x18\x03 \x01(\v2\x18.cipherlake.common.ErrorR\x05error\"\x0f\n" +
 	"\rHealthRequest\"\x8e\x01\n" +
 	"\x0eHealthResponse\x12\x18\n" +
 	"\ahealthy\x18\x01 \x01(\bR\ahealthy\x12!\n" +
 	"\fservice_name\x18\x02 \x01(\tR\vserviceName\x12\x18\n" +
 	"\aversion\x18\x03 \x01(\tR\aversion\x12%\n" +
-	"\x0euptime_seconds\x18\x04 \x01(\x03R\ruptimeSeconds2\xb1\x01\n" +
-	"\x10KeyUnwrapService\x12R\n" +
-	"\tUnwrapKey\x12!.nexus.keyunwrap.UnwrapKeyRequest\x1a\".nexus.keyunwrap.UnwrapKeyResponse\x12I\n" +
-	"\x06Health\x12\x1e.nexus.keyunwrap.HealthRequest\x1a\x1f.nexus.keyunwrap.HealthResponseB\x17Z\x15nexus/proto/keyunwrapb\x06proto3"
+	"\x0euptime_seconds\x18\x04 \x01(\x03R\ruptimeSeconds2\xc5\x01\n" +
+	"\x10KeyUnwrapService\x12\\\n" +
+	"\tUnwrapKey\x12&.cipherlake.keyunwrap.UnwrapKeyRequest\x1a'.cipherlake.keyunwrap.UnwrapKeyResponse\x12S\n" +
+	"\x06Health\x12#.cipherlake.keyunwrap.HealthRequest\x1a$.cipherlake.keyunwrap.HealthResponseB\x1cZ\x1acipherlake/proto/keyunwrapb\x06proto3"
 
 var (
 	file_keyunwrap_proto_rawDescOnce sync.Once
@@ -286,27 +285,27 @@ func file_keyunwrap_proto_rawDescGZIP() []byte {
 
 var file_keyunwrap_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_keyunwrap_proto_goTypes = []any{
-	(*UnwrapKeyRequest)(nil),        // 0: nexus.keyunwrap.UnwrapKeyRequest
-	(*UnwrapKeyResponse)(nil),       // 1: nexus.keyunwrap.UnwrapKeyResponse
-	(*HealthRequest)(nil),           // 2: nexus.keyunwrap.HealthRequest
-	(*HealthResponse)(nil),          // 3: nexus.keyunwrap.HealthResponse
-	(*common.DelegationToken)(nil),  // 4: nexus.common.DelegationToken
-	(*common.EncryptedDEK)(nil),     // 5: nexus.common.EncryptedDEK
-	(*common.ECDHPublicKey)(nil),    // 6: nexus.common.ECDHPublicKey
-	(*common.ECDHEncryptedDEK)(nil), // 7: nexus.common.ECDHEncryptedDEK
-	(*common.Error)(nil),            // 8: nexus.common.Error
+	(*UnwrapKeyRequest)(nil),        // 0: cipherlake.keyunwrap.UnwrapKeyRequest
+	(*UnwrapKeyResponse)(nil),       // 1: cipherlake.keyunwrap.UnwrapKeyResponse
+	(*HealthRequest)(nil),           // 2: cipherlake.keyunwrap.HealthRequest
+	(*HealthResponse)(nil),          // 3: cipherlake.keyunwrap.HealthResponse
+	(*common.DelegationToken)(nil),  // 4: cipherlake.common.DelegationToken
+	(*common.EncryptedDEK)(nil),     // 5: cipherlake.common.EncryptedDEK
+	(*common.ECDHPublicKey)(nil),    // 6: cipherlake.common.ECDHPublicKey
+	(*common.ECDHEncryptedDEK)(nil), // 7: cipherlake.common.ECDHEncryptedDEK
+	(*common.Error)(nil),            // 8: cipherlake.common.Error
 }
 var file_keyunwrap_proto_depIdxs = []int32{
-	4, // 0: nexus.keyunwrap.UnwrapKeyRequest.token:type_name -> nexus.common.DelegationToken
-	5, // 1: nexus.keyunwrap.UnwrapKeyRequest.encrypted_dek:type_name -> nexus.common.EncryptedDEK
-	6, // 2: nexus.keyunwrap.UnwrapKeyRequest.client_ecdh_pub:type_name -> nexus.common.ECDHPublicKey
-	7, // 3: nexus.keyunwrap.UnwrapKeyResponse.ecdh_encrypted_dek:type_name -> nexus.common.ECDHEncryptedDEK
-	6, // 4: nexus.keyunwrap.UnwrapKeyResponse.service_ecdh_pub:type_name -> nexus.common.ECDHPublicKey
-	8, // 5: nexus.keyunwrap.UnwrapKeyResponse.error:type_name -> nexus.common.Error
-	0, // 6: nexus.keyunwrap.KeyUnwrapService.UnwrapKey:input_type -> nexus.keyunwrap.UnwrapKeyRequest
-	2, // 7: nexus.keyunwrap.KeyUnwrapService.Health:input_type -> nexus.keyunwrap.HealthRequest
-	1, // 8: nexus.keyunwrap.KeyUnwrapService.UnwrapKey:output_type -> nexus.keyunwrap.UnwrapKeyResponse
-	3, // 9: nexus.keyunwrap.KeyUnwrapService.Health:output_type -> nexus.keyunwrap.HealthResponse
+	4, // 0: cipherlake.keyunwrap.UnwrapKeyRequest.token:type_name -> cipherlake.common.DelegationToken
+	5, // 1: cipherlake.keyunwrap.UnwrapKeyRequest.encrypted_dek:type_name -> cipherlake.common.EncryptedDEK
+	6, // 2: cipherlake.keyunwrap.UnwrapKeyRequest.client_ecdh_pub:type_name -> cipherlake.common.ECDHPublicKey
+	7, // 3: cipherlake.keyunwrap.UnwrapKeyResponse.ecdh_encrypted_dek:type_name -> cipherlake.common.ECDHEncryptedDEK
+	6, // 4: cipherlake.keyunwrap.UnwrapKeyResponse.service_ecdh_pub:type_name -> cipherlake.common.ECDHPublicKey
+	8, // 5: cipherlake.keyunwrap.UnwrapKeyResponse.error:type_name -> cipherlake.common.Error
+	0, // 6: cipherlake.keyunwrap.KeyUnwrapService.UnwrapKey:input_type -> cipherlake.keyunwrap.UnwrapKeyRequest
+	2, // 7: cipherlake.keyunwrap.KeyUnwrapService.Health:input_type -> cipherlake.keyunwrap.HealthRequest
+	1, // 8: cipherlake.keyunwrap.KeyUnwrapService.UnwrapKey:output_type -> cipherlake.keyunwrap.UnwrapKeyResponse
+	3, // 9: cipherlake.keyunwrap.KeyUnwrapService.Health:output_type -> cipherlake.keyunwrap.HealthResponse
 	8, // [8:10] is the sub-list for method output_type
 	6, // [6:8] is the sub-list for method input_type
 	6, // [6:6] is the sub-list for extension type_name

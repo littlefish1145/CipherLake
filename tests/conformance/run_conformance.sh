@@ -1,32 +1,32 @@
 #!/usr/bin/env bash
-# Run s3-test-suite conformance tests against a Nexus instance.
+# Run s3-test-suite conformance tests against a CipherLake instance.
 set -euo pipefail
 
-NEXUS_HOST="${NEXUS_HOST:-localhost}"
-NEXUS_PORT="${NEXUS_PORT:-9000}"
-NEXUS_ACCESS_KEY="${NEXUS_ACCESS_KEY:-nexus-test}"
-NEXUS_SECRET_KEY="${NEXUS_SECRET_KEY:-nexus-test-secret}"
-ENDPOINT="http://${NEXUS_HOST}:${NEXUS_PORT}"
+CIPHERLAKE_HOST="${CIPHERLAKE_HOST:-localhost}"
+CIPHERLAKE_PORT="${CIPHERLAKE_PORT:-9000}"
+CIPHERLAKE_ACCESS_KEY="${CIPHERLAKE_ACCESS_KEY:-cipherlake-test}"
+CIPHERLAKE_SECRET_KEY="${CIPHERLAKE_SECRET_KEY:-cipherlake-test-secret}"
+ENDPOINT="http://${CIPHERLAKE_HOST}:${CIPHERLAKE_PORT}"
 
-echo "=== Nexus S3 Conformance Test Suite ==="
+echo "=== CipherLake S3 Conformance Test Suite ==="
 echo "Endpoint: ${ENDPOINT}"
 echo ""
 
-# Check if Nexus is reachable
+# Check if CipherLake is reachable
 if ! curl -sf "${ENDPOINT}/health" > /dev/null 2>&1; then
-    echo "ERROR: Cannot reach Nexus at ${ENDPOINT}"
-    echo "Make sure Nexus is running before executing conformance tests."
+    echo "ERROR: Cannot reach CipherLake at ${ENDPOINT}"
+    echo "Make sure CipherLake is running before executing conformance tests."
     exit 1
 fi
-echo "Nexus is reachable."
+echo "CipherLake is reachable."
 
 # Run Go conformance tests
 echo ""
 echo "--- Running Go conformance tests ---"
 cd "$(dirname "$0")"
-NEXUS_TEST_ENDPOINT="${ENDPOINT}" \
-NEXUS_TEST_ACCESS_KEY="${NEXUS_ACCESS_KEY}" \
-NEXUS_TEST_SECRET_KEY="${NEXUS_SECRET_KEY}" \
+CIPHERLAKE_TEST_ENDPOINT="${ENDPOINT}" \
+CIPHERLAKE_TEST_ACCESS_KEY="${CIPHERLAKE_ACCESS_KEY}" \
+CIPHERLAKE_TEST_SECRET_KEY="${CIPHERLAKE_SECRET_KEY}" \
 go test -v -timeout 300s ./...
 
 # Run s3-tests (if available)
@@ -38,16 +38,16 @@ if command -v venv &> /dev/null || command -v python3 &> /dev/null; then
         cd "${S3TESTS_DIR}"
         S3TEST_CONF=/dev/stdin nosetests -v 2>&1 <<EOF
 [DEFAULT]
-host = ${NEXUS_HOST}
-port = ${NEXUS_PORT}
+host = ${CIPHERLAKE_HOST}
+port = ${CIPHERLAKE_PORT}
 is_secure = False
 [fixtures]
 bucket prefix = conformance-{random}-
 [s3 main]
-access_key = ${NEXUS_ACCESS_KEY}
-secret_key = ${NEXUS_SECRET_KEY}
+access_key = ${CIPHERLAKE_ACCESS_KEY}
+secret_key = ${CIPHERLAKE_SECRET_KEY}
 display_name = Conformance Test User
-email = conformance@test.nexus
+email = conformance@test.cipherlake
 EOF
     else
         echo ""

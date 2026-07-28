@@ -1,11 +1,10 @@
 syntax = "proto3";
 
-package nexus.keygen;
+package cipherlake.keygen;
 
-option go_package = "nexus/proto/keygen";
+option go_package = "cipherlake/proto/keygen";
 
-import "common.proto";
-import "token.proto";
+import "cipherlake/common.proto";
 
 // KeyGenService - Generates data encryption keys (DEK)
 // Uses public key (PK_Encrypt) to encrypt DEK
@@ -24,25 +23,25 @@ service KeyGenService {
 }
 
 message GenerateDataKeyRequest {
-  nexus.common.DelegationToken token = 1;  // Must be WRITE token
-  nexus.common.ECDHPublicKey client_ecdh_pub = 2;  // Client's ECDH public key for session
+  cipherlake.common.DelegationToken token = 1;  // Must be WRITE token
+  cipherlake.common.ECDHPublicKey client_ecdh_pub = 2;  // Client's ECDH public key for session
 }
 
 message GenerateDataKeyResponse {
   // DEK encrypted with service's long-term public key (for KeyStore)
-  nexus.common.EncryptedDEK encrypted_dek = 1;
+  cipherlake.common.EncryptedDEK encrypted_dek = 1;
   
   // DEK encrypted with ECDH-derived session key (for EncryptService)
-  nexus.common.ECDHEncryptedDEK ecdh_encrypted_dek = 2;
+  cipherlake.common.ECDHEncryptedDEK ecdh_encrypted_dek = 2;
   
   // Service's ephemeral ECDH public key (for client to derive shared secret)
-  nexus.common.ECDHPublicKey service_ecdh_pub = 3;
+  cipherlake.common.ECDHPublicKey service_ecdh_pub = 3;
   
   // Key metadata
   string key_id = 4;
   string algorithm = 5;  // e.g., "AES-256-GCM"
   
-  nexus.common.Error error = 6;
+  cipherlake.common.Error error = 6;
 }
 
 message GetPublicKeyRequest {}
@@ -53,7 +52,7 @@ message GetPublicKeyResponse {
   string key_id = 2;
   string algorithm = 3;
   
-  nexus.common.Error error = 4;
+  cipherlake.common.Error error = 4;
 }
 
 message HealthRequest {}

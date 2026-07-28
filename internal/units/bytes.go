@@ -1,4 +1,4 @@
-// Package units provides size/duration parsing helpers used across Nexus.
+// Package units provides size/duration parsing helpers used across CipherLake.
 package units
 
 import (

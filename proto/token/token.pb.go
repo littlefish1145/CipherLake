@@ -7,9 +7,9 @@
 package token
 
 import (
+	common "cipherlake/proto/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	common "nexus/proto/common"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -393,7 +393,7 @@ func (x *IssueDeleteTokenResponse) GetError() *common.Error {
 type ValidateTokenRequest struct {
 	state         protoimpl.MessageState  `protogen:"open.v1"`
 	Token         *common.DelegationToken `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
-	ExpectedType  common.TokenType        `protobuf:"varint,2,opt,name=expected_type,json=expectedType,proto3,enum=nexus.common.TokenType" json:"expected_type,omitempty"`
+	ExpectedType  common.TokenType        `protobuf:"varint,2,opt,name=expected_type,json=expectedType,proto3,enum=cipherlake.common.TokenType" json:"expected_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -722,17 +722,17 @@ var File_token_proto protoreflect.FileDescriptor
 
 const file_token_proto_rawDesc = "" +
 	"\n" +
-	"\vtoken.proto\x12\vnexus.token\x1a\fcommon.proto\"\x89\x01\n" +
+	"\vtoken.proto\x12\x10cipherlake.token\x1a\x17cipherlake/common.proto\"\x89\x01\n" +
 	"\x16IssueWriteTokenRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x16\n" +
 	"\x06bucket\x18\x02 \x01(\tR\x06bucket\x12\x1d\n" +
 	"\n" +
 	"object_key\x18\x03 \x01(\tR\tobjectKey\x12\x1f\n" +
 	"\vttl_seconds\x18\x04 \x01(\x03R\n" +
-	"ttlSeconds\"y\n" +
-	"\x17IssueWriteTokenResponse\x123\n" +
-	"\x05token\x18\x01 \x01(\v2\x1d.nexus.common.DelegationTokenR\x05token\x12)\n" +
-	"\x05error\x18\x02 \x01(\v2\x13.nexus.common.ErrorR\x05error\"\xab\x01\n" +
+	"ttlSeconds\"\x83\x01\n" +
+	"\x17IssueWriteTokenResponse\x128\n" +
+	"\x05token\x18\x01 \x01(\v2\".cipherlake.common.DelegationTokenR\x05token\x12.\n" +
+	"\x05error\x18\x02 \x01(\v2\x18.cipherlake.common.ErrorR\x05error\"\xab\x01\n" +
 	"\x15IssueReadTokenRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x16\n" +
 	"\x06bucket\x18\x02 \x01(\tR\x06bucket\x12\x1d\n" +
@@ -740,49 +740,49 @@ const file_token_proto_rawDesc = "" +
 	"object_key\x18\x03 \x01(\tR\tobjectKey\x12!\n" +
 	"\fcontent_hash\x18\x04 \x01(\tR\vcontentHash\x12\x1f\n" +
 	"\vttl_seconds\x18\x05 \x01(\x03R\n" +
-	"ttlSeconds\"x\n" +
-	"\x16IssueReadTokenResponse\x123\n" +
-	"\x05token\x18\x01 \x01(\v2\x1d.nexus.common.DelegationTokenR\x05token\x12)\n" +
-	"\x05error\x18\x02 \x01(\v2\x13.nexus.common.ErrorR\x05error\"\x8a\x01\n" +
+	"ttlSeconds\"\x82\x01\n" +
+	"\x16IssueReadTokenResponse\x128\n" +
+	"\x05token\x18\x01 \x01(\v2\".cipherlake.common.DelegationTokenR\x05token\x12.\n" +
+	"\x05error\x18\x02 \x01(\v2\x18.cipherlake.common.ErrorR\x05error\"\x8a\x01\n" +
 	"\x17IssueDeleteTokenRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x16\n" +
 	"\x06bucket\x18\x02 \x01(\tR\x06bucket\x12\x1d\n" +
 	"\n" +
 	"object_key\x18\x03 \x01(\tR\tobjectKey\x12\x1f\n" +
 	"\vttl_seconds\x18\x04 \x01(\x03R\n" +
-	"ttlSeconds\"z\n" +
-	"\x18IssueDeleteTokenResponse\x123\n" +
-	"\x05token\x18\x01 \x01(\v2\x1d.nexus.common.DelegationTokenR\x05token\x12)\n" +
-	"\x05error\x18\x02 \x01(\v2\x13.nexus.common.ErrorR\x05error\"\x89\x01\n" +
-	"\x14ValidateTokenRequest\x123\n" +
-	"\x05token\x18\x01 \x01(\v2\x1d.nexus.common.DelegationTokenR\x05token\x12<\n" +
-	"\rexpected_type\x18\x02 \x01(\x0e2\x17.nexus.common.TokenTypeR\fexpectedType\"\xa8\x01\n" +
+	"ttlSeconds\"\x84\x01\n" +
+	"\x18IssueDeleteTokenResponse\x128\n" +
+	"\x05token\x18\x01 \x01(\v2\".cipherlake.common.DelegationTokenR\x05token\x12.\n" +
+	"\x05error\x18\x02 \x01(\v2\x18.cipherlake.common.ErrorR\x05error\"\x93\x01\n" +
+	"\x14ValidateTokenRequest\x128\n" +
+	"\x05token\x18\x01 \x01(\v2\".cipherlake.common.DelegationTokenR\x05token\x12A\n" +
+	"\rexpected_type\x18\x02 \x01(\x0e2\x1c.cipherlake.common.TokenTypeR\fexpectedType\"\xad\x01\n" +
 	"\x15ValidateTokenResponse\x12\x14\n" +
 	"\x05valid\x18\x01 \x01(\bR\x05valid\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x16\n" +
 	"\x06bucket\x18\x03 \x01(\tR\x06bucket\x12\x1d\n" +
 	"\n" +
-	"object_key\x18\x04 \x01(\tR\tobjectKey\x12)\n" +
-	"\x05error\x18\x05 \x01(\v2\x13.nexus.common.ErrorR\x05error\"\x15\n" +
-	"\x13GetPublicKeyRequest\"w\n" +
+	"object_key\x18\x04 \x01(\tR\tobjectKey\x12.\n" +
+	"\x05error\x18\x05 \x01(\v2\x18.cipherlake.common.ErrorR\x05error\"\x15\n" +
+	"\x13GetPublicKeyRequest\"|\n" +
 	"\x14GetPublicKeyResponse\x12\x1d\n" +
 	"\n" +
 	"public_key\x18\x01 \x01(\fR\tpublicKey\x12\x15\n" +
-	"\x06key_id\x18\x02 \x01(\tR\x05keyId\x12)\n" +
-	"\x05error\x18\x03 \x01(\v2\x13.nexus.common.ErrorR\x05error\"\x0f\n" +
+	"\x06key_id\x18\x02 \x01(\tR\x05keyId\x12.\n" +
+	"\x05error\x18\x03 \x01(\v2\x18.cipherlake.common.ErrorR\x05error\"\x0f\n" +
 	"\rHealthRequest\"\x8e\x01\n" +
 	"\x0eHealthResponse\x12\x18\n" +
 	"\ahealthy\x18\x01 \x01(\bR\ahealthy\x12!\n" +
 	"\fservice_name\x18\x02 \x01(\tR\vserviceName\x12\x18\n" +
 	"\aversion\x18\x03 \x01(\tR\aversion\x12%\n" +
-	"\x0euptime_seconds\x18\x04 \x01(\x03R\ruptimeSeconds2\x98\x04\n" +
-	"\fTokenService\x12\\\n" +
-	"\x0fIssueWriteToken\x12#.nexus.token.IssueWriteTokenRequest\x1a$.nexus.token.IssueWriteTokenResponse\x12Y\n" +
-	"\x0eIssueReadToken\x12\".nexus.token.IssueReadTokenRequest\x1a#.nexus.token.IssueReadTokenResponse\x12_\n" +
-	"\x10IssueDeleteToken\x12$.nexus.token.IssueDeleteTokenRequest\x1a%.nexus.token.IssueDeleteTokenResponse\x12V\n" +
-	"\rValidateToken\x12!.nexus.token.ValidateTokenRequest\x1a\".nexus.token.ValidateTokenResponse\x12S\n" +
-	"\fGetPublicKey\x12 .nexus.token.GetPublicKeyRequest\x1a!.nexus.token.GetPublicKeyResponse\x12A\n" +
-	"\x06Health\x12\x1a.nexus.token.HealthRequest\x1a\x1b.nexus.token.HealthResponseB\x13Z\x11nexus/proto/tokenb\x06proto3"
+	"\x0euptime_seconds\x18\x04 \x01(\x03R\ruptimeSeconds2\xd4\x04\n" +
+	"\fTokenService\x12f\n" +
+	"\x0fIssueWriteToken\x12(.cipherlake.token.IssueWriteTokenRequest\x1a).cipherlake.token.IssueWriteTokenResponse\x12c\n" +
+	"\x0eIssueReadToken\x12'.cipherlake.token.IssueReadTokenRequest\x1a(.cipherlake.token.IssueReadTokenResponse\x12i\n" +
+	"\x10IssueDeleteToken\x12).cipherlake.token.IssueDeleteTokenRequest\x1a*.cipherlake.token.IssueDeleteTokenResponse\x12`\n" +
+	"\rValidateToken\x12&.cipherlake.token.ValidateTokenRequest\x1a'.cipherlake.token.ValidateTokenResponse\x12]\n" +
+	"\fGetPublicKey\x12%.cipherlake.token.GetPublicKeyRequest\x1a&.cipherlake.token.GetPublicKeyResponse\x12K\n" +
+	"\x06Health\x12\x1f.cipherlake.token.HealthRequest\x1a .cipherlake.token.HealthResponseB\x18Z\x16cipherlake/proto/tokenb\x06proto3"
 
 var (
 	file_token_proto_rawDescOnce sync.Once
@@ -798,45 +798,45 @@ func file_token_proto_rawDescGZIP() []byte {
 
 var file_token_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_token_proto_goTypes = []any{
-	(*IssueWriteTokenRequest)(nil),   // 0: nexus.token.IssueWriteTokenRequest
-	(*IssueWriteTokenResponse)(nil),  // 1: nexus.token.IssueWriteTokenResponse
-	(*IssueReadTokenRequest)(nil),    // 2: nexus.token.IssueReadTokenRequest
-	(*IssueReadTokenResponse)(nil),   // 3: nexus.token.IssueReadTokenResponse
-	(*IssueDeleteTokenRequest)(nil),  // 4: nexus.token.IssueDeleteTokenRequest
-	(*IssueDeleteTokenResponse)(nil), // 5: nexus.token.IssueDeleteTokenResponse
-	(*ValidateTokenRequest)(nil),     // 6: nexus.token.ValidateTokenRequest
-	(*ValidateTokenResponse)(nil),    // 7: nexus.token.ValidateTokenResponse
-	(*GetPublicKeyRequest)(nil),      // 8: nexus.token.GetPublicKeyRequest
-	(*GetPublicKeyResponse)(nil),     // 9: nexus.token.GetPublicKeyResponse
-	(*HealthRequest)(nil),            // 10: nexus.token.HealthRequest
-	(*HealthResponse)(nil),           // 11: nexus.token.HealthResponse
-	(*common.DelegationToken)(nil),   // 12: nexus.common.DelegationToken
-	(*common.Error)(nil),             // 13: nexus.common.Error
-	(common.TokenType)(0),            // 14: nexus.common.TokenType
+	(*IssueWriteTokenRequest)(nil),   // 0: cipherlake.token.IssueWriteTokenRequest
+	(*IssueWriteTokenResponse)(nil),  // 1: cipherlake.token.IssueWriteTokenResponse
+	(*IssueReadTokenRequest)(nil),    // 2: cipherlake.token.IssueReadTokenRequest
+	(*IssueReadTokenResponse)(nil),   // 3: cipherlake.token.IssueReadTokenResponse
+	(*IssueDeleteTokenRequest)(nil),  // 4: cipherlake.token.IssueDeleteTokenRequest
+	(*IssueDeleteTokenResponse)(nil), // 5: cipherlake.token.IssueDeleteTokenResponse
+	(*ValidateTokenRequest)(nil),     // 6: cipherlake.token.ValidateTokenRequest
+	(*ValidateTokenResponse)(nil),    // 7: cipherlake.token.ValidateTokenResponse
+	(*GetPublicKeyRequest)(nil),      // 8: cipherlake.token.GetPublicKeyRequest
+	(*GetPublicKeyResponse)(nil),     // 9: cipherlake.token.GetPublicKeyResponse
+	(*HealthRequest)(nil),            // 10: cipherlake.token.HealthRequest
+	(*HealthResponse)(nil),           // 11: cipherlake.token.HealthResponse
+	(*common.DelegationToken)(nil),   // 12: cipherlake.common.DelegationToken
+	(*common.Error)(nil),             // 13: cipherlake.common.Error
+	(common.TokenType)(0),            // 14: cipherlake.common.TokenType
 }
 var file_token_proto_depIdxs = []int32{
-	12, // 0: nexus.token.IssueWriteTokenResponse.token:type_name -> nexus.common.DelegationToken
-	13, // 1: nexus.token.IssueWriteTokenResponse.error:type_name -> nexus.common.Error
-	12, // 2: nexus.token.IssueReadTokenResponse.token:type_name -> nexus.common.DelegationToken
-	13, // 3: nexus.token.IssueReadTokenResponse.error:type_name -> nexus.common.Error
-	12, // 4: nexus.token.IssueDeleteTokenResponse.token:type_name -> nexus.common.DelegationToken
-	13, // 5: nexus.token.IssueDeleteTokenResponse.error:type_name -> nexus.common.Error
-	12, // 6: nexus.token.ValidateTokenRequest.token:type_name -> nexus.common.DelegationToken
-	14, // 7: nexus.token.ValidateTokenRequest.expected_type:type_name -> nexus.common.TokenType
-	13, // 8: nexus.token.ValidateTokenResponse.error:type_name -> nexus.common.Error
-	13, // 9: nexus.token.GetPublicKeyResponse.error:type_name -> nexus.common.Error
-	0,  // 10: nexus.token.TokenService.IssueWriteToken:input_type -> nexus.token.IssueWriteTokenRequest
-	2,  // 11: nexus.token.TokenService.IssueReadToken:input_type -> nexus.token.IssueReadTokenRequest
-	4,  // 12: nexus.token.TokenService.IssueDeleteToken:input_type -> nexus.token.IssueDeleteTokenRequest
-	6,  // 13: nexus.token.TokenService.ValidateToken:input_type -> nexus.token.ValidateTokenRequest
-	8,  // 14: nexus.token.TokenService.GetPublicKey:input_type -> nexus.token.GetPublicKeyRequest
-	10, // 15: nexus.token.TokenService.Health:input_type -> nexus.token.HealthRequest
-	1,  // 16: nexus.token.TokenService.IssueWriteToken:output_type -> nexus.token.IssueWriteTokenResponse
-	3,  // 17: nexus.token.TokenService.IssueReadToken:output_type -> nexus.token.IssueReadTokenResponse
-	5,  // 18: nexus.token.TokenService.IssueDeleteToken:output_type -> nexus.token.IssueDeleteTokenResponse
-	7,  // 19: nexus.token.TokenService.ValidateToken:output_type -> nexus.token.ValidateTokenResponse
-	9,  // 20: nexus.token.TokenService.GetPublicKey:output_type -> nexus.token.GetPublicKeyResponse
-	11, // 21: nexus.token.TokenService.Health:output_type -> nexus.token.HealthResponse
+	12, // 0: cipherlake.token.IssueWriteTokenResponse.token:type_name -> cipherlake.common.DelegationToken
+	13, // 1: cipherlake.token.IssueWriteTokenResponse.error:type_name -> cipherlake.common.Error
+	12, // 2: cipherlake.token.IssueReadTokenResponse.token:type_name -> cipherlake.common.DelegationToken
+	13, // 3: cipherlake.token.IssueReadTokenResponse.error:type_name -> cipherlake.common.Error
+	12, // 4: cipherlake.token.IssueDeleteTokenResponse.token:type_name -> cipherlake.common.DelegationToken
+	13, // 5: cipherlake.token.IssueDeleteTokenResponse.error:type_name -> cipherlake.common.Error
+	12, // 6: cipherlake.token.ValidateTokenRequest.token:type_name -> cipherlake.common.DelegationToken
+	14, // 7: cipherlake.token.ValidateTokenRequest.expected_type:type_name -> cipherlake.common.TokenType
+	13, // 8: cipherlake.token.ValidateTokenResponse.error:type_name -> cipherlake.common.Error
+	13, // 9: cipherlake.token.GetPublicKeyResponse.error:type_name -> cipherlake.common.Error
+	0,  // 10: cipherlake.token.TokenService.IssueWriteToken:input_type -> cipherlake.token.IssueWriteTokenRequest
+	2,  // 11: cipherlake.token.TokenService.IssueReadToken:input_type -> cipherlake.token.IssueReadTokenRequest
+	4,  // 12: cipherlake.token.TokenService.IssueDeleteToken:input_type -> cipherlake.token.IssueDeleteTokenRequest
+	6,  // 13: cipherlake.token.TokenService.ValidateToken:input_type -> cipherlake.token.ValidateTokenRequest
+	8,  // 14: cipherlake.token.TokenService.GetPublicKey:input_type -> cipherlake.token.GetPublicKeyRequest
+	10, // 15: cipherlake.token.TokenService.Health:input_type -> cipherlake.token.HealthRequest
+	1,  // 16: cipherlake.token.TokenService.IssueWriteToken:output_type -> cipherlake.token.IssueWriteTokenResponse
+	3,  // 17: cipherlake.token.TokenService.IssueReadToken:output_type -> cipherlake.token.IssueReadTokenResponse
+	5,  // 18: cipherlake.token.TokenService.IssueDeleteToken:output_type -> cipherlake.token.IssueDeleteTokenResponse
+	7,  // 19: cipherlake.token.TokenService.ValidateToken:output_type -> cipherlake.token.ValidateTokenResponse
+	9,  // 20: cipherlake.token.TokenService.GetPublicKey:output_type -> cipherlake.token.GetPublicKeyResponse
+	11, // 21: cipherlake.token.TokenService.Health:output_type -> cipherlake.token.HealthResponse
 	16, // [16:22] is the sub-list for method output_type
 	10, // [10:16] is the sub-list for method input_type
 	10, // [10:10] is the sub-list for extension type_name

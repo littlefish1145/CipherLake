@@ -233,6 +233,28 @@ func TestVamanaConcurrentSearch(t *testing.T) {
 	}
 }
 
+func TestVamanaStitchedSearchFallsBackToExact(t *testing.T) {
+	dim := 4
+	g := NewVamanaGraph(dim, 8, 32, 1.2, MetricCosine)
+	for i := 0; i < 20; i++ {
+		v := make([]float32, dim)
+		for j := range v {
+			v[j] = float32(i + j + 1)
+		}
+		if err := g.Insert(uint64(i), v); err != nil {
+			t.Fatalf("insert %d: %v", i, err)
+		}
+	}
+
+	results, err := g.StitchedSearch([]float32{1, 2, 3, 4}, 5, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("stitched search fallback: %v", err)
+	}
+	if len(results) != 5 {
+		t.Fatalf("expected 5 results, got %d", len(results))
+	}
+}
+
 func BenchmarkVamanaSearch(b *testing.B) {
 	dim := 768
 	rng := rand.New(rand.NewSource(42))

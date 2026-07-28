@@ -11,8 +11,8 @@ const DefaultSegmentSize = 1024
 
 // Posting represents a single entry in a posting list: docID, term frequency, and positions.
 type Posting struct {
-	DocID    uint64
-	TermFreq int
+	DocID     uint64
+	TermFreq  int
 	Positions []int
 }
 

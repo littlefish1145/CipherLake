@@ -167,8 +167,8 @@ func TestMultiLevelLimiter(t *testing.T) {
 		UploadBytesPerSec: 1024 * 1024,
 		UploadBurstBytes:  5 * 1024 * 1024,
 		APILimits: map[string]APILimit{
-			"PUT":  {RPS: 10, Burst: 5},
-			"GET":  {RPS: 100, Burst: 20},
+			"PUT": {RPS: 10, Burst: 5},
+			"GET": {RPS: 100, Burst: 20},
 		},
 		Whitelist: []string{"127.0.0.1"},
 	}
@@ -191,15 +191,15 @@ func TestMultiLevelLimiter(t *testing.T) {
 
 func TestMultiLevelLimiter_IPRateLimit(t *testing.T) {
 	cfg := &MultiLevelConfig{
-		GlobalRPS:  10000,
+		GlobalRPS:   10000,
 		GlobalBurst: 1000,
-		IPRPS:      3,
-		IPBurst:    3,
-		UserRPS:    1000,
-		UserBurst:  500,
-		BucketRPS:  1000,
+		IPRPS:       3,
+		IPBurst:     3,
+		UserRPS:     1000,
+		UserBurst:   500,
+		BucketRPS:   1000,
 		BucketBurst: 500,
-		APILimits:  map[string]APILimit{},
+		APILimits:   map[string]APILimit{},
 	}
 
 	ml := NewMultiLevelLimiter(cfg)
@@ -253,15 +253,15 @@ func TestMultiLevelLimiter_BandwidthLimit(t *testing.T) {
 
 func TestMultiLevelLimiter_Stats(t *testing.T) {
 	cfg := &MultiLevelConfig{
-		GlobalRPS:  10000,
+		GlobalRPS:   10000,
 		GlobalBurst: 1000,
-		IPRPS:      10000,
-		IPBurst:    1000,
-		UserRPS:    1000,
-		UserBurst:  500,
-		BucketRPS:  1000,
+		IPRPS:       10000,
+		IPBurst:     1000,
+		UserRPS:     1000,
+		UserBurst:   500,
+		BucketRPS:   1000,
 		BucketBurst: 500,
-		APILimits:  map[string]APILimit{},
+		APILimits:   map[string]APILimit{},
 	}
 
 	ml := NewMultiLevelLimiter(cfg)
@@ -281,15 +281,15 @@ func TestMultiLevelLimiter_Stats(t *testing.T) {
 
 func TestMultiLevelLimiter_SetUserLimit(t *testing.T) {
 	cfg := &MultiLevelConfig{
-		GlobalRPS:  10000,
+		GlobalRPS:   10000,
 		GlobalBurst: 1000,
-		IPRPS:      10000,
-		IPBurst:    1000,
-		UserRPS:    2,
-		UserBurst:  2,
-		BucketRPS:  1000,
+		IPRPS:       10000,
+		IPBurst:     1000,
+		UserRPS:     2,
+		UserBurst:   2,
+		BucketRPS:   1000,
 		BucketBurst: 500,
-		APILimits:  map[string]APILimit{},
+		APILimits:   map[string]APILimit{},
 	}
 
 	ml := NewMultiLevelLimiter(cfg)
@@ -530,13 +530,13 @@ func BenchmarkTokenBucketLimiter_Allow(b *testing.B) {
 
 func BenchmarkMultiLevelLimiter(b *testing.B) {
 	cfg := &MultiLevelConfig{
-		GlobalRPS:  100000,
+		GlobalRPS:   100000,
 		GlobalBurst: 10000,
-		IPRPS:      50000,
-		IPBurst:    5000,
-		UserRPS:    10000,
-		UserBurst:  1000,
-		BucketRPS:  20000,
+		IPRPS:       50000,
+		IPBurst:     5000,
+		UserRPS:     10000,
+		UserBurst:   1000,
+		BucketRPS:   20000,
 		BucketBurst: 2000,
 		APILimits: map[string]APILimit{
 			"GET": {RPS: 50000, Burst: 5000},

@@ -1,0 +1,35 @@
+// Nexus Plugin System — Host Vector Interface
+//
+// Vector search and indexing (spec §3.9, §5).
+//
+// All operations are scoped by capability token:
+//   - vector:search:<bucket> required to call search
+//   - vector:index:<bucket> required to call index
+
+package nexus:plugin@1.0.0;
+
+interface vector {
+    use nexus:plugin/types.{capability-token, capability-error, vector-result};
+
+    // search performs a top-k nearest-neighbor query against a bucket's
+    // vector index.
+    //
+    // query-vec must have the same dimensionality as the index was
+    // built with. Mismatch returns ErrOther("dim mismatch").
+    search: func(
+        token: capability-token,
+        bucket: string,
+        query-vec: list<f32>,
+        top-k: u32,
+    ) -> result<list<vector-result>, capability-error>;
+
+    // index adds or updates a vector for a given key.
+    //
+    // If the key already has a vector, it is replaced.
+    index: func(
+        token: capability-token,
+        bucket: string,
+        key: string,
+        vector: list<f32>,
+    ) -> result<_, capability-error>;
+}

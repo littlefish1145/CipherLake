@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/hkdf"
 
-	"nexus/internal/services/token_service"
+	"cipherlake/internal/services/token_service"
 )
 
 // mockTokenIssuer implements TokenIssuer for testing.

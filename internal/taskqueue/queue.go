@@ -13,19 +13,19 @@ import (
 // Queue schedules background tasks with retry, dead-letter, and worker-pool
 // semantics. It persists task state so work can survive process restarts.
 type Queue struct {
-	store       Store
-	handlers    map[string]Handler
-	workers     int
-	pollInterval time.Duration
-	retryBase   time.Duration
+	store         Store
+	handlers      map[string]Handler
+	workers       int
+	pollInterval  time.Duration
+	retryBase     time.Duration
 	maxRetryDelay time.Duration
 
-	mu        sync.RWMutex
-	started   atomic.Bool
-	stopCh    chan struct{}
-	wg        sync.WaitGroup
+	mu      sync.RWMutex
+	started atomic.Bool
+	stopCh  chan struct{}
+	wg      sync.WaitGroup
 
-	metrics   queueMetrics
+	metrics queueMetrics
 }
 
 type queueMetrics struct {
@@ -112,6 +112,9 @@ func (q *Queue) Start() {
 	if q.started.Swap(true) {
 		return
 	}
+	if err := q.store.RecoverProcessing(context.Background()); err != nil {
+		zap.L().Error("task queue failed to recover processing tasks", zap.Error(err))
+	}
 	for i := 0; i < q.workers; i++ {
 		q.wg.Add(1)
 		go q.runWorker(i)
@@ -134,6 +137,9 @@ func (q *Queue) Stop(ctx context.Context) error {
 
 	select {
 	case <-done:
+		if err := q.store.Close(); err != nil {
+			return fmt.Errorf("failed to close task store: %w", err)
+		}
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -166,7 +172,7 @@ func (q *Queue) runWorker(id int) {
 // task was processed (regardless of success) and false when no pending tasks
 // exist.
 func (q *Queue) processOne(ctx context.Context) bool {
-	pending, err := q.store.GetPending(ctx, 1)
+	pending, err := q.store.ClaimPending(ctx, 1)
 	if err != nil {
 		zap.L().Error("task queue failed to fetch pending tasks", zap.Error(err))
 		return false
@@ -187,13 +193,6 @@ func (q *Queue) processOne(ctx context.Context) bool {
 		return true
 	}
 
-	task.Status = StatusProcessing
-	task.Attempts++
-	if err := q.store.Update(ctx, task); err != nil {
-		zap.L().Error("task queue failed to mark task processing", zap.String("task_id", task.ID), zap.Error(err))
-		return true
-	}
-
 	handler, ok := q.handlerFor(task.Kind)
 	if !ok {
 		task.Status = StatusDeadLetter
@@ -205,7 +204,7 @@ func (q *Queue) processOne(ctx context.Context) bool {
 		return true
 	}
 
-	err = handler(ctx, task)
+	err = q.runHandler(ctx, handler, task)
 	if err == nil {
 		task.Status = StatusCompleted
 		task.Error = ""
@@ -241,9 +240,19 @@ func (q *Queue) processOne(ctx context.Context) bool {
 		}
 		q.metrics.retried.Add(1)
 		backoff := q.retryDelay(task.Attempts)
-		time.Sleep(backoff)
+		q.waitForRetry(backoff)
 	}
 	return true
+}
+
+func (q *Queue) waitForRetry(delay time.Duration) {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+
+	select {
+	case <-q.stopCh:
+	case <-timer.C:
+	}
 }
 
 func (q *Queue) handlerFor(kind string) (Handler, bool) {
@@ -251,6 +260,15 @@ func (q *Queue) handlerFor(kind string) (Handler, bool) {
 	defer q.mu.RUnlock()
 	h, ok := q.handlers[kind]
 	return h, ok
+}
+
+func (q *Queue) runHandler(ctx context.Context, handler Handler, task *Task) (err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("task handler panicked: %v", recovered)
+		}
+	}()
+	return handler(ctx, task)
 }
 
 func (q *Queue) retryDelay(attempt int) time.Duration {

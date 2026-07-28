@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"nexus/internal/units"
+	"cipherlake/internal/units"
 
 	"github.com/spf13/viper"
 )
@@ -16,9 +16,28 @@ type RaftConfig struct {
 	NodeID          string   `mapstructure:"node_id"`
 	ListenAddr      string   `mapstructure:"listen_addr"`
 	Peers           []string `mapstructure:"peers"`
+	// ClusterPeers is the Phase 5 multi-replica peer list. It is preferred
+	// over Peers and maps to the spec's plugin_loader.raft.cluster_peers.
+	ClusterPeers    []string `mapstructure:"cluster_peers"`
+	// ClusterPeerIDs is the optional list of stable Raft ServerIDs for
+	// each entry in ClusterPeers, in the same order. If empty, BootstrapStatic
+	// falls back to using the peer address as its ServerID (spec §12.3, P5-1).
+	ClusterPeerIDs  []string `mapstructure:"cluster_peer_ids"`
 	SnapshotCount   int      `mapstructure:"snapshot_count"`
 	Heartbeat       string   `mapstructure:"heartbeat"`
-	ElectionTimeout string   `mapstructure:"election_timeout"`
+	ElectionTimeout string `mapstructure:"election_timeout"`
+}
+
+// EffectiveClusterPeers returns the configured peer list, preferring
+// ClusterPeers over the legacy Peers field.
+func (cfg *RaftConfig) EffectiveClusterPeers() []string {
+	if cfg == nil {
+		return nil
+	}
+	if len(cfg.ClusterPeers) > 0 {
+		return cfg.ClusterPeers
+	}
+	return cfg.Peers
 }
 
 // FTSConfig defines the configuration for full-text search.
@@ -116,6 +135,135 @@ type Config struct {
 	FTS            FTSConfig                     `mapstructure:"fts"`
 	Resumable      ResumableConfig               `mapstructure:"resumable"`
 	TaskQueue      TaskQueueConfig               `mapstructure:"task_queue"`
+	PluginLoader   PluginLoaderConfig           `mapstructure:"plugin_loader"`
+}
+
+// PluginLoaderConfig configures the plugin-loader microservice.
+//
+// When PluginLoader.Raft.Enabled is false the loader is disabled and the
+// cmd/plugin-loader-service should refuse to start. The Loader uses its
+// own Raft instance (independent from the main Config.Raft) so its
+// state-machine evolution does not affect the main cipherlake FSM.
+type PluginLoaderConfig struct {
+	// Raft is the loader's own Raft configuration. DataDir should be
+	// distinct from the main raft.DataDir (e.g. data/plugin-loader/).
+	Raft *RaftConfig `mapstructure:"raft"`
+
+	// GRPCListenAddr is the address the loader gRPC server binds to.
+	// Gateway connects to this address to invoke routes and hooks.
+	GRPCListenAddr string `mapstructure:"grpc_listen_addr"`
+
+	// AdminListenAddr is the address for the loader's HTTP admin/health
+	// endpoints (/healthz, /readyz, /metrics). If empty, no HTTP admin
+	// server is started.
+	AdminListenAddr string `mapstructure:"admin_listen_addr"`
+
+	// TrustedKeysPath is the path to trusted_keys.json. The file is the
+	// administrative source of truth; on startup its contents are mirrored
+	// into the trusted_keys_mirror BoltDB bucket (Raft-replicated) so
+	// followers see the same set (spec §3.7 A10).
+	TrustedKeysPath string `mapstructure:"trusted_keys_path"`
+
+	// EncryptServiceAddr is the gRPC address of the encrypt-service used
+	// when plugins call storage:put. The Loader authenticates as
+	// nexus:plugin-loader and forwards x-nexus-original-user (spec §2.2 A14).
+	EncryptServiceAddr string `mapstructure:"encrypt_service_addr"`
+
+	// DecryptServiceAddr is the gRPC address of the decrypt-service used
+	// when plugins call storage:get. Same dual-identity forwarding.
+	DecryptServiceAddr string `mapstructure:"decrypt_service_addr"`
+
+	// InstancePoolSize is the maximum number of WASM instances per plugin
+	// kept in the pool. Default 16 (spec §3.13).
+	InstancePoolSize int `mapstructure:"instance_pool_size"`
+
+	// ResourceLimits configures the three-layer resource limit model
+	// (spec §3.6): global hard cap + per-trust-tier cap + manifest request,
+	// final limit = min of the three.
+	ResourceLimits PluginLoaderResourceLimits `mapstructure:"resource_limits"`
+
+	// OCRegistries is the list of OCI registries the loader may pull
+	// plugin artifacts from (spec §3.16).
+	OCRegistries []OCIRegistryConfig `mapstructure:"oci_registries"`
+
+	// CallTimeout is the hard timeout for a single Gateway→Loader gRPC
+	// call. Defaults to 500ms (spec §3.12 A3) — set higher for plugins
+	// that do heavier work in route handlers.
+	CallTimeout string `mapstructure:"call_timeout"`
+
+	// CriticalBreakerThreshold is the number of consecutive Loader-call
+	// timeouts after which the Gateway's circuit breaker trips and starts
+	// failing closed for critical hooks. Default 5 (spec §3.12 A3).
+	CriticalBreakerThreshold int `mapstructure:"critical_breaker_threshold"`
+
+	// CriticalBreakerPause is how long the breaker stays open. Default 30s.
+	CriticalBreakerPause string `mapstructure:"critical_breaker_pause"`
+
+	// CriticalHooks is a whitelist of S3 operations for which hooks are
+	// always fail-closed when the Loader is unreachable, regardless of the
+	// hook's manifest on_failure policy (spec §3.12).
+	CriticalHooks []string `mapstructure:"critical_hooks"`
+
+	// PluginCacheDir is the local directory where plugin artifacts
+	// (manifest.json, plugin.wasm, signature) are cached so that reload
+	// and recovery do not require re-pulling from OCI (spec §3.11, P3-1).
+	// Defaults to "data/plugin-cache".
+	PluginCacheDir string `mapstructure:"plugin_cache_dir"`
+
+	// ClusterGRPCAddrs is the optional list of gRPC addresses for each
+	// Loader in the Raft cluster, in the same order as
+	// Raft.ClusterPeers. If empty, followers assume the leader's gRPC
+	// admin/invocation server listens on the same address as its Raft
+	// transport (spec §12.3, P5-1).
+	ClusterGRPCAddrs []string `mapstructure:"cluster_grpc_addrs"`
+
+	// GatewayStorageEndpoint is the base URL of the cipherlake gateway
+	// that the loader's storage.get host import forwards reads to. When
+	// set, plugins with the storage:get:{bucket}/* capability can read
+	// objects through the gateway's standard path (auth → metadata →
+	// backend.Get → decrypt). When empty, storage.get returns
+	// Unauthorized (spec §5, Phase 5 F5-1).
+	GatewayStorageEndpoint string `mapstructure:"gateway_storage_endpoint"`
+
+	// GatewayStorageServiceToken is the static bearer token the loader
+	// presents to the gateway when forwarding storage.get reads. The
+	// gateway must accept this token as a trusted internal caller.
+	// Optional; if empty, requests are unauthenticated (suitable for
+	// dev-mode gateways with auth disabled).
+	GatewayStorageServiceToken string `mapstructure:"gateway_storage_service_token"`
+}
+
+// PluginLoaderResourceLimits configures per-tier resource caps.
+type PluginLoaderResourceLimits struct {
+	Global PluginLoaderResourceCap `mapstructure:"global"`
+	Tier0  PluginLoaderResourceCap `mapstructure:"tier_0"`
+	Tier1  PluginLoaderResourceCap `mapstructure:"tier_1"`
+	Tier2  PluginLoaderResourceCap `mapstructure:"tier_2"`
+}
+
+// PluginLoaderResourceCap is one layer of the resource limit model.
+// Fields with zero value use the global default.
+type PluginLoaderResourceCap struct {
+	MemoryMB       int    `mapstructure:"memory_mb"`
+	FuelPerSec     int64  `mapstructure:"fuel_per_sec"`
+	CallTimeoutMS  int    `mapstructure:"call_timeout_ms"`
+	IOBytesPerSec  int64  `mapstructure:"io_bytes_per_sec"`
+	Concurrent      int    `mapstructure:"concurrent"`
+}
+
+// OCIRegistryConfig configures credentials for a single OCI registry.
+type OCIRegistryConfig struct {
+	URL      string                   `mapstructure:"url"`
+	AuthType string                   `mapstructure:"auth_type"` // "bearer" | "basic" | "none"
+	Auth     OCIRegistryAuthConfig    `mapstructure:"auth"`
+}
+
+// OCIRegistryAuthConfig holds credentials for an OCI registry. Tokens
+// and passwords are read from environment variables (never serialized).
+type OCIRegistryAuthConfig struct {
+	TokenEnv     string `mapstructure:"token_env"`
+	UsernameEnv  string `mapstructure:"username_env"`
+	PasswordEnv  string `mapstructure:"password_env"`
 }
 
 type ReplicationConfig struct {
@@ -249,101 +397,51 @@ type CryptoServicesConfig struct {
 }
 
 type VectorConfig struct {
-	Enabled              bool          `mapstructure:"enabled"`
-	Dimension            int           `mapstructure:"dim"`
-	IndexType            string       `mapstructure:"index_type"`
-	MetricType           string       `mapstructure:"metric_type"`
-	MaxVectors           int64         `mapstructure:"max_vectors"`
-	EmbeddingProvider    string       `mapstructure:"embedding_provider"`
-	EmbeddingModelPath   string       `mapstructure:"embedding_model_path"`
-	EmbeddingAPIEndpoint string       `mapstructure:"embedding_api_endpoint"`
-	EmbeddingAPIKey      string       `mapstructure:"embedding_api_key"`
-	EmbeddingModelName   string       `mapstructure:"embedding_model_name"`
-	AutoIndex            bool          `mapstructure:"auto_index"`
-	MaxSearchTopK        int           `mapstructure:"max_search_top_k"`
-	MaxQueryLength       int           `mapstructure:"max_query_length"`
-	RequireAuth          bool          `mapstructure:"require_auth"`
-	AllowedContentTypes  []string     `mapstructure:"allowed_content_types"`
-	MaxIndexContentSize  int64         `mapstructure:"max_index_content_size"`
-	// Milvus 后端配置(当 index_type = "milvus" 时使用)
-	Milvus               *MilvusConfig `mapstructure:"milvus"`
-	// VSE 后端配置(当 index_type = "vse" 时使用)
-	VSE                  *VSEMapConfig `mapstructure:"vse"`
-}
-
-type VSEMapConfig struct {
-	DataDir         string `mapstructure:"data_dir"`
-	MaxHotSegments  int    `mapstructure:"max_hot_segments"`
-	MaxColdSegments int    `mapstructure:"max_cold_segments"`
-	HotSegmentSize  int    `mapstructure:"hot_segment_size"`
-	ColdSegmentSize int    `mapstructure:"cold_segment_size"`
-	IVFCentroids    int    `mapstructure:"ivf_centroids"`
-	IVFNProbe       int    `mapstructure:"ivf_nprobe"`
-	PQSubQuantizers int    `mapstructure:"pq_sub_quantizers"`
-	PQBits          int    `mapstructure:"pq_bits"`
-	HNSWM           int    `mapstructure:"hnsw_m"`
-	HNSWEfSearch    int    `mapstructure:"hnsw_ef_search"`
-	SearchWorkers   int    `mapstructure:"search_workers"`
-	GPUAccel        bool   `mapstructure:"gpu_accel"`
-	GPUBatchMin     int    `mapstructure:"gpu_batch_min"`
-	QuantizerType   string `mapstructure:"quantizer_type"`
-	CacheSize       int    `mapstructure:"cache_size"`
-	AutoMerge       bool   `mapstructure:"auto_merge"`
-	MergeInterval   string `mapstructure:"merge_interval"`
-	EnableS3        bool   `mapstructure:"enable_s3"`
-	S3Endpoint      string `mapstructure:"s3_endpoint"`
-	S3Region        string `mapstructure:"s3_region"`
-	S3Bucket        string `mapstructure:"s3_bucket"`
-	S3AccessKey     string `mapstructure:"s3_access_key"`
-	S3SecretKey     string `mapstructure:"s3_secret_key"`
-	MergePolicy     *MergePolicyConfig     `mapstructure:"merge_policy"`
-	WarmupPolicy    *WarmupPolicyConfig    `mapstructure:"warmup_policy"`
-}
-
-type MergePolicyConfig struct {
-	HotTargetSize   int    `mapstructure:"hot_target_size"`
-	HotMaxSegments  int    `mapstructure:"hot_max_segments"`
-	ColdTargetSize  int    `mapstructure:"cold_target_size"`
-	ColdMaxSegments int    `mapstructure:"cold_max_segments"`
-	MinVectorsMerge int    `mapstructure:"min_vectors_merge"`
-	MergeInterval   string `mapstructure:"merge_interval"`
-	IdleThreshold   string `mapstructure:"idle_threshold"`
-}
-
-type WarmupPolicyConfig struct {
-	Enabled          bool   `mapstructure:"enabled"`
-	BatchSize        int    `mapstructure:"batch_size"`
-	BatchInterval    string `mapstructure:"batch_interval"`
-	PreloadCentroids bool   `mapstructure:"preload_centroids"`
-	PreloadPQ        bool   `mapstructure:"preload_pq"`
-	MaxPreloadBytes  int64  `mapstructure:"max_preload_bytes"`
+	Enabled              bool     `mapstructure:"enabled"`
+	Dimension            int      `mapstructure:"dim"`
+	IndexType            string   `mapstructure:"index_type"`
+	MetricType           string   `mapstructure:"metric_type"`
+	MaxVectors           int64    `mapstructure:"max_vectors"`
+	EmbeddingProvider    string   `mapstructure:"embedding_provider"`
+	EmbeddingModelPath   string   `mapstructure:"embedding_model_path"`
+	EmbeddingAPIEndpoint string   `mapstructure:"embedding_api_endpoint"`
+	EmbeddingAPIKey      string   `mapstructure:"embedding_api_key"`
+	EmbeddingModelName   string   `mapstructure:"embedding_model_name"`
+	AutoIndex            bool     `mapstructure:"auto_index"`
+	MaxSearchTopK        int      `mapstructure:"max_search_top_k"`
+	MaxQueryLength       int      `mapstructure:"max_query_length"`
+	RequireAuth          bool     `mapstructure:"require_auth"`
+	AllowedContentTypes  []string `mapstructure:"allowed_content_types"`
+	MaxIndexContentSize  int64    `mapstructure:"max_index_content_size"`
+	// Milvus 后端配置(全面转向 Milvus,自研 HNSW/IVFPQ/MMap 已退役)
+	Milvus *MilvusConfig `mapstructure:"milvus"`
 }
 
 // MilvusConfig 是 config 层的 Milvus 配置,映射到 vector.MilvusConfig。
 type MilvusConfig struct {
-	Address          string            `mapstructure:"address"`
-	Username         string            `mapstructure:"username"`
-	Password         string            `mapstructure:"password"`
-	DBName           string            `mapstructure:"db_name"`
-	CollectionName   string            `mapstructure:"collection_name"`
-	ShardsNum        int32             `mapstructure:"shards_num"`
-	IndexType        string            `mapstructure:"index_type"`
-	IndexParams      map[string]string `mapstructure:"index_params"`
-	NPROBE           int               `mapstructure:"nprobe"`
-	EF               int               `mapstructure:"ef"`
-	ConsistencyLevel string            `mapstructure:"consistency_level"`
-	ReplicaNumber    int32             `mapstructure:"replica_number"`
+	Address          string               `mapstructure:"address"`
+	Username         string               `mapstructure:"username"`
+	Password         string               `mapstructure:"password"`
+	DBName           string               `mapstructure:"db_name"`
+	CollectionName   string               `mapstructure:"collection_name"`
+	ShardsNum        int32                `mapstructure:"shards_num"`
+	IndexType        string               `mapstructure:"index_type"`
+	IndexParams      map[string]string    `mapstructure:"index_params"`
+	NPROBE           int                  `mapstructure:"nprobe"`
+	EF               int                  `mapstructure:"ef"`
+	ConsistencyLevel string               `mapstructure:"consistency_level"`
+	ReplicaNumber    int32                `mapstructure:"replica_number"`
 	TieredStorage    *TieredStorageConfig `mapstructure:"tiered_storage"`
-	DiskANN          *DiskANNConfig    `mapstructure:"diskann"`
+	DiskANN          *DiskANNConfig       `mapstructure:"diskann"`
 }
 
 type TieredStorageConfig struct {
-	Enabled            bool   `mapstructure:"enabled"`
-	HotResourceGroup   string `mapstructure:"hot_resource_group"`
-	ColdResourceGroup  string `mapstructure:"cold_resource_group"`
-	HotNodes           int32  `mapstructure:"hot_nodes"`
-	ColdNodes          int32  `mapstructure:"cold_nodes"`
-	WarmUp             string `mapstructure:"warm_up"`
+	Enabled           bool   `mapstructure:"enabled"`
+	HotResourceGroup  string `mapstructure:"hot_resource_group"`
+	ColdResourceGroup string `mapstructure:"cold_resource_group"`
+	HotNodes          int32  `mapstructure:"hot_nodes"`
+	ColdNodes         int32  `mapstructure:"cold_nodes"`
+	WarmUp            string `mapstructure:"warm_up"`
 }
 
 type DiskANNConfig struct {
@@ -394,11 +492,11 @@ func Load(configPath string) (*Config, error) {
 	viper.SetDefault("version", "2.0")
 	viper.SetDefault("node.role", "all")
 	viper.SetDefault("node.listen_addr", ":8080")
-	viper.SetDefault("node.data_dir", "/var/lib/nexus")
+	viper.SetDefault("node.data_dir", "/var/lib/cipherlake")
 	viper.SetDefault("tiering.enabled", true)
 	viper.SetDefault("tiering.hot_max_size", "32GB")
 	viper.SetDefault("encryption.enable_dedup", true)
-	viper.SetDefault("encryption.vault_transit_key", "nexus")
+	viper.SetDefault("encryption.vault_transit_key", "cipherlake")
 	viper.SetDefault("encryption.kms_degradation_mode", "reject_writes")
 	viper.SetDefault("crypto_services.enabled", false)
 	viper.SetDefault("crypto_services.distributed_mode", false)
@@ -417,38 +515,6 @@ func Load(configPath string) (*Config, error) {
 	viper.SetDefault("vector.index_data_dir", "data/vector")
 	viper.SetDefault("vector.rebuild_interval", "1h")
 	viper.SetDefault("vector.fallback_minutes", 5)
-	viper.SetDefault("vector.vse.data_dir", "data/vector")
-	viper.SetDefault("vector.vse.max_hot_segments", 10)
-	viper.SetDefault("vector.vse.max_cold_segments", 100)
-	viper.SetDefault("vector.vse.hot_segment_size", 10000)
-	viper.SetDefault("vector.vse.cold_segment_size", 100000)
-	viper.SetDefault("vector.vse.ivf_centroids", 256)
-	viper.SetDefault("vector.vse.ivf_nprobe", 16)
-	viper.SetDefault("vector.vse.pq_sub_quantizers", 8)
-	viper.SetDefault("vector.vse.pq_bits", 8)
-	viper.SetDefault("vector.vse.hnsw_m", 16)
-	viper.SetDefault("vector.vse.hnsw_ef_search", 64)
-viper.SetDefault("vector.vse.search_workers", 4)
-viper.SetDefault("vector.vse.gpu_accel", false)
-viper.SetDefault("vector.vse.gpu_batch_min", 50000)
-	viper.SetDefault("vector.vse.quantizer_type", "sq")
-	viper.SetDefault("vector.vse.cache_size", 10000)
-	viper.SetDefault("vector.vse.auto_merge", true)
-	viper.SetDefault("vector.vse.merge_interval", "10m")
-	viper.SetDefault("vector.vse.enable_s3", false)
-	viper.SetDefault("vector.vse.merge_policy.hot_target_size", 10000)
-	viper.SetDefault("vector.vse.merge_policy.hot_max_segments", 10)
-	viper.SetDefault("vector.vse.merge_policy.cold_target_size", 100000)
-	viper.SetDefault("vector.vse.merge_policy.cold_max_segments", 50)
-	viper.SetDefault("vector.vse.merge_policy.min_vectors_merge", 100)
-	viper.SetDefault("vector.vse.merge_policy.merge_interval", "5m")
-	viper.SetDefault("vector.vse.merge_policy.idle_threshold", "30m")
-	viper.SetDefault("vector.vse.warmup_policy.enabled", true)
-	viper.SetDefault("vector.vse.warmup_policy.batch_size", 5)
-	viper.SetDefault("vector.vse.warmup_policy.batch_interval", "100ms")
-	viper.SetDefault("vector.vse.warmup_policy.preload_centroids", true)
-	viper.SetDefault("vector.vse.warmup_policy.preload_pq", false)
-	viper.SetDefault("vector.vse.warmup_policy.max_preload_bytes", 536870912)
 	viper.SetDefault("cache.policy", "tinyLFU")
 	viper.SetDefault("cache.metadata_max_size", "10GB")
 	viper.SetDefault("cache.object_max_size", "30GB")
@@ -485,23 +551,23 @@ viper.SetDefault("vector.vse.gpu_batch_min", 50000)
 	viper.SetDefault("observability.metrics_path", "/metrics")
 	viper.SetDefault("observability.tracing_enabled", false)
 	viper.SetDefault("observability.tracing_endpoint", "localhost:4317")
-	viper.SetDefault("observability.tracing_service_name", "nexus")
+	viper.SetDefault("observability.tracing_service_name", "cipherlake")
 	viper.SetDefault("observability.tracing_insecure", true)
 	viper.SetDefault("backup.enabled", false)
 	viper.SetDefault("backup.dir", "data/backups")
 	viper.SetDefault("backup.interval", "24h")
 	viper.SetDefault("backup.retention_days", []int{1, 7, 30})
 	viper.SetDefault("backup.remote_type", "local")
-	viper.SetDefault("backup.encryption_key_id", "nexus-backup-key")
+	viper.SetDefault("backup.encryption_key_id", "cipherlake-backup-key")
 	viper.SetDefault("raft.enabled", false)
-	viper.SetDefault("raft.data_dir", "/var/lib/nexus/raft")
+	viper.SetDefault("raft.data_dir", "/var/lib/cipherlake/raft")
 	viper.SetDefault("raft.node_id", "node1")
 	viper.SetDefault("raft.listen_addr", ":9090")
 	viper.SetDefault("raft.snapshot_count", 8192)
 	viper.SetDefault("raft.heartbeat", "1s")
 	viper.SetDefault("raft.election_timeout", "1s")
 	viper.SetDefault("fts.enabled", false)
-	viper.SetDefault("fts.data_dir", "/var/lib/nexus/fts")
+	viper.SetDefault("fts.data_dir", "/var/lib/cipherlake/fts")
 	viper.SetDefault("fts.max_index_size", "10GB")
 	viper.SetDefault("fts.segment_size", 1024)
 	viper.SetDefault("fts.bm25_k1", 1.2)

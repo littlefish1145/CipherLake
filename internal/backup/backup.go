@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -76,7 +77,7 @@ func (bm *BackupManager) CreateBackup(ctx context.Context, backupType string) (*
 	}
 
 	timestamp := time.Now().Format("20060102-150405")
-	backupName := fmt.Sprintf("nexus-%s-%s", backupType, timestamp)
+	backupName := fmt.Sprintf("cipherlake-%s-%s", backupType, timestamp)
 
 	dbBackupPath := filepath.Join(bm.backupDir, backupName+".db")
 
@@ -124,7 +125,7 @@ func (bm *BackupManager) CreateConsistentSnapshot(ctx context.Context) (*BackupI
 	}
 
 	timestamp := time.Now().Format("20060102-150405")
-	backupName := fmt.Sprintf("nexus-snapshot-%s", timestamp)
+	backupName := fmt.Sprintf("cipherlake-snapshot-%s", timestamp)
 	snapshotPath := filepath.Join(bm.backupDir, backupName+".db")
 
 	f, err := os.Create(snapshotPath)
@@ -269,7 +270,7 @@ func (bm *BackupManager) VerifyBackup(ctx context.Context, backupPath string) er
 	return VerifyBackupIntegrity(backupPath)
 }
 
-// DrillBackup performs a drill test on a backup by starting a temporary Nexus instance
+// DrillBackup performs a drill test on a backup by starting a temporary CipherLake instance
 // and verifying the backup can be restored and read.
 func (bm *BackupManager) DrillBackup(ctx context.Context, backupPath string) (*DrillResult, error) {
 	start := time.Now()
@@ -295,7 +296,7 @@ func (bm *BackupManager) DrillBackup(ctx context.Context, backupPath string) (*D
 	})
 
 	// Create temporary directory for drill
-	tmpDir, err := os.MkdirTemp("", "nexus-drill-*")
+	tmpDir, err := os.MkdirTemp("", "cipherlake-drill-*")
 	if err != nil {
 		result.Duration = time.Since(start).Seconds()
 		return result, fmt.Errorf("failed to create temp dir: %w", err)
@@ -475,7 +476,7 @@ func VerifyBackupIntegrity(backupPath string) error {
 
 func verifyBoltDBBackup(path string) error {
 	db, err := bbolt.Open(path, 0666, &bbolt.Options{
-		Timeout: 5 * time.Second,
+		Timeout:  5 * time.Second,
 		ReadOnly: true,
 	})
 	if err != nil {
@@ -580,6 +581,7 @@ func (bm *BackupManager) CleanupOldBackups(ctx context.Context) error {
 		}
 	}
 
+	var cleanupErr error
 	for _, backup := range backups {
 		age := int(now.Sub(backup.CreatedAt).Hours() / 24)
 
@@ -592,11 +594,13 @@ func (bm *BackupManager) CleanupOldBackups(ctx context.Context) error {
 		}
 
 		if !shouldKeep && age > maxRetention {
-			os.Remove(backup.Path)
+			if err := os.Remove(backup.Path); err != nil && !os.IsNotExist(err) {
+				cleanupErr = errors.Join(cleanupErr, fmt.Errorf("failed to remove expired backup %s: %w", backup.Path, err))
+			}
 		}
 	}
 
-	return nil
+	return cleanupErr
 }
 
 func (bm *BackupManager) ScheduleBackups(ctx context.Context, interval time.Duration) {

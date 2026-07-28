@@ -2,9 +2,31 @@ package kms
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
+
+	"github.com/hashicorp/vault/api"
 )
+
+func TestVaultRetryReturnsCanceledContextDuringBackoff(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	vault := &VaultTransitKMS{maxRetries: 1}
+	calls := 0
+
+	_, err := vault.retry(ctx, func() (*api.Secret, error) {
+		calls++
+		cancel()
+		return nil, errors.New("timeout")
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("retry error = %v, want context canceled", err)
+	}
+	if calls != 1 {
+		t.Fatalf("retry calls = %d, want 1", calls)
+	}
+}
 
 // mockKMS is a simple mock implementation of KMSClient for testing.
 type mockKMS struct {

@@ -7,10 +7,9 @@
 package keygen
 
 import (
+	common "cipherlake/proto/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	common "nexus/proto/common"
-	_ "nexus/proto/token"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -376,34 +375,34 @@ var File_keygen_proto protoreflect.FileDescriptor
 
 const file_keygen_proto_rawDesc = "" +
 	"\n" +
-	"\fkeygen.proto\x12\fnexus.keygen\x1a\fcommon.proto\x1a\vtoken.proto\"\x92\x01\n" +
-	"\x16GenerateDataKeyRequest\x123\n" +
-	"\x05token\x18\x01 \x01(\v2\x1d.nexus.common.DelegationTokenR\x05token\x12C\n" +
-	"\x0fclient_ecdh_pub\x18\x02 \x01(\v2\x1b.nexus.common.ECDHPublicKeyR\rclientEcdhPub\"\xcf\x02\n" +
-	"\x17GenerateDataKeyResponse\x12?\n" +
-	"\rencrypted_dek\x18\x01 \x01(\v2\x1a.nexus.common.EncryptedDEKR\fencryptedDek\x12L\n" +
-	"\x12ecdh_encrypted_dek\x18\x02 \x01(\v2\x1e.nexus.common.ECDHEncryptedDEKR\x10ecdhEncryptedDek\x12E\n" +
-	"\x10service_ecdh_pub\x18\x03 \x01(\v2\x1b.nexus.common.ECDHPublicKeyR\x0eserviceEcdhPub\x12\x15\n" +
+	"\fkeygen.proto\x12\x11cipherlake.keygen\x1a\x17cipherlake/common.proto\"\x9c\x01\n" +
+	"\x16GenerateDataKeyRequest\x128\n" +
+	"\x05token\x18\x01 \x01(\v2\".cipherlake.common.DelegationTokenR\x05token\x12H\n" +
+	"\x0fclient_ecdh_pub\x18\x02 \x01(\v2 .cipherlake.common.ECDHPublicKeyR\rclientEcdhPub\"\xe3\x02\n" +
+	"\x17GenerateDataKeyResponse\x12D\n" +
+	"\rencrypted_dek\x18\x01 \x01(\v2\x1f.cipherlake.common.EncryptedDEKR\fencryptedDek\x12Q\n" +
+	"\x12ecdh_encrypted_dek\x18\x02 \x01(\v2#.cipherlake.common.ECDHEncryptedDEKR\x10ecdhEncryptedDek\x12J\n" +
+	"\x10service_ecdh_pub\x18\x03 \x01(\v2 .cipherlake.common.ECDHPublicKeyR\x0eserviceEcdhPub\x12\x15\n" +
 	"\x06key_id\x18\x04 \x01(\tR\x05keyId\x12\x1c\n" +
-	"\talgorithm\x18\x05 \x01(\tR\talgorithm\x12)\n" +
-	"\x05error\x18\x06 \x01(\v2\x13.nexus.common.ErrorR\x05error\"\x15\n" +
-	"\x13GetPublicKeyRequest\"\x95\x01\n" +
+	"\talgorithm\x18\x05 \x01(\tR\talgorithm\x12.\n" +
+	"\x05error\x18\x06 \x01(\v2\x18.cipherlake.common.ErrorR\x05error\"\x15\n" +
+	"\x13GetPublicKeyRequest\"\x9a\x01\n" +
 	"\x14GetPublicKeyResponse\x12\x1d\n" +
 	"\n" +
 	"public_key\x18\x01 \x01(\fR\tpublicKey\x12\x15\n" +
 	"\x06key_id\x18\x02 \x01(\tR\x05keyId\x12\x1c\n" +
-	"\talgorithm\x18\x03 \x01(\tR\talgorithm\x12)\n" +
-	"\x05error\x18\x04 \x01(\v2\x13.nexus.common.ErrorR\x05error\"\x0f\n" +
+	"\talgorithm\x18\x03 \x01(\tR\talgorithm\x12.\n" +
+	"\x05error\x18\x04 \x01(\v2\x18.cipherlake.common.ErrorR\x05error\"\x0f\n" +
 	"\rHealthRequest\"\x8e\x01\n" +
 	"\x0eHealthResponse\x12\x18\n" +
 	"\ahealthy\x18\x01 \x01(\bR\ahealthy\x12!\n" +
 	"\fservice_name\x18\x02 \x01(\tR\vserviceName\x12\x18\n" +
 	"\aversion\x18\x03 \x01(\tR\aversion\x12%\n" +
-	"\x0euptime_seconds\x18\x04 \x01(\x03R\ruptimeSeconds2\x8b\x02\n" +
-	"\rKeyGenService\x12^\n" +
-	"\x0fGenerateDataKey\x12$.nexus.keygen.GenerateDataKeyRequest\x1a%.nexus.keygen.GenerateDataKeyResponse\x12U\n" +
-	"\fGetPublicKey\x12!.nexus.keygen.GetPublicKeyRequest\x1a\".nexus.keygen.GetPublicKeyResponse\x12C\n" +
-	"\x06Health\x12\x1b.nexus.keygen.HealthRequest\x1a\x1c.nexus.keygen.HealthResponseB\x14Z\x12nexus/proto/keygenb\x06proto3"
+	"\x0euptime_seconds\x18\x04 \x01(\x03R\ruptimeSeconds2\xa9\x02\n" +
+	"\rKeyGenService\x12h\n" +
+	"\x0fGenerateDataKey\x12).cipherlake.keygen.GenerateDataKeyRequest\x1a*.cipherlake.keygen.GenerateDataKeyResponse\x12_\n" +
+	"\fGetPublicKey\x12&.cipherlake.keygen.GetPublicKeyRequest\x1a'.cipherlake.keygen.GetPublicKeyResponse\x12M\n" +
+	"\x06Health\x12 .cipherlake.keygen.HealthRequest\x1a!.cipherlake.keygen.HealthResponseB\x19Z\x17cipherlake/proto/keygenb\x06proto3"
 
 var (
 	file_keygen_proto_rawDescOnce sync.Once
@@ -419,32 +418,32 @@ func file_keygen_proto_rawDescGZIP() []byte {
 
 var file_keygen_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_keygen_proto_goTypes = []any{
-	(*GenerateDataKeyRequest)(nil),  // 0: nexus.keygen.GenerateDataKeyRequest
-	(*GenerateDataKeyResponse)(nil), // 1: nexus.keygen.GenerateDataKeyResponse
-	(*GetPublicKeyRequest)(nil),     // 2: nexus.keygen.GetPublicKeyRequest
-	(*GetPublicKeyResponse)(nil),    // 3: nexus.keygen.GetPublicKeyResponse
-	(*HealthRequest)(nil),           // 4: nexus.keygen.HealthRequest
-	(*HealthResponse)(nil),          // 5: nexus.keygen.HealthResponse
-	(*common.DelegationToken)(nil),  // 6: nexus.common.DelegationToken
-	(*common.ECDHPublicKey)(nil),    // 7: nexus.common.ECDHPublicKey
-	(*common.EncryptedDEK)(nil),     // 8: nexus.common.EncryptedDEK
-	(*common.ECDHEncryptedDEK)(nil), // 9: nexus.common.ECDHEncryptedDEK
-	(*common.Error)(nil),            // 10: nexus.common.Error
+	(*GenerateDataKeyRequest)(nil),  // 0: cipherlake.keygen.GenerateDataKeyRequest
+	(*GenerateDataKeyResponse)(nil), // 1: cipherlake.keygen.GenerateDataKeyResponse
+	(*GetPublicKeyRequest)(nil),     // 2: cipherlake.keygen.GetPublicKeyRequest
+	(*GetPublicKeyResponse)(nil),    // 3: cipherlake.keygen.GetPublicKeyResponse
+	(*HealthRequest)(nil),           // 4: cipherlake.keygen.HealthRequest
+	(*HealthResponse)(nil),          // 5: cipherlake.keygen.HealthResponse
+	(*common.DelegationToken)(nil),  // 6: cipherlake.common.DelegationToken
+	(*common.ECDHPublicKey)(nil),    // 7: cipherlake.common.ECDHPublicKey
+	(*common.EncryptedDEK)(nil),     // 8: cipherlake.common.EncryptedDEK
+	(*common.ECDHEncryptedDEK)(nil), // 9: cipherlake.common.ECDHEncryptedDEK
+	(*common.Error)(nil),            // 10: cipherlake.common.Error
 }
 var file_keygen_proto_depIdxs = []int32{
-	6,  // 0: nexus.keygen.GenerateDataKeyRequest.token:type_name -> nexus.common.DelegationToken
-	7,  // 1: nexus.keygen.GenerateDataKeyRequest.client_ecdh_pub:type_name -> nexus.common.ECDHPublicKey
-	8,  // 2: nexus.keygen.GenerateDataKeyResponse.encrypted_dek:type_name -> nexus.common.EncryptedDEK
-	9,  // 3: nexus.keygen.GenerateDataKeyResponse.ecdh_encrypted_dek:type_name -> nexus.common.ECDHEncryptedDEK
-	7,  // 4: nexus.keygen.GenerateDataKeyResponse.service_ecdh_pub:type_name -> nexus.common.ECDHPublicKey
-	10, // 5: nexus.keygen.GenerateDataKeyResponse.error:type_name -> nexus.common.Error
-	10, // 6: nexus.keygen.GetPublicKeyResponse.error:type_name -> nexus.common.Error
-	0,  // 7: nexus.keygen.KeyGenService.GenerateDataKey:input_type -> nexus.keygen.GenerateDataKeyRequest
-	2,  // 8: nexus.keygen.KeyGenService.GetPublicKey:input_type -> nexus.keygen.GetPublicKeyRequest
-	4,  // 9: nexus.keygen.KeyGenService.Health:input_type -> nexus.keygen.HealthRequest
-	1,  // 10: nexus.keygen.KeyGenService.GenerateDataKey:output_type -> nexus.keygen.GenerateDataKeyResponse
-	3,  // 11: nexus.keygen.KeyGenService.GetPublicKey:output_type -> nexus.keygen.GetPublicKeyResponse
-	5,  // 12: nexus.keygen.KeyGenService.Health:output_type -> nexus.keygen.HealthResponse
+	6,  // 0: cipherlake.keygen.GenerateDataKeyRequest.token:type_name -> cipherlake.common.DelegationToken
+	7,  // 1: cipherlake.keygen.GenerateDataKeyRequest.client_ecdh_pub:type_name -> cipherlake.common.ECDHPublicKey
+	8,  // 2: cipherlake.keygen.GenerateDataKeyResponse.encrypted_dek:type_name -> cipherlake.common.EncryptedDEK
+	9,  // 3: cipherlake.keygen.GenerateDataKeyResponse.ecdh_encrypted_dek:type_name -> cipherlake.common.ECDHEncryptedDEK
+	7,  // 4: cipherlake.keygen.GenerateDataKeyResponse.service_ecdh_pub:type_name -> cipherlake.common.ECDHPublicKey
+	10, // 5: cipherlake.keygen.GenerateDataKeyResponse.error:type_name -> cipherlake.common.Error
+	10, // 6: cipherlake.keygen.GetPublicKeyResponse.error:type_name -> cipherlake.common.Error
+	0,  // 7: cipherlake.keygen.KeyGenService.GenerateDataKey:input_type -> cipherlake.keygen.GenerateDataKeyRequest
+	2,  // 8: cipherlake.keygen.KeyGenService.GetPublicKey:input_type -> cipherlake.keygen.GetPublicKeyRequest
+	4,  // 9: cipherlake.keygen.KeyGenService.Health:input_type -> cipherlake.keygen.HealthRequest
+	1,  // 10: cipherlake.keygen.KeyGenService.GenerateDataKey:output_type -> cipherlake.keygen.GenerateDataKeyResponse
+	3,  // 11: cipherlake.keygen.KeyGenService.GetPublicKey:output_type -> cipherlake.keygen.GetPublicKeyResponse
+	5,  // 12: cipherlake.keygen.KeyGenService.Health:output_type -> cipherlake.keygen.HealthResponse
 	10, // [10:13] is the sub-list for method output_type
 	7,  // [7:10] is the sub-list for method input_type
 	7,  // [7:7] is the sub-list for extension type_name

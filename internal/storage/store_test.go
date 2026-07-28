@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"nexus/internal/common"
-	"nexus/internal/metadata"
+	"cipherlake/internal/common"
+	"cipherlake/internal/metadata"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,6 +17,15 @@ import (
 
 type memMetadataStore struct {
 	objects map[string]*metadata.ObjectMetadata
+}
+
+type deleteFailBackend struct {
+	BackendStorage
+	err error
+}
+
+func (b *deleteFailBackend) Delete(ctx context.Context, path string) error {
+	return b.err
 }
 
 func newMemMetadataStore() *memMetadataStore {
@@ -96,6 +105,10 @@ func (m *memMetadataStore) DeleteUpload(ctx context.Context, bucket, key, upload
 }
 
 func (m *memMetadataStore) ListUploads(ctx context.Context, bucket string) ([]*metadata.MultipartUpload, error) {
+	return nil, nil
+}
+
+func (m *memMetadataStore) ListExpiredUploads(ctx context.Context) ([]*metadata.MultipartUpload, error) {
 	return nil, nil
 }
 
@@ -226,4 +239,44 @@ func TestTieredObjectStore_Migrate(t *testing.T) {
 	exists, err := warmBackend.Exists(ctx, "bucket/key")
 	require.NoError(t, err)
 	assert.True(t, exists)
+}
+
+func TestTieredObjectStore_MigrateReturnsDeleteSourceError(t *testing.T) {
+	store, meta := newTestStore(t)
+	ctx := context.Background()
+
+	hotBackend, err := NewFileBackend(t.TempDir())
+	require.NoError(t, err)
+	deleteErr := errors.New("delete source failed")
+	store.RegisterTier(common.TierHot, &deleteFailBackend{BackendStorage: hotBackend, err: deleteErr}, 1<<30)
+
+	warmBackend, err := NewFileBackend(t.TempDir())
+	require.NoError(t, err)
+	store.RegisterTier(common.TierWarm, warmBackend, 5<<30)
+
+	data := []byte("migrate me")
+	err = store.Put(ctx, "bucket", "key", bytes.NewReader(data), int64(len(data)), common.TierHot, nil)
+	require.NoError(t, err)
+
+	meta.objects["bucket/key"] = &metadata.ObjectMetadata{
+		Key:         "key",
+		Bucket:      "bucket",
+		Size:        int64(len(data)),
+		StorageTier: int(common.TierHot),
+	}
+
+	err = store.Migrate(ctx, "bucket", "key", common.TierHot, common.TierWarm)
+	require.ErrorIs(t, err, deleteErr)
+
+	updated := meta.objects["bucket/key"]
+	require.NotNil(t, updated)
+	assert.Equal(t, int(common.TierHot), updated.StorageTier)
+
+	hotSize, err := store.GetTierSize(common.TierHot)
+	require.NoError(t, err)
+	assert.Equal(t, int64(len(data)), hotSize)
+
+	warmSize, err := store.GetTierSize(common.TierWarm)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), warmSize)
 }

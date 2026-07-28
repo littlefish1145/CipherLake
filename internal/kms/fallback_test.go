@@ -41,6 +41,45 @@ type eventuallyRecoveringKMS struct {
 	pubKey       []byte
 }
 
+type closeCountingKMS struct {
+	closeCalls int
+}
+
+func (k *closeCountingKMS) GenerateDataKey(context.Context, string, int) ([]byte, []byte, error) {
+	return []byte("plaintext"), []byte("encrypted"), nil
+}
+
+func (k *closeCountingKMS) DecryptDataKey(context.Context, string, []byte) ([]byte, error) {
+	return []byte("plaintext"), nil
+}
+
+func (k *closeCountingKMS) GetPublicKey(context.Context, string) ([]byte, error) {
+	return []byte("public"), nil
+}
+
+func (k *closeCountingKMS) Close() error {
+	k.closeCalls++
+	return nil
+}
+
+func TestFallbackKMSCloseIsIdempotent(t *testing.T) {
+	primary := &closeCountingKMS{}
+	fallback, err := NewFallbackKMS(FallbackConfig{Primary: primary, HealthCheckInterval: time.Hour})
+	if err != nil {
+		t.Fatalf("NewFallbackKMS failed: %v", err)
+	}
+
+	if err := fallback.Close(); err != nil {
+		t.Fatalf("first Close failed: %v", err)
+	}
+	if err := fallback.Close(); err != nil {
+		t.Fatalf("second Close failed: %v", err)
+	}
+	if primary.closeCalls != 1 {
+		t.Fatalf("primary Close calls = %d, want 1", primary.closeCalls)
+	}
+}
+
 func (e *eventuallyRecoveringKMS) GenerateDataKey(ctx context.Context, keyID string, length int) (plaintext, encrypted []byte, err error) {
 	e.currentCount++
 	if e.currentCount <= e.failCount {

@@ -18,7 +18,7 @@ type MilvusConfig struct {
 	Username         string            // 认证用户名(可空)
 	Password         string            // 认证密码(可空)
 	DBName           string            // 数据库名(默认 default)
-	CollectionName   string            // 集合名(默认 nexus_vectors)
+	CollectionName   string            // 集合名(默认 cipherlake_vectors)
 	ShardsNum        int32             // 分片数(默认 2,水平扩展能力)
 	IndexType        string            // milvus 索引类型:FLAT/HNSW/IVF_FLAT/IVF_SQ8/DISKANN
 	IndexParams      map[string]string // 索引参数,如 HNSW 的 M/efConstruction
@@ -30,32 +30,32 @@ type MilvusConfig struct {
 	//   - Hot 资源组:节点多,全内存,低延迟
 	//   - Cold 资源组:节点少,DISKANN,低成本
 	// Milvus 2.6+ 的 Tiered Storage 是服务端透明功能,SDK 无需改动
-	TieredStorage    *TieredStorageConfig
+	TieredStorage *TieredStorageConfig
 	// ReplicaNumber 副本数(默认 1,高可用场景设为 2+)
-	ReplicaNumber    int32
+	ReplicaNumber int32
 	// DISKANN 专用参数(当 IndexType == "DISKANN" 时生效)
-	DiskANN          *DiskANNConfig
+	DiskANN *DiskANNConfig
 }
 
 // TieredStorageConfig 配置热冷分层存储。
 type TieredStorageConfig struct {
-	Enabled       bool   // 是否启用分层存储
+	Enabled           bool   // 是否启用分层存储
 	HotResourceGroup  string // 热数据资源组名(默认 "hot")
 	ColdResourceGroup string // 冷数据资源组名(默认 "cold")
-	HotNodes      int32  // 热资源组节点数(默认 2)
-	ColdNodes     int32  // 冷资源组节点数(默认 1)
+	HotNodes          int32  // 热资源组节点数(默认 2)
+	ColdNodes         int32  // 冷资源组节点数(默认 1)
 	// WarmUp 预热策略(Milvus 2.6+ 服务端配置):
 	//   sync:   load 前先加载到缓存(高延迟,低查询延迟)
 	//   async:  后台异步预热(平衡)
 	//   disable: 完全按需加载(低内存,首查询高延迟)
-	WarmUp        string // sync | async | disable
+	WarmUp string // sync | async | disable
 }
 
 // DiskANNConfig 配置 DISKANN 磁盘索引参数。
 type DiskANNConfig struct {
-	MaxDegree               int     // Vamana 图最大度数(默认 56)
-	SearchListSize          int     // 候选列表大小(默认 100)
-	PQCodeBudgetGBRatio     float64 // PQ 码本内存比例(默认 0.125)
+	MaxDegree                int     // Vamana 图最大度数(默认 56)
+	SearchListSize           int     // 候选列表大小(默认 100)
+	PQCodeBudgetGBRatio      float64 // PQ 码本内存比例(默认 0.125)
 	SearchCacheBudgetGBRatio float64 // 缓存节点数据比例(默认 0.10)
 	BeamWidthRatio           float64 // 每次搜索迭代最大 IO 请求数与 CPU 数的比值(默认 4.0)
 }
@@ -87,7 +87,7 @@ func NewMilvusBackend(dim int, metric MetricType, cfg *MilvusConfig) (*MilvusBac
 		cfg.Address = "localhost:19530"
 	}
 	if cfg.CollectionName == "" {
-		cfg.CollectionName = "nexus_vectors"
+		cfg.CollectionName = "cipherlake_vectors"
 	}
 	if cfg.ShardsNum == 0 {
 		cfg.ShardsNum = 2
@@ -110,9 +110,9 @@ func NewMilvusBackend(dim int, metric MetricType, cfg *MilvusConfig) (*MilvusBac
 	// DISKANN 默认参数
 	if cfg.IndexType == "DISKANN" && cfg.DiskANN == nil {
 		cfg.DiskANN = &DiskANNConfig{
-			MaxDegree:               56,
-			SearchListSize:          100,
-			PQCodeBudgetGBRatio:     0.125,
+			MaxDegree:                56,
+			SearchListSize:           100,
+			PQCodeBudgetGBRatio:      0.125,
 			SearchCacheBudgetGBRatio: 0.10,
 			BeamWidthRatio:           4.0,
 		}
@@ -278,7 +278,7 @@ func (mb *MilvusBackend) createCollection() error {
 
 	schema := entity.NewSchema().
 		WithName(mb.collection).
-		WithDescription("Nexus vector storage backed by Milvus").
+		WithDescription("CipherLake vector storage backed by Milvus").
 		WithField(pkField).
 		WithField(vecField).
 		WithField(bucketField).
@@ -306,7 +306,7 @@ func (mb *MilvusBackend) createIndex() error {
 	metricType := mb.milvusMetricType()
 
 	factories := map[string]indexFactory{
-		"HNSW":    mb.hnswIndex,
+		"HNSW":     mb.hnswIndex,
 		"IVF_FLAT": mb.ivfFlatIndex,
 		"IVF_SQ8":  mb.ivfSQ8Index,
 		"DISKANN":  mb.diskannIndex,
@@ -622,7 +622,7 @@ func (mb *MilvusBackend) Search(ctx context.Context, query Vector, topK int, fil
 		ctx,
 		mb.collection,
 		[]string{}, // 所有分区
-		expr,        // 过滤表达式
+		expr,       // 过滤表达式
 		outputFields,
 		[]entity.Vector{entity.FloatVector(query.Values)},
 		"vector",

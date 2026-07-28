@@ -10,56 +10,56 @@ import (
 )
 
 const (
-	namespace = "nexus"
+	namespace = "cipherlake"
 )
 
-// MetricsRegistry holds all Prometheus metrics for the Nexus system.
+// MetricsRegistry holds all Prometheus metrics for the CipherLake system.
 type MetricsRegistry struct {
 	// Original 14 metrics
-	ObjectPutTotal          *prometheus.CounterVec
-	ObjectGetTotal          *prometheus.CounterVec
-	ObjectGetBytesTotal     *prometheus.CounterVec
-	EncryptDuration         *prometheus.HistogramVec
-	DecryptDuration         *prometheus.HistogramVec
-	VectorSearchDuration    *prometheus.HistogramVec
-	VectorIndexSizeVectors  prometheus.Gauge
-	StorageIOBytesTotal     *prometheus.CounterVec
-	ReplicationLagSeconds   *prometheus.GaugeVec
-	EventDeliveryTotal      *prometheus.CounterVec
-	IAMPolicyEvalDuration   prometheus.Histogram
-	HTTPRequestDuration     *prometheus.HistogramVec
-	GRPCRequestDuration     *prometheus.HistogramVec
-	Up                      prometheus.Gauge
+	ObjectPutTotal         *prometheus.CounterVec
+	ObjectGetTotal         *prometheus.CounterVec
+	ObjectGetBytesTotal    *prometheus.CounterVec
+	EncryptDuration        *prometheus.HistogramVec
+	DecryptDuration        *prometheus.HistogramVec
+	VectorSearchDuration   *prometheus.HistogramVec
+	VectorIndexSizeVectors prometheus.Gauge
+	StorageIOBytesTotal    *prometheus.CounterVec
+	ReplicationLagSeconds  *prometheus.GaugeVec
+	EventDeliveryTotal     *prometheus.CounterVec
+	IAMPolicyEvalDuration  prometheus.Histogram
+	HTTPRequestDuration    *prometheus.HistogramVec
+	GRPCRequestDuration    *prometheus.HistogramVec
+	Up                     prometheus.Gauge
 
 	// Object operations (new)
-	ObjectDeleteTotal       *prometheus.CounterVec
-	ObjectHeadTotal         *prometheus.CounterVec
-	ObjectListTotal         *prometheus.CounterVec
-	ObjectPutBytesTotal     *prometheus.CounterVec
-	ObjectDeleteBytesTotal  *prometheus.CounterVec
-	MultipartUploadTotal    *prometheus.CounterVec
-	MultipartCompleteTotal  *prometheus.CounterVec
-	MultipartAbortTotal     *prometheus.CounterVec
-	CopyObjectTotal         *prometheus.CounterVec
+	ObjectDeleteTotal      *prometheus.CounterVec
+	ObjectHeadTotal        *prometheus.CounterVec
+	ObjectListTotal        *prometheus.CounterVec
+	ObjectPutBytesTotal    *prometheus.CounterVec
+	ObjectDeleteBytesTotal *prometheus.CounterVec
+	MultipartUploadTotal   *prometheus.CounterVec
+	MultipartCompleteTotal *prometheus.CounterVec
+	MultipartAbortTotal    *prometheus.CounterVec
+	CopyObjectTotal        *prometheus.CounterVec
 
 	// Bucket operations (new)
-	BucketCreateTotal       *prometheus.CounterVec
-	BucketDeleteTotal       *prometheus.CounterVec
-	BucketListTotal         *prometheus.CounterVec
-	BucketInfoTotal         *prometheus.CounterVec
+	BucketCreateTotal *prometheus.CounterVec
+	BucketDeleteTotal *prometheus.CounterVec
+	BucketListTotal   *prometheus.CounterVec
+	BucketInfoTotal   *prometheus.CounterVec
 
 	// Encryption (new)
-	EncryptionKeyGenerationTotal  *prometheus.CounterVec
-	EncryptionKeyRotationTotal    *prometheus.CounterVec
-	EncryptionOperationTotal      *prometheus.CounterVec
-	SSECOperationTotal            *prometheus.CounterVec
+	EncryptionKeyGenerationTotal *prometheus.CounterVec
+	EncryptionKeyRotationTotal   *prometheus.CounterVec
+	EncryptionOperationTotal     *prometheus.CounterVec
+	SSECOperationTotal           *prometheus.CounterVec
 
 	// KMS (new)
-	KMSRequestTotal        *prometheus.CounterVec
-	KMSRequestDuration     *prometheus.HistogramVec
-	KMSErrorTotal          *prometheus.CounterVec
-	KMSCacheHitTotal       *prometheus.CounterVec
-	KMSCacheMissTotal      *prometheus.CounterVec
+	KMSRequestTotal    *prometheus.CounterVec
+	KMSRequestDuration *prometheus.HistogramVec
+	KMSErrorTotal      *prometheus.CounterVec
+	KMSCacheHitTotal   *prometheus.CounterVec
+	KMSCacheMissTotal  *prometheus.CounterVec
 
 	// Raft (new)
 	RaftLeaderChangesTotal  prometheus.Counter
@@ -78,32 +78,32 @@ type MetricsRegistry struct {
 	ErasureShardHealth       *prometheus.GaugeVec
 
 	// Vector (new)
-	VectorIndexTotal           *prometheus.CounterVec
-	VectorIndexSizeBytes       *prometheus.GaugeVec
-	VectorQuantizationError    *prometheus.HistogramVec
-	VectorRebuildTotal         *prometheus.CounterVec
-	VectorRebuildDuration      prometheus.Histogram
+	VectorIndexTotal        *prometheus.CounterVec
+	VectorIndexSizeBytes    *prometheus.GaugeVec
+	VectorQuantizationError *prometheus.HistogramVec
+	VectorRebuildTotal      *prometheus.CounterVec
+	VectorRebuildDuration   prometheus.Histogram
 
 	// FTS (new)
-	FTSIndexTotal             *prometheus.CounterVec
-	FTSSearchDuration         *prometheus.HistogramVec
-	FTSSegmentCount           prometheus.Gauge
-	FTSIndexSizeBytes         prometheus.Gauge
-	FTSDocumentCount          prometheus.Gauge
+	FTSIndexTotal     *prometheus.CounterVec
+	FTSSearchDuration *prometheus.HistogramVec
+	FTSSegmentCount   prometheus.Gauge
+	FTSIndexSizeBytes prometheus.Gauge
+	FTSDocumentCount  prometheus.Gauge
 
 	// Backup (new)
-	BackupTotal               *prometheus.CounterVec
-	BackupDuration            *prometheus.HistogramVec
-	BackupSizeBytes           *prometheus.GaugeVec
-	RestoreTotal              *prometheus.CounterVec
-	RestoreDuration           prometheus.Histogram
+	BackupTotal     *prometheus.CounterVec
+	BackupDuration  *prometheus.HistogramVec
+	BackupSizeBytes *prometheus.GaugeVec
+	RestoreTotal    *prometheus.CounterVec
+	RestoreDuration prometheus.Histogram
 
 	// IAM (new)
-	IAMAuthTotal              *prometheus.CounterVec
-	IAMTokenIssuedTotal       *prometheus.CounterVec
-	IAMPolicyEvalTotal        *prometheus.CounterVec
-	IAMBoundaryEvalTotal      *prometheus.CounterVec
-	IAMSCPEvalTotal           *prometheus.CounterVec
+	IAMAuthTotal         *prometheus.CounterVec
+	IAMTokenIssuedTotal  *prometheus.CounterVec
+	IAMPolicyEvalTotal   *prometheus.CounterVec
+	IAMBoundaryEvalTotal *prometheus.CounterVec
+	IAMSCPEvalTotal      *prometheus.CounterVec
 
 	// Resumable (new)
 	ResumableSessionTotal     *prometheus.CounterVec
@@ -111,20 +111,20 @@ type MetricsRegistry struct {
 	ResumableSessionDuration  prometheus.Histogram
 
 	// Cache (new)
-	CacheHitTotal             *prometheus.CounterVec
-	CacheMissTotal            *prometheus.CounterVec
-	CacheEvictionTotal        *prometheus.CounterVec
-	CacheSizeBytes            *prometheus.GaugeVec
+	CacheHitTotal      *prometheus.CounterVec
+	CacheMissTotal     *prometheus.CounterVec
+	CacheEvictionTotal *prometheus.CounterVec
+	CacheSizeBytes     *prometheus.GaugeVec
 
 	// System (new)
-	GoGoroutines              prometheus.Gauge
-	GoMemAllocBytes           prometheus.Gauge
-	GoMemSysBytes             prometheus.Gauge
-	GoGCDurationSeconds       prometheus.Summary
-	ProcessOpenFDs            prometheus.Gauge
-	ProcessMaxFDs             prometheus.Gauge
+	GoGoroutines               prometheus.Gauge
+	GoMemAllocBytes            prometheus.Gauge
+	GoMemSysBytes              prometheus.Gauge
+	GoGCDurationSeconds        prometheus.Summary
+	ProcessOpenFDs             prometheus.Gauge
+	ProcessMaxFDs              prometheus.Gauge
 	ProcessResidentMemoryBytes prometheus.Gauge
-	ProcessCPUSecondsTotal    prometheus.Counter
+	ProcessCPUSecondsTotal     prometheus.Counter
 }
 
 var defaultBuckets = []float64{.005, .01, .025, .05, .1, .25, .5}
@@ -259,7 +259,7 @@ func NewMetricsRegistry() *MetricsRegistry {
 		prometheus.GaugeOpts{
 			Namespace: namespace,
 			Name:      "up",
-			Help:      "Indicates if the Nexus service is up (1 = up)",
+			Help:      "Indicates if the CipherLake service is up (1 = up)",
 		},
 	)
 

@@ -44,6 +44,9 @@ type FallbackKMS struct {
 
 	cancelCtx  context.Context
 	cancelFunc context.CancelFunc
+	closeOnce  sync.Once
+	closeErr   error
+	wg         sync.WaitGroup
 }
 
 // FallbackConfig holds configuration for the FallbackKMS.
@@ -88,6 +91,7 @@ func NewFallbackKMS(cfg FallbackConfig) (*FallbackKMS, error) {
 	}
 
 	// Start health check goroutine
+	fk.wg.Add(1)
 	go fk.healthCheckLoop()
 
 	return fk, nil
@@ -172,8 +176,12 @@ func (f *FallbackKMS) GetPublicKey(ctx context.Context, keyID string) (pub []byt
 
 // Close stops the health check goroutine and closes the primary client.
 func (f *FallbackKMS) Close() error {
-	f.cancelFunc()
-	return f.primary.Close()
+	f.closeOnce.Do(func() {
+		f.cancelFunc()
+		f.wg.Wait()
+		f.closeErr = f.primary.Close()
+	})
+	return f.closeErr
 }
 
 // IsAvailable returns whether the primary KMS is currently available.
@@ -259,6 +267,8 @@ func (f *FallbackKMS) logDegradedWarning(operation string) {
 
 // healthCheckLoop periodically checks if the KMS has recovered.
 func (f *FallbackKMS) healthCheckLoop() {
+	defer f.wg.Done()
+
 	ticker := time.NewTicker(f.healthCheck)
 	defer ticker.Stop()
 
@@ -283,7 +293,7 @@ func (f *FallbackKMS) checkHealth() {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(f.cancelCtx, 5*time.Second)
 	defer cancel()
 
 	// Try GetPublicKey as a lightweight health check

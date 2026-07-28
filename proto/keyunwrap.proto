@@ -1,11 +1,10 @@
 syntax = "proto3";
 
-package nexus.keyunwrap;
+package cipherlake.keyunwrap;
 
-option go_package = "nexus/proto/keyunwrap";
+option go_package = "cipherlake/proto/keyunwrap";
 
-import "common.proto";
-import "token.proto";
+import "cipherlake/common.proto";
 
 // KeyUnwrapService - Unwraps (decrypts) data encryption keys
 // Uses private key (SK_Decrypt) to decrypt encrypted DEK
@@ -21,19 +20,19 @@ service KeyUnwrapService {
 }
 
 message UnwrapKeyRequest {
-  nexus.common.DelegationToken token = 1;  // Must be READ token
-  nexus.common.EncryptedDEK encrypted_dek = 2;  // From KeyStore
-  nexus.common.ECDHPublicKey client_ecdh_pub = 3;  // Client's ECDH public key
+  cipherlake.common.DelegationToken token = 1;  // Must be READ token
+  cipherlake.common.EncryptedDEK encrypted_dek = 2;  // From KeyStore
+  cipherlake.common.ECDHPublicKey client_ecdh_pub = 3;  // Client's ECDH public key
 }
 
 message UnwrapKeyResponse {
   // DEK encrypted with ECDH-derived session key (for DecryptService)
-  nexus.common.ECDHEncryptedDEK ecdh_encrypted_dek = 1;
+  cipherlake.common.ECDHEncryptedDEK ecdh_encrypted_dek = 1;
   
   // Service's ephemeral ECDH public key
-  nexus.common.ECDHPublicKey service_ecdh_pub = 2;
+  cipherlake.common.ECDHPublicKey service_ecdh_pub = 2;
   
-  nexus.common.Error error = 3;
+  cipherlake.common.Error error = 3;
 }
 
 message HealthRequest {}

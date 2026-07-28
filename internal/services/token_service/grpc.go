@@ -7,8 +7,8 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	pb "nexus/proto/token"
-	common "nexus/proto/common"
+	common "cipherlake/proto/common"
+	pb "cipherlake/proto/token"
 )
 
 // GRPCServer adapts TokenService to gRPC interface

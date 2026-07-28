@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.33.2
-// source: proto/sts.proto
+// source: sts.proto
 
 package sts
 
@@ -35,7 +35,7 @@ type AssumeRoleRequest struct {
 
 func (x *AssumeRoleRequest) Reset() {
 	*x = AssumeRoleRequest{}
-	mi := &file_proto_sts_proto_msgTypes[0]
+	mi := &file_sts_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -47,7 +47,7 @@ func (x *AssumeRoleRequest) String() string {
 func (*AssumeRoleRequest) ProtoMessage() {}
 
 func (x *AssumeRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[0]
+	mi := &file_sts_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -60,7 +60,7 @@ func (x *AssumeRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssumeRoleRequest.ProtoReflect.Descriptor instead.
 func (*AssumeRoleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{0}
+	return file_sts_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *AssumeRoleRequest) GetRoleArn() string {
@@ -116,7 +116,7 @@ type AssumeRoleResponse struct {
 
 func (x *AssumeRoleResponse) Reset() {
 	*x = AssumeRoleResponse{}
-	mi := &file_proto_sts_proto_msgTypes[1]
+	mi := &file_sts_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -128,7 +128,7 @@ func (x *AssumeRoleResponse) String() string {
 func (*AssumeRoleResponse) ProtoMessage() {}
 
 func (x *AssumeRoleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[1]
+	mi := &file_sts_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -141,7 +141,7 @@ func (x *AssumeRoleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssumeRoleResponse.ProtoReflect.Descriptor instead.
 func (*AssumeRoleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{1}
+	return file_sts_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *AssumeRoleResponse) GetCredentials() *Credentials {
@@ -175,7 +175,7 @@ type GetSessionTokenRequest struct {
 
 func (x *GetSessionTokenRequest) Reset() {
 	*x = GetSessionTokenRequest{}
-	mi := &file_proto_sts_proto_msgTypes[2]
+	mi := &file_sts_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -187,7 +187,7 @@ func (x *GetSessionTokenRequest) String() string {
 func (*GetSessionTokenRequest) ProtoMessage() {}
 
 func (x *GetSessionTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[2]
+	mi := &file_sts_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -200,7 +200,7 @@ func (x *GetSessionTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSessionTokenRequest.ProtoReflect.Descriptor instead.
 func (*GetSessionTokenRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{2}
+	return file_sts_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *GetSessionTokenRequest) GetDurationSeconds() int32 {
@@ -226,7 +226,7 @@ type GetSessionTokenResponse struct {
 
 func (x *GetSessionTokenResponse) Reset() {
 	*x = GetSessionTokenResponse{}
-	mi := &file_proto_sts_proto_msgTypes[3]
+	mi := &file_sts_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -238,7 +238,7 @@ func (x *GetSessionTokenResponse) String() string {
 func (*GetSessionTokenResponse) ProtoMessage() {}
 
 func (x *GetSessionTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[3]
+	mi := &file_sts_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -251,7 +251,7 @@ func (x *GetSessionTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSessionTokenResponse.ProtoReflect.Descriptor instead.
 func (*GetSessionTokenResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{3}
+	return file_sts_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GetSessionTokenResponse) GetCredentials() *Credentials {
@@ -273,7 +273,7 @@ type GetFederationTokenRequest struct {
 
 func (x *GetFederationTokenRequest) Reset() {
 	*x = GetFederationTokenRequest{}
-	mi := &file_proto_sts_proto_msgTypes[4]
+	mi := &file_sts_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -285,7 +285,7 @@ func (x *GetFederationTokenRequest) String() string {
 func (*GetFederationTokenRequest) ProtoMessage() {}
 
 func (x *GetFederationTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[4]
+	mi := &file_sts_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -298,7 +298,7 @@ func (x *GetFederationTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFederationTokenRequest.ProtoReflect.Descriptor instead.
 func (*GetFederationTokenRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{4}
+	return file_sts_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetFederationTokenRequest) GetName() string {
@@ -340,7 +340,7 @@ type GetFederationTokenResponse struct {
 
 func (x *GetFederationTokenResponse) Reset() {
 	*x = GetFederationTokenResponse{}
-	mi := &file_proto_sts_proto_msgTypes[5]
+	mi := &file_sts_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -352,7 +352,7 @@ func (x *GetFederationTokenResponse) String() string {
 func (*GetFederationTokenResponse) ProtoMessage() {}
 
 func (x *GetFederationTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[5]
+	mi := &file_sts_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -365,7 +365,7 @@ func (x *GetFederationTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFederationTokenResponse.ProtoReflect.Descriptor instead.
 func (*GetFederationTokenResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{5}
+	return file_sts_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetFederationTokenResponse) GetCredentials() *Credentials {
@@ -401,7 +401,7 @@ type Credentials struct {
 
 func (x *Credentials) Reset() {
 	*x = Credentials{}
-	mi := &file_proto_sts_proto_msgTypes[6]
+	mi := &file_sts_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -413,7 +413,7 @@ func (x *Credentials) String() string {
 func (*Credentials) ProtoMessage() {}
 
 func (x *Credentials) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[6]
+	mi := &file_sts_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -426,7 +426,7 @@ func (x *Credentials) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Credentials.ProtoReflect.Descriptor instead.
 func (*Credentials) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{6}
+	return file_sts_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Credentials) GetAccessKeyId() string {
@@ -466,7 +466,7 @@ type LookupUserByAccessKeyRequest struct {
 
 func (x *LookupUserByAccessKeyRequest) Reset() {
 	*x = LookupUserByAccessKeyRequest{}
-	mi := &file_proto_sts_proto_msgTypes[7]
+	mi := &file_sts_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -478,7 +478,7 @@ func (x *LookupUserByAccessKeyRequest) String() string {
 func (*LookupUserByAccessKeyRequest) ProtoMessage() {}
 
 func (x *LookupUserByAccessKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[7]
+	mi := &file_sts_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -491,7 +491,7 @@ func (x *LookupUserByAccessKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LookupUserByAccessKeyRequest.ProtoReflect.Descriptor instead.
 func (*LookupUserByAccessKeyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{7}
+	return file_sts_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *LookupUserByAccessKeyRequest) GetAccessKeyId() string {
@@ -511,7 +511,7 @@ type LookupUserByAccessKeyResponse struct {
 
 func (x *LookupUserByAccessKeyResponse) Reset() {
 	*x = LookupUserByAccessKeyResponse{}
-	mi := &file_proto_sts_proto_msgTypes[8]
+	mi := &file_sts_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -523,7 +523,7 @@ func (x *LookupUserByAccessKeyResponse) String() string {
 func (*LookupUserByAccessKeyResponse) ProtoMessage() {}
 
 func (x *LookupUserByAccessKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[8]
+	mi := &file_sts_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -536,7 +536,7 @@ func (x *LookupUserByAccessKeyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LookupUserByAccessKeyResponse.ProtoReflect.Descriptor instead.
 func (*LookupUserByAccessKeyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{8}
+	return file_sts_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *LookupUserByAccessKeyResponse) GetUser() *IAMUserProto {
@@ -562,7 +562,7 @@ type DecryptSecretKeyRequest struct {
 
 func (x *DecryptSecretKeyRequest) Reset() {
 	*x = DecryptSecretKeyRequest{}
-	mi := &file_proto_sts_proto_msgTypes[9]
+	mi := &file_sts_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -574,7 +574,7 @@ func (x *DecryptSecretKeyRequest) String() string {
 func (*DecryptSecretKeyRequest) ProtoMessage() {}
 
 func (x *DecryptSecretKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[9]
+	mi := &file_sts_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -587,7 +587,7 @@ func (x *DecryptSecretKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DecryptSecretKeyRequest.ProtoReflect.Descriptor instead.
 func (*DecryptSecretKeyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{9}
+	return file_sts_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *DecryptSecretKeyRequest) GetEncryptedSecret() []byte {
@@ -606,7 +606,7 @@ type DecryptSecretKeyResponse struct {
 
 func (x *DecryptSecretKeyResponse) Reset() {
 	*x = DecryptSecretKeyResponse{}
-	mi := &file_proto_sts_proto_msgTypes[10]
+	mi := &file_sts_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -618,7 +618,7 @@ func (x *DecryptSecretKeyResponse) String() string {
 func (*DecryptSecretKeyResponse) ProtoMessage() {}
 
 func (x *DecryptSecretKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[10]
+	mi := &file_sts_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -631,7 +631,7 @@ func (x *DecryptSecretKeyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DecryptSecretKeyResponse.ProtoReflect.Descriptor instead.
 func (*DecryptSecretKeyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{10}
+	return file_sts_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *DecryptSecretKeyResponse) GetDecryptedSecret() string {
@@ -650,7 +650,7 @@ type LookupTempCredentialRequest struct {
 
 func (x *LookupTempCredentialRequest) Reset() {
 	*x = LookupTempCredentialRequest{}
-	mi := &file_proto_sts_proto_msgTypes[11]
+	mi := &file_sts_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -662,7 +662,7 @@ func (x *LookupTempCredentialRequest) String() string {
 func (*LookupTempCredentialRequest) ProtoMessage() {}
 
 func (x *LookupTempCredentialRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[11]
+	mi := &file_sts_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -675,7 +675,7 @@ func (x *LookupTempCredentialRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LookupTempCredentialRequest.ProtoReflect.Descriptor instead.
 func (*LookupTempCredentialRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{11}
+	return file_sts_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *LookupTempCredentialRequest) GetAccessKeyId() string {
@@ -697,7 +697,7 @@ type LookupTempCredentialResponse struct {
 
 func (x *LookupTempCredentialResponse) Reset() {
 	*x = LookupTempCredentialResponse{}
-	mi := &file_proto_sts_proto_msgTypes[12]
+	mi := &file_sts_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -709,7 +709,7 @@ func (x *LookupTempCredentialResponse) String() string {
 func (*LookupTempCredentialResponse) ProtoMessage() {}
 
 func (x *LookupTempCredentialResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[12]
+	mi := &file_sts_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -722,7 +722,7 @@ func (x *LookupTempCredentialResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LookupTempCredentialResponse.ProtoReflect.Descriptor instead.
 func (*LookupTempCredentialResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{12}
+	return file_sts_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *LookupTempCredentialResponse) GetAccessKeyId() string {
@@ -762,7 +762,7 @@ type LookupUserRequest struct {
 
 func (x *LookupUserRequest) Reset() {
 	*x = LookupUserRequest{}
-	mi := &file_proto_sts_proto_msgTypes[13]
+	mi := &file_sts_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -774,7 +774,7 @@ func (x *LookupUserRequest) String() string {
 func (*LookupUserRequest) ProtoMessage() {}
 
 func (x *LookupUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[13]
+	mi := &file_sts_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -787,7 +787,7 @@ func (x *LookupUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LookupUserRequest.ProtoReflect.Descriptor instead.
 func (*LookupUserRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{13}
+	return file_sts_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *LookupUserRequest) GetUserName() string {
@@ -806,7 +806,7 @@ type LookupUserResponse struct {
 
 func (x *LookupUserResponse) Reset() {
 	*x = LookupUserResponse{}
-	mi := &file_proto_sts_proto_msgTypes[14]
+	mi := &file_sts_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -818,7 +818,7 @@ func (x *LookupUserResponse) String() string {
 func (*LookupUserResponse) ProtoMessage() {}
 
 func (x *LookupUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[14]
+	mi := &file_sts_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -831,7 +831,7 @@ func (x *LookupUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LookupUserResponse.ProtoReflect.Descriptor instead.
 func (*LookupUserResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{14}
+	return file_sts_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *LookupUserResponse) GetUser() *IAMUserProto {
@@ -855,7 +855,7 @@ type EvaluateAccessRequest struct {
 
 func (x *EvaluateAccessRequest) Reset() {
 	*x = EvaluateAccessRequest{}
-	mi := &file_proto_sts_proto_msgTypes[15]
+	mi := &file_sts_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -867,7 +867,7 @@ func (x *EvaluateAccessRequest) String() string {
 func (*EvaluateAccessRequest) ProtoMessage() {}
 
 func (x *EvaluateAccessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[15]
+	mi := &file_sts_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -880,7 +880,7 @@ func (x *EvaluateAccessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EvaluateAccessRequest.ProtoReflect.Descriptor instead.
 func (*EvaluateAccessRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{15}
+	return file_sts_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *EvaluateAccessRequest) GetPrincipal() string {
@@ -938,7 +938,7 @@ type EvaluateAccessResponse struct {
 
 func (x *EvaluateAccessResponse) Reset() {
 	*x = EvaluateAccessResponse{}
-	mi := &file_proto_sts_proto_msgTypes[16]
+	mi := &file_sts_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -950,7 +950,7 @@ func (x *EvaluateAccessResponse) String() string {
 func (*EvaluateAccessResponse) ProtoMessage() {}
 
 func (x *EvaluateAccessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[16]
+	mi := &file_sts_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -963,7 +963,7 @@ func (x *EvaluateAccessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EvaluateAccessResponse.ProtoReflect.Descriptor instead.
 func (*EvaluateAccessResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{16}
+	return file_sts_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *EvaluateAccessResponse) GetDecision() string {
@@ -1014,7 +1014,7 @@ type AccessKeyProto struct {
 
 func (x *AccessKeyProto) Reset() {
 	*x = AccessKeyProto{}
-	mi := &file_proto_sts_proto_msgTypes[17]
+	mi := &file_sts_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1026,7 +1026,7 @@ func (x *AccessKeyProto) String() string {
 func (*AccessKeyProto) ProtoMessage() {}
 
 func (x *AccessKeyProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[17]
+	mi := &file_sts_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1039,7 +1039,7 @@ func (x *AccessKeyProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AccessKeyProto.ProtoReflect.Descriptor instead.
 func (*AccessKeyProto) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{17}
+	return file_sts_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *AccessKeyProto) GetAccessKeyId() string {
@@ -1093,7 +1093,7 @@ type IAMUserProto struct {
 
 func (x *IAMUserProto) Reset() {
 	*x = IAMUserProto{}
-	mi := &file_proto_sts_proto_msgTypes[18]
+	mi := &file_sts_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1105,7 +1105,7 @@ func (x *IAMUserProto) String() string {
 func (*IAMUserProto) ProtoMessage() {}
 
 func (x *IAMUserProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[18]
+	mi := &file_sts_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1118,7 +1118,7 @@ func (x *IAMUserProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IAMUserProto.ProtoReflect.Descriptor instead.
 func (*IAMUserProto) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{18}
+	return file_sts_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *IAMUserProto) GetId() string {
@@ -1187,7 +1187,7 @@ type AdminCreateUserRequest struct {
 
 func (x *AdminCreateUserRequest) Reset() {
 	*x = AdminCreateUserRequest{}
-	mi := &file_proto_sts_proto_msgTypes[19]
+	mi := &file_sts_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1199,7 +1199,7 @@ func (x *AdminCreateUserRequest) String() string {
 func (*AdminCreateUserRequest) ProtoMessage() {}
 
 func (x *AdminCreateUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[19]
+	mi := &file_sts_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1212,7 +1212,7 @@ func (x *AdminCreateUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminCreateUserRequest.ProtoReflect.Descriptor instead.
 func (*AdminCreateUserRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{19}
+	return file_sts_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *AdminCreateUserRequest) GetName() string {
@@ -1238,7 +1238,7 @@ type AdminCreateUserResponse struct {
 
 func (x *AdminCreateUserResponse) Reset() {
 	*x = AdminCreateUserResponse{}
-	mi := &file_proto_sts_proto_msgTypes[20]
+	mi := &file_sts_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1250,7 +1250,7 @@ func (x *AdminCreateUserResponse) String() string {
 func (*AdminCreateUserResponse) ProtoMessage() {}
 
 func (x *AdminCreateUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[20]
+	mi := &file_sts_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1263,7 +1263,7 @@ func (x *AdminCreateUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminCreateUserResponse.ProtoReflect.Descriptor instead.
 func (*AdminCreateUserResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{20}
+	return file_sts_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *AdminCreateUserResponse) GetUser() *IAMUserProto {
@@ -1282,7 +1282,7 @@ type AdminDeleteUserRequest struct {
 
 func (x *AdminDeleteUserRequest) Reset() {
 	*x = AdminDeleteUserRequest{}
-	mi := &file_proto_sts_proto_msgTypes[21]
+	mi := &file_sts_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1294,7 +1294,7 @@ func (x *AdminDeleteUserRequest) String() string {
 func (*AdminDeleteUserRequest) ProtoMessage() {}
 
 func (x *AdminDeleteUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[21]
+	mi := &file_sts_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1307,7 +1307,7 @@ func (x *AdminDeleteUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminDeleteUserRequest.ProtoReflect.Descriptor instead.
 func (*AdminDeleteUserRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{21}
+	return file_sts_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *AdminDeleteUserRequest) GetUserName() string {
@@ -1325,7 +1325,7 @@ type AdminDeleteUserResponse struct {
 
 func (x *AdminDeleteUserResponse) Reset() {
 	*x = AdminDeleteUserResponse{}
-	mi := &file_proto_sts_proto_msgTypes[22]
+	mi := &file_sts_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1337,7 +1337,7 @@ func (x *AdminDeleteUserResponse) String() string {
 func (*AdminDeleteUserResponse) ProtoMessage() {}
 
 func (x *AdminDeleteUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[22]
+	mi := &file_sts_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1350,7 +1350,7 @@ func (x *AdminDeleteUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminDeleteUserResponse.ProtoReflect.Descriptor instead.
 func (*AdminDeleteUserResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{22}
+	return file_sts_proto_rawDescGZIP(), []int{22}
 }
 
 type AdminListUsersRequest struct {
@@ -1361,7 +1361,7 @@ type AdminListUsersRequest struct {
 
 func (x *AdminListUsersRequest) Reset() {
 	*x = AdminListUsersRequest{}
-	mi := &file_proto_sts_proto_msgTypes[23]
+	mi := &file_sts_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1373,7 +1373,7 @@ func (x *AdminListUsersRequest) String() string {
 func (*AdminListUsersRequest) ProtoMessage() {}
 
 func (x *AdminListUsersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[23]
+	mi := &file_sts_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1386,7 +1386,7 @@ func (x *AdminListUsersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminListUsersRequest.ProtoReflect.Descriptor instead.
 func (*AdminListUsersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{23}
+	return file_sts_proto_rawDescGZIP(), []int{23}
 }
 
 type AdminListUsersResponse struct {
@@ -1398,7 +1398,7 @@ type AdminListUsersResponse struct {
 
 func (x *AdminListUsersResponse) Reset() {
 	*x = AdminListUsersResponse{}
-	mi := &file_proto_sts_proto_msgTypes[24]
+	mi := &file_sts_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1410,7 +1410,7 @@ func (x *AdminListUsersResponse) String() string {
 func (*AdminListUsersResponse) ProtoMessage() {}
 
 func (x *AdminListUsersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[24]
+	mi := &file_sts_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1423,7 +1423,7 @@ func (x *AdminListUsersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminListUsersResponse.ProtoReflect.Descriptor instead.
 func (*AdminListUsersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{24}
+	return file_sts_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *AdminListUsersResponse) GetUsers() []*IAMUserProto {
@@ -1443,7 +1443,7 @@ type AdminCreateAccessKeyRequest struct {
 
 func (x *AdminCreateAccessKeyRequest) Reset() {
 	*x = AdminCreateAccessKeyRequest{}
-	mi := &file_proto_sts_proto_msgTypes[25]
+	mi := &file_sts_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1455,7 +1455,7 @@ func (x *AdminCreateAccessKeyRequest) String() string {
 func (*AdminCreateAccessKeyRequest) ProtoMessage() {}
 
 func (x *AdminCreateAccessKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[25]
+	mi := &file_sts_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1468,7 +1468,7 @@ func (x *AdminCreateAccessKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminCreateAccessKeyRequest.ProtoReflect.Descriptor instead.
 func (*AdminCreateAccessKeyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{25}
+	return file_sts_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *AdminCreateAccessKeyRequest) GetUserName() string {
@@ -1497,7 +1497,7 @@ type AdminCreateAccessKeyResponse struct {
 
 func (x *AdminCreateAccessKeyResponse) Reset() {
 	*x = AdminCreateAccessKeyResponse{}
-	mi := &file_proto_sts_proto_msgTypes[26]
+	mi := &file_sts_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1509,7 +1509,7 @@ func (x *AdminCreateAccessKeyResponse) String() string {
 func (*AdminCreateAccessKeyResponse) ProtoMessage() {}
 
 func (x *AdminCreateAccessKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[26]
+	mi := &file_sts_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1522,7 +1522,7 @@ func (x *AdminCreateAccessKeyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminCreateAccessKeyResponse.ProtoReflect.Descriptor instead.
 func (*AdminCreateAccessKeyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{26}
+	return file_sts_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *AdminCreateAccessKeyResponse) GetAccessKeyId() string {
@@ -1562,7 +1562,7 @@ type AdminListAccessKeysRequest struct {
 
 func (x *AdminListAccessKeysRequest) Reset() {
 	*x = AdminListAccessKeysRequest{}
-	mi := &file_proto_sts_proto_msgTypes[27]
+	mi := &file_sts_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1574,7 +1574,7 @@ func (x *AdminListAccessKeysRequest) String() string {
 func (*AdminListAccessKeysRequest) ProtoMessage() {}
 
 func (x *AdminListAccessKeysRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[27]
+	mi := &file_sts_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1587,7 +1587,7 @@ func (x *AdminListAccessKeysRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminListAccessKeysRequest.ProtoReflect.Descriptor instead.
 func (*AdminListAccessKeysRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{27}
+	return file_sts_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *AdminListAccessKeysRequest) GetUserName() string {
@@ -1606,7 +1606,7 @@ type AdminListAccessKeysResponse struct {
 
 func (x *AdminListAccessKeysResponse) Reset() {
 	*x = AdminListAccessKeysResponse{}
-	mi := &file_proto_sts_proto_msgTypes[28]
+	mi := &file_sts_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1618,7 +1618,7 @@ func (x *AdminListAccessKeysResponse) String() string {
 func (*AdminListAccessKeysResponse) ProtoMessage() {}
 
 func (x *AdminListAccessKeysResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[28]
+	mi := &file_sts_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1631,7 +1631,7 @@ func (x *AdminListAccessKeysResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminListAccessKeysResponse.ProtoReflect.Descriptor instead.
 func (*AdminListAccessKeysResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{28}
+	return file_sts_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *AdminListAccessKeysResponse) GetAccessKeys() []*AccessKeyProto {
@@ -1651,7 +1651,7 @@ type AdminDeleteAccessKeyRequest struct {
 
 func (x *AdminDeleteAccessKeyRequest) Reset() {
 	*x = AdminDeleteAccessKeyRequest{}
-	mi := &file_proto_sts_proto_msgTypes[29]
+	mi := &file_sts_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1663,7 +1663,7 @@ func (x *AdminDeleteAccessKeyRequest) String() string {
 func (*AdminDeleteAccessKeyRequest) ProtoMessage() {}
 
 func (x *AdminDeleteAccessKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[29]
+	mi := &file_sts_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1676,7 +1676,7 @@ func (x *AdminDeleteAccessKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminDeleteAccessKeyRequest.ProtoReflect.Descriptor instead.
 func (*AdminDeleteAccessKeyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{29}
+	return file_sts_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *AdminDeleteAccessKeyRequest) GetUserName() string {
@@ -1701,7 +1701,7 @@ type AdminDeleteAccessKeyResponse struct {
 
 func (x *AdminDeleteAccessKeyResponse) Reset() {
 	*x = AdminDeleteAccessKeyResponse{}
-	mi := &file_proto_sts_proto_msgTypes[30]
+	mi := &file_sts_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1713,7 +1713,7 @@ func (x *AdminDeleteAccessKeyResponse) String() string {
 func (*AdminDeleteAccessKeyResponse) ProtoMessage() {}
 
 func (x *AdminDeleteAccessKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[30]
+	mi := &file_sts_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1726,7 +1726,7 @@ func (x *AdminDeleteAccessKeyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminDeleteAccessKeyResponse.ProtoReflect.Descriptor instead.
 func (*AdminDeleteAccessKeyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{30}
+	return file_sts_proto_rawDescGZIP(), []int{30}
 }
 
 type AdminListGroupsRequest struct {
@@ -1737,7 +1737,7 @@ type AdminListGroupsRequest struct {
 
 func (x *AdminListGroupsRequest) Reset() {
 	*x = AdminListGroupsRequest{}
-	mi := &file_proto_sts_proto_msgTypes[31]
+	mi := &file_sts_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1749,7 +1749,7 @@ func (x *AdminListGroupsRequest) String() string {
 func (*AdminListGroupsRequest) ProtoMessage() {}
 
 func (x *AdminListGroupsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[31]
+	mi := &file_sts_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1762,7 +1762,7 @@ func (x *AdminListGroupsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminListGroupsRequest.ProtoReflect.Descriptor instead.
 func (*AdminListGroupsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{31}
+	return file_sts_proto_rawDescGZIP(), []int{31}
 }
 
 type AdminListGroupResponse struct {
@@ -1778,7 +1778,7 @@ type AdminListGroupResponse struct {
 
 func (x *AdminListGroupResponse) Reset() {
 	*x = AdminListGroupResponse{}
-	mi := &file_proto_sts_proto_msgTypes[32]
+	mi := &file_sts_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1790,7 +1790,7 @@ func (x *AdminListGroupResponse) String() string {
 func (*AdminListGroupResponse) ProtoMessage() {}
 
 func (x *AdminListGroupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[32]
+	mi := &file_sts_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1803,7 +1803,7 @@ func (x *AdminListGroupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminListGroupResponse.ProtoReflect.Descriptor instead.
 func (*AdminListGroupResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{32}
+	return file_sts_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *AdminListGroupResponse) GetName() string {
@@ -1850,7 +1850,7 @@ type AdminListGroupsResponse struct {
 
 func (x *AdminListGroupsResponse) Reset() {
 	*x = AdminListGroupsResponse{}
-	mi := &file_proto_sts_proto_msgTypes[33]
+	mi := &file_sts_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1862,7 +1862,7 @@ func (x *AdminListGroupsResponse) String() string {
 func (*AdminListGroupsResponse) ProtoMessage() {}
 
 func (x *AdminListGroupsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[33]
+	mi := &file_sts_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1875,7 +1875,7 @@ func (x *AdminListGroupsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminListGroupsResponse.ProtoReflect.Descriptor instead.
 func (*AdminListGroupsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{33}
+	return file_sts_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *AdminListGroupsResponse) GetGroups() []*AdminListGroupResponse {
@@ -1895,7 +1895,7 @@ type AdminCreateGroupRequest struct {
 
 func (x *AdminCreateGroupRequest) Reset() {
 	*x = AdminCreateGroupRequest{}
-	mi := &file_proto_sts_proto_msgTypes[34]
+	mi := &file_sts_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1907,7 +1907,7 @@ func (x *AdminCreateGroupRequest) String() string {
 func (*AdminCreateGroupRequest) ProtoMessage() {}
 
 func (x *AdminCreateGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[34]
+	mi := &file_sts_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1920,7 +1920,7 @@ func (x *AdminCreateGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminCreateGroupRequest.ProtoReflect.Descriptor instead.
 func (*AdminCreateGroupRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{34}
+	return file_sts_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *AdminCreateGroupRequest) GetName() string {
@@ -1948,7 +1948,7 @@ type AdminCreateGroupResponse struct {
 
 func (x *AdminCreateGroupResponse) Reset() {
 	*x = AdminCreateGroupResponse{}
-	mi := &file_proto_sts_proto_msgTypes[35]
+	mi := &file_sts_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1960,7 +1960,7 @@ func (x *AdminCreateGroupResponse) String() string {
 func (*AdminCreateGroupResponse) ProtoMessage() {}
 
 func (x *AdminCreateGroupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[35]
+	mi := &file_sts_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1973,7 +1973,7 @@ func (x *AdminCreateGroupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminCreateGroupResponse.ProtoReflect.Descriptor instead.
 func (*AdminCreateGroupResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{35}
+	return file_sts_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *AdminCreateGroupResponse) GetName() string {
@@ -2006,7 +2006,7 @@ type AdminDeleteGroupRequest struct {
 
 func (x *AdminDeleteGroupRequest) Reset() {
 	*x = AdminDeleteGroupRequest{}
-	mi := &file_proto_sts_proto_msgTypes[36]
+	mi := &file_sts_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2018,7 +2018,7 @@ func (x *AdminDeleteGroupRequest) String() string {
 func (*AdminDeleteGroupRequest) ProtoMessage() {}
 
 func (x *AdminDeleteGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[36]
+	mi := &file_sts_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2031,7 +2031,7 @@ func (x *AdminDeleteGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminDeleteGroupRequest.ProtoReflect.Descriptor instead.
 func (*AdminDeleteGroupRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{36}
+	return file_sts_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *AdminDeleteGroupRequest) GetGroupName() string {
@@ -2049,7 +2049,7 @@ type AdminDeleteGroupResponse struct {
 
 func (x *AdminDeleteGroupResponse) Reset() {
 	*x = AdminDeleteGroupResponse{}
-	mi := &file_proto_sts_proto_msgTypes[37]
+	mi := &file_sts_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2061,7 +2061,7 @@ func (x *AdminDeleteGroupResponse) String() string {
 func (*AdminDeleteGroupResponse) ProtoMessage() {}
 
 func (x *AdminDeleteGroupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[37]
+	mi := &file_sts_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2074,7 +2074,7 @@ func (x *AdminDeleteGroupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminDeleteGroupResponse.ProtoReflect.Descriptor instead.
 func (*AdminDeleteGroupResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{37}
+	return file_sts_proto_rawDescGZIP(), []int{37}
 }
 
 type AdminAddUserToGroupRequest struct {
@@ -2087,7 +2087,7 @@ type AdminAddUserToGroupRequest struct {
 
 func (x *AdminAddUserToGroupRequest) Reset() {
 	*x = AdminAddUserToGroupRequest{}
-	mi := &file_proto_sts_proto_msgTypes[38]
+	mi := &file_sts_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2099,7 +2099,7 @@ func (x *AdminAddUserToGroupRequest) String() string {
 func (*AdminAddUserToGroupRequest) ProtoMessage() {}
 
 func (x *AdminAddUserToGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[38]
+	mi := &file_sts_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2112,7 +2112,7 @@ func (x *AdminAddUserToGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminAddUserToGroupRequest.ProtoReflect.Descriptor instead.
 func (*AdminAddUserToGroupRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{38}
+	return file_sts_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *AdminAddUserToGroupRequest) GetUserName() string {
@@ -2137,7 +2137,7 @@ type AdminAddUserToGroupResponse struct {
 
 func (x *AdminAddUserToGroupResponse) Reset() {
 	*x = AdminAddUserToGroupResponse{}
-	mi := &file_proto_sts_proto_msgTypes[39]
+	mi := &file_sts_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2149,7 +2149,7 @@ func (x *AdminAddUserToGroupResponse) String() string {
 func (*AdminAddUserToGroupResponse) ProtoMessage() {}
 
 func (x *AdminAddUserToGroupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[39]
+	mi := &file_sts_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2162,7 +2162,7 @@ func (x *AdminAddUserToGroupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminAddUserToGroupResponse.ProtoReflect.Descriptor instead.
 func (*AdminAddUserToGroupResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{39}
+	return file_sts_proto_rawDescGZIP(), []int{39}
 }
 
 type AdminRemoveUserFromGroupRequest struct {
@@ -2175,7 +2175,7 @@ type AdminRemoveUserFromGroupRequest struct {
 
 func (x *AdminRemoveUserFromGroupRequest) Reset() {
 	*x = AdminRemoveUserFromGroupRequest{}
-	mi := &file_proto_sts_proto_msgTypes[40]
+	mi := &file_sts_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2187,7 +2187,7 @@ func (x *AdminRemoveUserFromGroupRequest) String() string {
 func (*AdminRemoveUserFromGroupRequest) ProtoMessage() {}
 
 func (x *AdminRemoveUserFromGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[40]
+	mi := &file_sts_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2200,7 +2200,7 @@ func (x *AdminRemoveUserFromGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminRemoveUserFromGroupRequest.ProtoReflect.Descriptor instead.
 func (*AdminRemoveUserFromGroupRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{40}
+	return file_sts_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *AdminRemoveUserFromGroupRequest) GetUserName() string {
@@ -2225,7 +2225,7 @@ type AdminRemoveUserFromGroupResponse struct {
 
 func (x *AdminRemoveUserFromGroupResponse) Reset() {
 	*x = AdminRemoveUserFromGroupResponse{}
-	mi := &file_proto_sts_proto_msgTypes[41]
+	mi := &file_sts_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2237,7 +2237,7 @@ func (x *AdminRemoveUserFromGroupResponse) String() string {
 func (*AdminRemoveUserFromGroupResponse) ProtoMessage() {}
 
 func (x *AdminRemoveUserFromGroupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[41]
+	mi := &file_sts_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2250,7 +2250,7 @@ func (x *AdminRemoveUserFromGroupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminRemoveUserFromGroupResponse.ProtoReflect.Descriptor instead.
 func (*AdminRemoveUserFromGroupResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{41}
+	return file_sts_proto_rawDescGZIP(), []int{41}
 }
 
 type AdminListPoliciesRequest struct {
@@ -2261,7 +2261,7 @@ type AdminListPoliciesRequest struct {
 
 func (x *AdminListPoliciesRequest) Reset() {
 	*x = AdminListPoliciesRequest{}
-	mi := &file_proto_sts_proto_msgTypes[42]
+	mi := &file_sts_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2273,7 +2273,7 @@ func (x *AdminListPoliciesRequest) String() string {
 func (*AdminListPoliciesRequest) ProtoMessage() {}
 
 func (x *AdminListPoliciesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[42]
+	mi := &file_sts_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2286,7 +2286,7 @@ func (x *AdminListPoliciesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminListPoliciesRequest.ProtoReflect.Descriptor instead.
 func (*AdminListPoliciesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{42}
+	return file_sts_proto_rawDescGZIP(), []int{42}
 }
 
 type AdminListPolicyItem struct {
@@ -2303,7 +2303,7 @@ type AdminListPolicyItem struct {
 
 func (x *AdminListPolicyItem) Reset() {
 	*x = AdminListPolicyItem{}
-	mi := &file_proto_sts_proto_msgTypes[43]
+	mi := &file_sts_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2315,7 +2315,7 @@ func (x *AdminListPolicyItem) String() string {
 func (*AdminListPolicyItem) ProtoMessage() {}
 
 func (x *AdminListPolicyItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[43]
+	mi := &file_sts_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2328,7 +2328,7 @@ func (x *AdminListPolicyItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminListPolicyItem.ProtoReflect.Descriptor instead.
 func (*AdminListPolicyItem) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{43}
+	return file_sts_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *AdminListPolicyItem) GetArn() string {
@@ -2382,7 +2382,7 @@ type AdminListPoliciesResponse struct {
 
 func (x *AdminListPoliciesResponse) Reset() {
 	*x = AdminListPoliciesResponse{}
-	mi := &file_proto_sts_proto_msgTypes[44]
+	mi := &file_sts_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2394,7 +2394,7 @@ func (x *AdminListPoliciesResponse) String() string {
 func (*AdminListPoliciesResponse) ProtoMessage() {}
 
 func (x *AdminListPoliciesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[44]
+	mi := &file_sts_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2407,7 +2407,7 @@ func (x *AdminListPoliciesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminListPoliciesResponse.ProtoReflect.Descriptor instead.
 func (*AdminListPoliciesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{44}
+	return file_sts_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *AdminListPoliciesResponse) GetPolicies() []*AdminListPolicyItem {
@@ -2428,7 +2428,7 @@ type AdminCreatePolicyRequest struct {
 
 func (x *AdminCreatePolicyRequest) Reset() {
 	*x = AdminCreatePolicyRequest{}
-	mi := &file_proto_sts_proto_msgTypes[45]
+	mi := &file_sts_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2440,7 +2440,7 @@ func (x *AdminCreatePolicyRequest) String() string {
 func (*AdminCreatePolicyRequest) ProtoMessage() {}
 
 func (x *AdminCreatePolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[45]
+	mi := &file_sts_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2453,7 +2453,7 @@ func (x *AdminCreatePolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminCreatePolicyRequest.ProtoReflect.Descriptor instead.
 func (*AdminCreatePolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{45}
+	return file_sts_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *AdminCreatePolicyRequest) GetName() string {
@@ -2487,7 +2487,7 @@ type AdminCreatePolicyResponse struct {
 
 func (x *AdminCreatePolicyResponse) Reset() {
 	*x = AdminCreatePolicyResponse{}
-	mi := &file_proto_sts_proto_msgTypes[46]
+	mi := &file_sts_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2499,7 +2499,7 @@ func (x *AdminCreatePolicyResponse) String() string {
 func (*AdminCreatePolicyResponse) ProtoMessage() {}
 
 func (x *AdminCreatePolicyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[46]
+	mi := &file_sts_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2512,7 +2512,7 @@ func (x *AdminCreatePolicyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminCreatePolicyResponse.ProtoReflect.Descriptor instead.
 func (*AdminCreatePolicyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{46}
+	return file_sts_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *AdminCreatePolicyResponse) GetArn() string {
@@ -2538,7 +2538,7 @@ type AdminDeletePolicyRequest struct {
 
 func (x *AdminDeletePolicyRequest) Reset() {
 	*x = AdminDeletePolicyRequest{}
-	mi := &file_proto_sts_proto_msgTypes[47]
+	mi := &file_sts_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2550,7 +2550,7 @@ func (x *AdminDeletePolicyRequest) String() string {
 func (*AdminDeletePolicyRequest) ProtoMessage() {}
 
 func (x *AdminDeletePolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[47]
+	mi := &file_sts_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2563,7 +2563,7 @@ func (x *AdminDeletePolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminDeletePolicyRequest.ProtoReflect.Descriptor instead.
 func (*AdminDeletePolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{47}
+	return file_sts_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *AdminDeletePolicyRequest) GetPolicyName() string {
@@ -2581,7 +2581,7 @@ type AdminDeletePolicyResponse struct {
 
 func (x *AdminDeletePolicyResponse) Reset() {
 	*x = AdminDeletePolicyResponse{}
-	mi := &file_proto_sts_proto_msgTypes[48]
+	mi := &file_sts_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2593,7 +2593,7 @@ func (x *AdminDeletePolicyResponse) String() string {
 func (*AdminDeletePolicyResponse) ProtoMessage() {}
 
 func (x *AdminDeletePolicyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[48]
+	mi := &file_sts_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2606,7 +2606,7 @@ func (x *AdminDeletePolicyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminDeletePolicyResponse.ProtoReflect.Descriptor instead.
 func (*AdminDeletePolicyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{48}
+	return file_sts_proto_rawDescGZIP(), []int{48}
 }
 
 type AdminAttachUserPolicyRequest struct {
@@ -2619,7 +2619,7 @@ type AdminAttachUserPolicyRequest struct {
 
 func (x *AdminAttachUserPolicyRequest) Reset() {
 	*x = AdminAttachUserPolicyRequest{}
-	mi := &file_proto_sts_proto_msgTypes[49]
+	mi := &file_sts_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2631,7 +2631,7 @@ func (x *AdminAttachUserPolicyRequest) String() string {
 func (*AdminAttachUserPolicyRequest) ProtoMessage() {}
 
 func (x *AdminAttachUserPolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[49]
+	mi := &file_sts_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2644,7 +2644,7 @@ func (x *AdminAttachUserPolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminAttachUserPolicyRequest.ProtoReflect.Descriptor instead.
 func (*AdminAttachUserPolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{49}
+	return file_sts_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *AdminAttachUserPolicyRequest) GetUserName() string {
@@ -2669,7 +2669,7 @@ type AdminAttachUserPolicyResponse struct {
 
 func (x *AdminAttachUserPolicyResponse) Reset() {
 	*x = AdminAttachUserPolicyResponse{}
-	mi := &file_proto_sts_proto_msgTypes[50]
+	mi := &file_sts_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2681,7 +2681,7 @@ func (x *AdminAttachUserPolicyResponse) String() string {
 func (*AdminAttachUserPolicyResponse) ProtoMessage() {}
 
 func (x *AdminAttachUserPolicyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[50]
+	mi := &file_sts_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2694,7 +2694,7 @@ func (x *AdminAttachUserPolicyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminAttachUserPolicyResponse.ProtoReflect.Descriptor instead.
 func (*AdminAttachUserPolicyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{50}
+	return file_sts_proto_rawDescGZIP(), []int{50}
 }
 
 type AdminDetachUserPolicyRequest struct {
@@ -2707,7 +2707,7 @@ type AdminDetachUserPolicyRequest struct {
 
 func (x *AdminDetachUserPolicyRequest) Reset() {
 	*x = AdminDetachUserPolicyRequest{}
-	mi := &file_proto_sts_proto_msgTypes[51]
+	mi := &file_sts_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2719,7 +2719,7 @@ func (x *AdminDetachUserPolicyRequest) String() string {
 func (*AdminDetachUserPolicyRequest) ProtoMessage() {}
 
 func (x *AdminDetachUserPolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[51]
+	mi := &file_sts_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2732,7 +2732,7 @@ func (x *AdminDetachUserPolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminDetachUserPolicyRequest.ProtoReflect.Descriptor instead.
 func (*AdminDetachUserPolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{51}
+	return file_sts_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *AdminDetachUserPolicyRequest) GetUserName() string {
@@ -2757,7 +2757,7 @@ type AdminDetachUserPolicyResponse struct {
 
 func (x *AdminDetachUserPolicyResponse) Reset() {
 	*x = AdminDetachUserPolicyResponse{}
-	mi := &file_proto_sts_proto_msgTypes[52]
+	mi := &file_sts_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2769,7 +2769,7 @@ func (x *AdminDetachUserPolicyResponse) String() string {
 func (*AdminDetachUserPolicyResponse) ProtoMessage() {}
 
 func (x *AdminDetachUserPolicyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[52]
+	mi := &file_sts_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2782,7 +2782,7 @@ func (x *AdminDetachUserPolicyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminDetachUserPolicyResponse.ProtoReflect.Descriptor instead.
 func (*AdminDetachUserPolicyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{52}
+	return file_sts_proto_rawDescGZIP(), []int{52}
 }
 
 type AdminAttachGroupPolicyRequest struct {
@@ -2795,7 +2795,7 @@ type AdminAttachGroupPolicyRequest struct {
 
 func (x *AdminAttachGroupPolicyRequest) Reset() {
 	*x = AdminAttachGroupPolicyRequest{}
-	mi := &file_proto_sts_proto_msgTypes[53]
+	mi := &file_sts_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2807,7 +2807,7 @@ func (x *AdminAttachGroupPolicyRequest) String() string {
 func (*AdminAttachGroupPolicyRequest) ProtoMessage() {}
 
 func (x *AdminAttachGroupPolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[53]
+	mi := &file_sts_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2820,7 +2820,7 @@ func (x *AdminAttachGroupPolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminAttachGroupPolicyRequest.ProtoReflect.Descriptor instead.
 func (*AdminAttachGroupPolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{53}
+	return file_sts_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *AdminAttachGroupPolicyRequest) GetGroupName() string {
@@ -2845,7 +2845,7 @@ type AdminAttachGroupPolicyResponse struct {
 
 func (x *AdminAttachGroupPolicyResponse) Reset() {
 	*x = AdminAttachGroupPolicyResponse{}
-	mi := &file_proto_sts_proto_msgTypes[54]
+	mi := &file_sts_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2857,7 +2857,7 @@ func (x *AdminAttachGroupPolicyResponse) String() string {
 func (*AdminAttachGroupPolicyResponse) ProtoMessage() {}
 
 func (x *AdminAttachGroupPolicyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[54]
+	mi := &file_sts_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2870,7 +2870,7 @@ func (x *AdminAttachGroupPolicyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminAttachGroupPolicyResponse.ProtoReflect.Descriptor instead.
 func (*AdminAttachGroupPolicyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{54}
+	return file_sts_proto_rawDescGZIP(), []int{54}
 }
 
 type AdminListRolesRequest struct {
@@ -2881,7 +2881,7 @@ type AdminListRolesRequest struct {
 
 func (x *AdminListRolesRequest) Reset() {
 	*x = AdminListRolesRequest{}
-	mi := &file_proto_sts_proto_msgTypes[55]
+	mi := &file_sts_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2893,7 +2893,7 @@ func (x *AdminListRolesRequest) String() string {
 func (*AdminListRolesRequest) ProtoMessage() {}
 
 func (x *AdminListRolesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[55]
+	mi := &file_sts_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2906,7 +2906,7 @@ func (x *AdminListRolesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminListRolesRequest.ProtoReflect.Descriptor instead.
 func (*AdminListRolesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{55}
+	return file_sts_proto_rawDescGZIP(), []int{55}
 }
 
 type AdminListRoleItem struct {
@@ -2921,7 +2921,7 @@ type AdminListRoleItem struct {
 
 func (x *AdminListRoleItem) Reset() {
 	*x = AdminListRoleItem{}
-	mi := &file_proto_sts_proto_msgTypes[56]
+	mi := &file_sts_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2933,7 +2933,7 @@ func (x *AdminListRoleItem) String() string {
 func (*AdminListRoleItem) ProtoMessage() {}
 
 func (x *AdminListRoleItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[56]
+	mi := &file_sts_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2946,7 +2946,7 @@ func (x *AdminListRoleItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminListRoleItem.ProtoReflect.Descriptor instead.
 func (*AdminListRoleItem) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{56}
+	return file_sts_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *AdminListRoleItem) GetName() string {
@@ -2986,7 +2986,7 @@ type AdminListRolesResponse struct {
 
 func (x *AdminListRolesResponse) Reset() {
 	*x = AdminListRolesResponse{}
-	mi := &file_proto_sts_proto_msgTypes[57]
+	mi := &file_sts_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2998,7 +2998,7 @@ func (x *AdminListRolesResponse) String() string {
 func (*AdminListRolesResponse) ProtoMessage() {}
 
 func (x *AdminListRolesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[57]
+	mi := &file_sts_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3011,7 +3011,7 @@ func (x *AdminListRolesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminListRolesResponse.ProtoReflect.Descriptor instead.
 func (*AdminListRolesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{57}
+	return file_sts_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *AdminListRolesResponse) GetRoles() []*AdminListRoleItem {
@@ -3033,7 +3033,7 @@ type AdminCreateRoleRequest struct {
 
 func (x *AdminCreateRoleRequest) Reset() {
 	*x = AdminCreateRoleRequest{}
-	mi := &file_proto_sts_proto_msgTypes[58]
+	mi := &file_sts_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3045,7 +3045,7 @@ func (x *AdminCreateRoleRequest) String() string {
 func (*AdminCreateRoleRequest) ProtoMessage() {}
 
 func (x *AdminCreateRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[58]
+	mi := &file_sts_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3058,7 +3058,7 @@ func (x *AdminCreateRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminCreateRoleRequest.ProtoReflect.Descriptor instead.
 func (*AdminCreateRoleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{58}
+	return file_sts_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *AdminCreateRoleRequest) GetName() string {
@@ -3098,7 +3098,7 @@ type AdminCreateRoleResponse struct {
 
 func (x *AdminCreateRoleResponse) Reset() {
 	*x = AdminCreateRoleResponse{}
-	mi := &file_proto_sts_proto_msgTypes[59]
+	mi := &file_sts_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3110,7 +3110,7 @@ func (x *AdminCreateRoleResponse) String() string {
 func (*AdminCreateRoleResponse) ProtoMessage() {}
 
 func (x *AdminCreateRoleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[59]
+	mi := &file_sts_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3123,7 +3123,7 @@ func (x *AdminCreateRoleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminCreateRoleResponse.ProtoReflect.Descriptor instead.
 func (*AdminCreateRoleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{59}
+	return file_sts_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *AdminCreateRoleResponse) GetName() string {
@@ -3142,7 +3142,7 @@ type AdminDeleteRoleRequest struct {
 
 func (x *AdminDeleteRoleRequest) Reset() {
 	*x = AdminDeleteRoleRequest{}
-	mi := &file_proto_sts_proto_msgTypes[60]
+	mi := &file_sts_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3154,7 +3154,7 @@ func (x *AdminDeleteRoleRequest) String() string {
 func (*AdminDeleteRoleRequest) ProtoMessage() {}
 
 func (x *AdminDeleteRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[60]
+	mi := &file_sts_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3167,7 +3167,7 @@ func (x *AdminDeleteRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminDeleteRoleRequest.ProtoReflect.Descriptor instead.
 func (*AdminDeleteRoleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{60}
+	return file_sts_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *AdminDeleteRoleRequest) GetRoleName() string {
@@ -3185,7 +3185,7 @@ type AdminDeleteRoleResponse struct {
 
 func (x *AdminDeleteRoleResponse) Reset() {
 	*x = AdminDeleteRoleResponse{}
-	mi := &file_proto_sts_proto_msgTypes[61]
+	mi := &file_sts_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3197,7 +3197,7 @@ func (x *AdminDeleteRoleResponse) String() string {
 func (*AdminDeleteRoleResponse) ProtoMessage() {}
 
 func (x *AdminDeleteRoleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[61]
+	mi := &file_sts_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3210,7 +3210,7 @@ func (x *AdminDeleteRoleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminDeleteRoleResponse.ProtoReflect.Descriptor instead.
 func (*AdminDeleteRoleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{61}
+	return file_sts_proto_rawDescGZIP(), []int{61}
 }
 
 type AdminAttachRolePolicyRequest struct {
@@ -3223,7 +3223,7 @@ type AdminAttachRolePolicyRequest struct {
 
 func (x *AdminAttachRolePolicyRequest) Reset() {
 	*x = AdminAttachRolePolicyRequest{}
-	mi := &file_proto_sts_proto_msgTypes[62]
+	mi := &file_sts_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3235,7 +3235,7 @@ func (x *AdminAttachRolePolicyRequest) String() string {
 func (*AdminAttachRolePolicyRequest) ProtoMessage() {}
 
 func (x *AdminAttachRolePolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[62]
+	mi := &file_sts_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3248,7 +3248,7 @@ func (x *AdminAttachRolePolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminAttachRolePolicyRequest.ProtoReflect.Descriptor instead.
 func (*AdminAttachRolePolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{62}
+	return file_sts_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *AdminAttachRolePolicyRequest) GetRoleName() string {
@@ -3273,7 +3273,7 @@ type AdminAttachRolePolicyResponse struct {
 
 func (x *AdminAttachRolePolicyResponse) Reset() {
 	*x = AdminAttachRolePolicyResponse{}
-	mi := &file_proto_sts_proto_msgTypes[63]
+	mi := &file_sts_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3285,7 +3285,7 @@ func (x *AdminAttachRolePolicyResponse) String() string {
 func (*AdminAttachRolePolicyResponse) ProtoMessage() {}
 
 func (x *AdminAttachRolePolicyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[63]
+	mi := &file_sts_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3298,7 +3298,7 @@ func (x *AdminAttachRolePolicyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminAttachRolePolicyResponse.ProtoReflect.Descriptor instead.
 func (*AdminAttachRolePolicyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{63}
+	return file_sts_proto_rawDescGZIP(), []int{63}
 }
 
 type AdminGetBucketPolicyRequest struct {
@@ -3310,7 +3310,7 @@ type AdminGetBucketPolicyRequest struct {
 
 func (x *AdminGetBucketPolicyRequest) Reset() {
 	*x = AdminGetBucketPolicyRequest{}
-	mi := &file_proto_sts_proto_msgTypes[64]
+	mi := &file_sts_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3322,7 +3322,7 @@ func (x *AdminGetBucketPolicyRequest) String() string {
 func (*AdminGetBucketPolicyRequest) ProtoMessage() {}
 
 func (x *AdminGetBucketPolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[64]
+	mi := &file_sts_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3335,7 +3335,7 @@ func (x *AdminGetBucketPolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminGetBucketPolicyRequest.ProtoReflect.Descriptor instead.
 func (*AdminGetBucketPolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{64}
+	return file_sts_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *AdminGetBucketPolicyRequest) GetBucket() string {
@@ -3354,7 +3354,7 @@ type AdminGetBucketPolicyResponse struct {
 
 func (x *AdminGetBucketPolicyResponse) Reset() {
 	*x = AdminGetBucketPolicyResponse{}
-	mi := &file_proto_sts_proto_msgTypes[65]
+	mi := &file_sts_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3366,7 +3366,7 @@ func (x *AdminGetBucketPolicyResponse) String() string {
 func (*AdminGetBucketPolicyResponse) ProtoMessage() {}
 
 func (x *AdminGetBucketPolicyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[65]
+	mi := &file_sts_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3379,7 +3379,7 @@ func (x *AdminGetBucketPolicyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminGetBucketPolicyResponse.ProtoReflect.Descriptor instead.
 func (*AdminGetBucketPolicyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{65}
+	return file_sts_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *AdminGetBucketPolicyResponse) GetDocumentJson() string {
@@ -3399,7 +3399,7 @@ type AdminPutBucketPolicyRequest struct {
 
 func (x *AdminPutBucketPolicyRequest) Reset() {
 	*x = AdminPutBucketPolicyRequest{}
-	mi := &file_proto_sts_proto_msgTypes[66]
+	mi := &file_sts_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3411,7 +3411,7 @@ func (x *AdminPutBucketPolicyRequest) String() string {
 func (*AdminPutBucketPolicyRequest) ProtoMessage() {}
 
 func (x *AdminPutBucketPolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[66]
+	mi := &file_sts_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3424,7 +3424,7 @@ func (x *AdminPutBucketPolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminPutBucketPolicyRequest.ProtoReflect.Descriptor instead.
 func (*AdminPutBucketPolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{66}
+	return file_sts_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *AdminPutBucketPolicyRequest) GetBucket() string {
@@ -3449,7 +3449,7 @@ type AdminPutBucketPolicyResponse struct {
 
 func (x *AdminPutBucketPolicyResponse) Reset() {
 	*x = AdminPutBucketPolicyResponse{}
-	mi := &file_proto_sts_proto_msgTypes[67]
+	mi := &file_sts_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3461,7 +3461,7 @@ func (x *AdminPutBucketPolicyResponse) String() string {
 func (*AdminPutBucketPolicyResponse) ProtoMessage() {}
 
 func (x *AdminPutBucketPolicyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[67]
+	mi := &file_sts_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3474,7 +3474,7 @@ func (x *AdminPutBucketPolicyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminPutBucketPolicyResponse.ProtoReflect.Descriptor instead.
 func (*AdminPutBucketPolicyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{67}
+	return file_sts_proto_rawDescGZIP(), []int{67}
 }
 
 type AdminDeleteBucketPolicyRequest struct {
@@ -3486,7 +3486,7 @@ type AdminDeleteBucketPolicyRequest struct {
 
 func (x *AdminDeleteBucketPolicyRequest) Reset() {
 	*x = AdminDeleteBucketPolicyRequest{}
-	mi := &file_proto_sts_proto_msgTypes[68]
+	mi := &file_sts_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3498,7 +3498,7 @@ func (x *AdminDeleteBucketPolicyRequest) String() string {
 func (*AdminDeleteBucketPolicyRequest) ProtoMessage() {}
 
 func (x *AdminDeleteBucketPolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[68]
+	mi := &file_sts_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3511,7 +3511,7 @@ func (x *AdminDeleteBucketPolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminDeleteBucketPolicyRequest.ProtoReflect.Descriptor instead.
 func (*AdminDeleteBucketPolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{68}
+	return file_sts_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *AdminDeleteBucketPolicyRequest) GetBucket() string {
@@ -3529,7 +3529,7 @@ type AdminDeleteBucketPolicyResponse struct {
 
 func (x *AdminDeleteBucketPolicyResponse) Reset() {
 	*x = AdminDeleteBucketPolicyResponse{}
-	mi := &file_proto_sts_proto_msgTypes[69]
+	mi := &file_sts_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3541,7 +3541,7 @@ func (x *AdminDeleteBucketPolicyResponse) String() string {
 func (*AdminDeleteBucketPolicyResponse) ProtoMessage() {}
 
 func (x *AdminDeleteBucketPolicyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[69]
+	mi := &file_sts_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3554,7 +3554,7 @@ func (x *AdminDeleteBucketPolicyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminDeleteBucketPolicyResponse.ProtoReflect.Descriptor instead.
 func (*AdminDeleteBucketPolicyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{69}
+	return file_sts_proto_rawDescGZIP(), []int{69}
 }
 
 type AdminSimulatePolicyRequest struct {
@@ -3569,7 +3569,7 @@ type AdminSimulatePolicyRequest struct {
 
 func (x *AdminSimulatePolicyRequest) Reset() {
 	*x = AdminSimulatePolicyRequest{}
-	mi := &file_proto_sts_proto_msgTypes[70]
+	mi := &file_sts_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3581,7 +3581,7 @@ func (x *AdminSimulatePolicyRequest) String() string {
 func (*AdminSimulatePolicyRequest) ProtoMessage() {}
 
 func (x *AdminSimulatePolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[70]
+	mi := &file_sts_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3594,7 +3594,7 @@ func (x *AdminSimulatePolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminSimulatePolicyRequest.ProtoReflect.Descriptor instead.
 func (*AdminSimulatePolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{70}
+	return file_sts_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *AdminSimulatePolicyRequest) GetPrincipal() string {
@@ -3637,7 +3637,7 @@ type AdminSimulatePolicyResponse struct {
 
 func (x *AdminSimulatePolicyResponse) Reset() {
 	*x = AdminSimulatePolicyResponse{}
-	mi := &file_proto_sts_proto_msgTypes[71]
+	mi := &file_sts_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3649,7 +3649,7 @@ func (x *AdminSimulatePolicyResponse) String() string {
 func (*AdminSimulatePolicyResponse) ProtoMessage() {}
 
 func (x *AdminSimulatePolicyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sts_proto_msgTypes[71]
+	mi := &file_sts_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3662,7 +3662,7 @@ func (x *AdminSimulatePolicyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminSimulatePolicyResponse.ProtoReflect.Descriptor instead.
 func (*AdminSimulatePolicyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_sts_proto_rawDescGZIP(), []int{71}
+	return file_sts_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *AdminSimulatePolicyResponse) GetDecision() string {
@@ -3693,11 +3693,11 @@ func (x *AdminSimulatePolicyResponse) GetDetails() string {
 	return ""
 }
 
-var File_proto_sts_proto protoreflect.FileDescriptor
+var File_sts_proto protoreflect.FileDescriptor
 
-const file_proto_sts_proto_rawDesc = "" +
+const file_sts_proto_rawDesc = "" +
 	"\n" +
-	"\x0fproto/sts.proto\x12\x03sts\"\xdd\x01\n" +
+	"\tsts.proto\x12\x03sts\"\xdd\x01\n" +
 	"\x11AssumeRoleRequest\x12\x19\n" +
 	"\brole_arn\x18\x01 \x01(\tR\aroleArn\x12*\n" +
 	"\x11role_session_name\x18\x02 \x01(\tR\x0froleSessionName\x12)\n" +
@@ -3967,22 +3967,22 @@ const file_proto_sts_proto_rawDesc = "" +
 	"\x14AdminGetBucketPolicy\x12 .sts.AdminGetBucketPolicyRequest\x1a!.sts.AdminGetBucketPolicyResponse\x12[\n" +
 	"\x14AdminPutBucketPolicy\x12 .sts.AdminPutBucketPolicyRequest\x1a!.sts.AdminPutBucketPolicyResponse\x12d\n" +
 	"\x17AdminDeleteBucketPolicy\x12#.sts.AdminDeleteBucketPolicyRequest\x1a$.sts.AdminDeleteBucketPolicyResponse\x12X\n" +
-	"\x13AdminSimulatePolicy\x12\x1f.sts.AdminSimulatePolicyRequest\x1a .sts.AdminSimulatePolicyResponseB\x11Z\x0fnexus/proto/stsb\x06proto3"
+	"\x13AdminSimulatePolicy\x12\x1f.sts.AdminSimulatePolicyRequest\x1a .sts.AdminSimulatePolicyResponseB\x16Z\x14cipherlake/proto/stsb\x06proto3"
 
 var (
-	file_proto_sts_proto_rawDescOnce sync.Once
-	file_proto_sts_proto_rawDescData []byte
+	file_sts_proto_rawDescOnce sync.Once
+	file_sts_proto_rawDescData []byte
 )
 
-func file_proto_sts_proto_rawDescGZIP() []byte {
-	file_proto_sts_proto_rawDescOnce.Do(func() {
-		file_proto_sts_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_sts_proto_rawDesc), len(file_proto_sts_proto_rawDesc)))
+func file_sts_proto_rawDescGZIP() []byte {
+	file_sts_proto_rawDescOnce.Do(func() {
+		file_sts_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_sts_proto_rawDesc), len(file_sts_proto_rawDesc)))
 	})
-	return file_proto_sts_proto_rawDescData
+	return file_sts_proto_rawDescData
 }
 
-var file_proto_sts_proto_msgTypes = make([]protoimpl.MessageInfo, 73)
-var file_proto_sts_proto_goTypes = []any{
+var file_sts_proto_msgTypes = make([]protoimpl.MessageInfo, 73)
+var file_sts_proto_goTypes = []any{
 	(*AssumeRoleRequest)(nil),                // 0: sts.AssumeRoleRequest
 	(*AssumeRoleResponse)(nil),               // 1: sts.AssumeRoleResponse
 	(*GetSessionTokenRequest)(nil),           // 2: sts.GetSessionTokenRequest
@@ -4057,7 +4057,7 @@ var file_proto_sts_proto_goTypes = []any{
 	(*AdminSimulatePolicyResponse)(nil),      // 71: sts.AdminSimulatePolicyResponse
 	nil,                                      // 72: sts.EvaluateAccessRequest.ConditionsEntry
 }
-var file_proto_sts_proto_depIdxs = []int32{
+var file_sts_proto_depIdxs = []int32{
 	6,  // 0: sts.AssumeRoleResponse.credentials:type_name -> sts.Credentials
 	6,  // 1: sts.GetSessionTokenResponse.credentials:type_name -> sts.Credentials
 	6,  // 2: sts.GetFederationTokenResponse.credentials:type_name -> sts.Credentials
@@ -4145,26 +4145,26 @@ var file_proto_sts_proto_depIdxs = []int32{
 	0,  // [0:14] is the sub-list for field type_name
 }
 
-func init() { file_proto_sts_proto_init() }
-func file_proto_sts_proto_init() {
-	if File_proto_sts_proto != nil {
+func init() { file_sts_proto_init() }
+func file_sts_proto_init() {
+	if File_sts_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_sts_proto_rawDesc), len(file_proto_sts_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sts_proto_rawDesc), len(file_sts_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   73,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_proto_sts_proto_goTypes,
-		DependencyIndexes: file_proto_sts_proto_depIdxs,
-		MessageInfos:      file_proto_sts_proto_msgTypes,
+		GoTypes:           file_sts_proto_goTypes,
+		DependencyIndexes: file_sts_proto_depIdxs,
+		MessageInfos:      file_sts_proto_msgTypes,
 	}.Build()
-	File_proto_sts_proto = out.File
-	file_proto_sts_proto_goTypes = nil
-	file_proto_sts_proto_depIdxs = nil
+	File_sts_proto = out.File
+	file_sts_proto_goTypes = nil
+	file_sts_proto_depIdxs = nil
 }

@@ -32,21 +32,21 @@ type ChecksumResult struct {
 }
 
 type IntegrityChecker struct {
-	mu           sync.RWMutex
-	enabled      bool
-	defaultType  ChecksumType
-	scrubConfig  *ScrubConfig
-	scrubState   *ScrubState
-	stats        *IntegrityStats
+	mu          sync.RWMutex
+	enabled     bool
+	defaultType ChecksumType
+	scrubConfig *ScrubConfig
+	scrubState  *ScrubState
+	stats       *IntegrityStats
 }
 
 type ScrubConfig struct {
-	Enabled       bool
-	Interval      time.Duration
-	BatchSize     int
-	StorageTiers  []int
-	Parallelism   int
-	OnCorruption  CorruptHandler
+	Enabled      bool
+	Interval     time.Duration
+	BatchSize    int
+	StorageTiers []int
+	Parallelism  int
+	OnCorruption CorruptHandler
 }
 
 type CorruptHandler func(ctx context.Context, bucket, key string, err error) error
@@ -65,11 +65,11 @@ type ScrubState struct {
 }
 
 type IntegrityStats struct {
-	ChecksPerformed   int64
-	ChecksFailed      int64
+	ChecksPerformed     int64
+	ChecksFailed        int64
 	CorruptionsDetected int64
 	CorruptionsRepaired int64
-	LastScrubAt      time.Time
+	LastScrubAt         time.Time
 }
 
 type IntegrityReader struct {
@@ -82,10 +82,10 @@ type IntegrityReader struct {
 func NewIntegrityChecker(config *ScrubConfig) *IntegrityChecker {
 	if config == nil {
 		config = &ScrubConfig{
-			Enabled:      true,
-			Interval:     30 * 24 * time.Hour,
-			BatchSize:    1000,
-			Parallelism:  4,
+			Enabled:     true,
+			Interval:    30 * 24 * time.Hour,
+			BatchSize:   1000,
+			Parallelism: 4,
 		}
 	}
 
@@ -96,7 +96,7 @@ func NewIntegrityChecker(config *ScrubConfig) *IntegrityChecker {
 		scrubState: &ScrubState{
 			ObjectsChecked: 0,
 			ObjectsCorrupt: 0,
-			Errors:        0,
+			Errors:         0,
 		},
 		stats: &IntegrityStats{},
 	}
@@ -170,8 +170,8 @@ func (ic *IntegrityChecker) Verify(data []byte, expected string, typ ChecksumTyp
 
 	if computed != expected {
 		return false, &ChecksumMismatchError{
-			Expected:    expected,
-			Computed:    computed,
+			Expected:     expected,
+			Computed:     computed,
 			ChecksumType: typ,
 		}
 	}
@@ -244,7 +244,7 @@ func (ic *IntegrityChecker) GetScrubState() *ScrubState {
 		ObjectsChecked:  atomic.LoadInt64(&ic.scrubState.ObjectsChecked),
 		ObjectsCorrupt:  atomic.LoadInt64(&ic.scrubState.ObjectsCorrupt),
 		Errors:          atomic.LoadInt64(&ic.scrubState.Errors),
-		CurrentBucket:  ic.scrubState.CurrentBucket,
+		CurrentBucket:   ic.scrubState.CurrentBucket,
 		CurrentKey:      ic.scrubState.CurrentKey,
 	}
 }
@@ -273,10 +273,10 @@ type ObjectLister interface {
 }
 
 type ObjectInfo struct {
-	Key         string
-	StorageTier int
-	Size        int64
-	Checksum    string
+	Key          string
+	StorageTier  int
+	Size         int64
+	Checksum     string
 	ChecksumType ChecksumType
 }
 
@@ -286,10 +286,12 @@ type StorageReader interface {
 }
 
 type BackgroundScrubber struct {
-	checker *IntegrityChecker
-	config  *ScrubConfig
-	stopCh  chan struct{}
-	wg      sync.WaitGroup
+	checker   *IntegrityChecker
+	config    *ScrubConfig
+	stopCh    chan struct{}
+	wg        sync.WaitGroup
+	startOnce sync.Once
+	stopOnce  sync.Once
 }
 
 func NewBackgroundScrubber(checker *IntegrityChecker, config *ScrubConfig) *BackgroundScrubber {
@@ -305,15 +307,18 @@ func (bs *BackgroundScrubber) Start(ctx context.Context) error {
 		return nil
 	}
 
-	bs.wg.Add(1)
-	go bs.runScrubLoop(ctx)
-
+	bs.startOnce.Do(func() {
+		bs.wg.Add(1)
+		go bs.runScrubLoop(ctx)
+	})
 	return nil
 }
 
 func (bs *BackgroundScrubber) Stop() error {
-	close(bs.stopCh)
-	bs.wg.Wait()
+	bs.stopOnce.Do(func() {
+		close(bs.stopCh)
+		bs.wg.Wait()
+	})
 	return nil
 }
 
@@ -440,15 +445,16 @@ func (bs *BackgroundScrubber) scrubObject(ctx context.Context, obj ObjectInfo, s
 
 		if bs.config.OnCorruption != nil {
 			if err := bs.config.OnCorruption(ctx, "", obj.Key, fmt.Errorf("checksum mismatch")); err != nil {
+				atomic.AddInt64(&bs.checker.scrubState.Errors, 1)
 			}
 		}
 	}
 }
 
 type RepairHandler struct {
-	mu          sync.RWMutex
-	repairLog   []RepairRecord
-	maxRecords  int
+	mu         sync.RWMutex
+	repairLog  []RepairRecord
+	maxRecords int
 }
 
 type RepairRecord struct {
@@ -502,17 +508,17 @@ func (rh *RepairHandler) GetRepairHistory(limit int) []RepairRecord {
 }
 
 type ValidatingReader struct {
-	reader      io.Reader
-	checker    *IntegrityChecker
-	expected   string
+	reader       io.Reader
+	checker      *IntegrityChecker
+	expected     string
 	checksumType ChecksumType
 }
 
 func NewValidatingReader(r io.Reader, expected string, typ ChecksumType, checker *IntegrityChecker) *ValidatingReader {
 	return &ValidatingReader{
-		reader:      r,
-		checker:     checker,
-		expected:    expected,
+		reader:       r,
+		checker:      checker,
+		expected:     expected,
 		checksumType: typ,
 	}
 }

@@ -23,14 +23,14 @@ type EmbeddingProvider interface {
 
 // EmbeddingConfig 配置嵌入提供者的参数。
 type EmbeddingConfig struct {
-	Provider      string
-	ModelPath     string
-	APIEndpoint   string
-	APIKey        string
-	ModelName     string
-	Dimension     int
-	MaxBatchSize  int
-	Timeout       time.Duration
+	Provider     string
+	ModelPath    string
+	APIEndpoint  string
+	APIKey       string
+	ModelName    string
+	Dimension    int
+	MaxBatchSize int
+	Timeout      time.Duration
 }
 
 // MockEmbeddingProvider 使用确定性哈希生成嵌入，仅用于测试。
@@ -57,15 +57,15 @@ func (m *MockEmbeddingProvider) GenerateEmbeddingBatch(ctx context.Context, inpu
 }
 
 func (m *MockEmbeddingProvider) Dimension() int { return m.dim }
-func (m *MockEmbeddingProvider) Close() error  { return nil }
+func (m *MockEmbeddingProvider) Close() error   { return nil }
 
 // ONNXEmbeddingProvider 使用本地 ONNX 模型推理生成嵌入。
 type ONNXEmbeddingProvider struct {
-	modelPath    string
-	dim          int
-	session      interface{}
-	mu           sync.Mutex
-	initialized  bool
+	modelPath   string
+	dim         int
+	session     interface{}
+	mu          sync.Mutex
+	initialized bool
 }
 
 // NewONNXEmbeddingProvider 创建本地 ONNX 模型嵌入提供者。
@@ -123,7 +123,7 @@ func (o *ONNXEmbeddingProvider) GenerateEmbeddingBatch(ctx context.Context, inpu
 }
 
 func (o *ONNXEmbeddingProvider) Dimension() int { return o.dim }
-func (o *ONNXEmbeddingProvider) Close() error  { return nil }
+func (o *ONNXEmbeddingProvider) Close() error   { return nil }
 
 // APIEmbeddingProvider 通过 HTTP API 调用远程嵌入服务。
 type APIEmbeddingProvider struct {
@@ -136,8 +136,8 @@ type APIEmbeddingProvider struct {
 }
 
 type APIEmbeddingRequest struct {
-	Input string   `json:"input"`
-	Model string   `json:"model"`
+	Input string `json:"input"`
+	Model string `json:"model"`
 }
 
 type APIEmbeddingBatchRequest struct {
@@ -329,7 +329,7 @@ func (c *CLIPImageEmbeddingProvider) GenerateEmbeddingBatch(ctx context.Context,
 }
 
 func (c *CLIPImageEmbeddingProvider) Dimension() int { return c.provider.Dimension() }
-func (c *CLIPImageEmbeddingProvider) Close() error  { return c.provider.Close() }
+func (c *CLIPImageEmbeddingProvider) Close() error   { return c.provider.Close() }
 
 func NewEmbeddingProvider(config *EmbeddingConfig) (EmbeddingProvider, error) {
 	switch config.Provider {

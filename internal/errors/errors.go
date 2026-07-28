@@ -1,4 +1,4 @@
-// Package errors provides domain errors for the Nexus S3 gateway.
+// Package errors provides domain errors for the CipherLake S3 gateway.
 // Each error maps to an S3-compatible XML error code and HTTP status.
 package errors
 
@@ -29,7 +29,7 @@ func (e *Error) Error() string {
 // Unwrap returns the underlying error for errors.Is/As inspection.
 func (e *Error) Unwrap() error { return e.cause }
 
-// IsS3 reports whether err is a Nexus S3 domain error.
+// IsS3 reports whether err is a CipherLake S3 domain error.
 func IsS3(err error) (*Error, bool) {
 	var s3Err *Error
 	if errors.As(err, &s3Err) {

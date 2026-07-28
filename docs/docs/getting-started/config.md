@@ -1,7 +1,7 @@
 # Configuration Reference
 
-Nexus is configured via a YAML configuration file. The default path is
-`config.yaml` in the working directory, or set via the `NEXUS_CONFIG`
+CipherLake is configured via a YAML configuration file. The default path is
+`config.yaml` in the working directory, or set via the `CIPHERLAKE_CONFIG`
 environment variable.
 
 ## Configuration File Structure
@@ -19,8 +19,8 @@ node:
 gateway:
   address: ":9000"              # Listen address
   admin_address: ":9001"        # Admin API address
-  access_key: "nexus"           # Default access key
-  secret_key: "nexus-secret"    # Default secret key
+  access_key: "cipherlake"           # Default access key
+  secret_key: "cipherlake-secret"    # Default secret key
   tls:
     enabled: false
     cert_file: ""
@@ -36,10 +36,10 @@ gateway:
 # Metadata store configuration
 metadata:
   backend: "boltdb"             # boltdb | etcd
-  path: "/var/lib/nexus/metadata.db"
+  path: "/var/lib/cipherlake/metadata.db"
   raft:
     enabled: false
-    data_dir: "/var/lib/nexus/raft"
+    data_dir: "/var/lib/cipherlake/raft"
     bind_address: ":9090"
     peers: []
 
@@ -47,7 +47,7 @@ metadata:
 storage:
   backend: "local"              # local | s3 | azure
   local:
-    data_dir: "/var/lib/nexus/data"
+    data_dir: "/var/lib/cipherlake/data"
   s3:
     endpoint: ""
     region: ""
@@ -72,7 +72,7 @@ encryption:
     kms:
       backend: "local"          # local | aws | vault
       local:
-        key_path: "/var/lib/nexus/kms-key"
+        key_path: "/var/lib/cipherlake/kms-key"
       aws:
         key_id: ""
         region: ""
@@ -103,7 +103,7 @@ iam:
   enabled: true
   store:
     backend: "boltdb"
-    path: "/var/lib/nexus/iam.db"
+    path: "/var/lib/cipherlake/iam.db"
   abac:
     enabled: true
   scp:
@@ -137,7 +137,7 @@ vector:
     dimensions: 1536
   index:
     type: "mmap"
-    path: "/var/lib/nexus/vector-index"
+    path: "/var/lib/cipherlake/vector-index"
 
 # Storage tiering
 tiering:
@@ -220,19 +220,19 @@ configured BoltDB store.
 ## Environment Variables
 
 All configuration values can be overridden with environment variables using
-the prefix `NEXUS_` and replacing dots with underscores:
+the prefix `CIPHERLAKE_` and replacing dots with underscores:
 
 | Config Path              | Environment Variable                  |
 |--------------------------|---------------------------------------|
-| `gateway.address`        | `NEXUS_GATEWAY_ADDRESS`              |
-| `gateway.access_key`     | `NEXUS_GATEWAY_ACCESS_KEY`           |
-| `gateway.secret_key`     | `NEXUS_GATEWAY_SECRET_KEY`           |
-| `storage.backend`        | `NEXUS_STORAGE_BACKEND`              |
-| `observability.logging.level` | `NEXUS_OBSERVABILITY_LOGGING_LEVEL` |
+| `gateway.address`        | `CIPHERLAKE_GATEWAY_ADDRESS`              |
+| `gateway.access_key`     | `CIPHERLAKE_GATEWAY_ACCESS_KEY`           |
+| `gateway.secret_key`     | `CIPHERLAKE_GATEWAY_SECRET_KEY`           |
+| `storage.backend`        | `CIPHERLAKE_STORAGE_BACKEND`              |
+| `observability.logging.level` | `CIPHERLAKE_OBSERVABILITY_LOGGING_LEVEL` |
 
 ## Hot Reload
 
-Nexus supports hot reload for certain configuration values. Changes to the
+CipherLake supports hot reload for certain configuration values. Changes to the
 following take effect without restart:
 
 - `observability.logging.level`

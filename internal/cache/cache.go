@@ -19,10 +19,10 @@ type ObjectCache struct {
 }
 
 type CacheItem struct {
-	Key        string
-	Value      []byte
-	Size       int64
-	CreatedAt  time.Time
+	Key         string
+	Value       []byte
+	Size        int64
+	CreatedAt   time.Time
 	AccessedAt  time.Time
 	AccessCount int64
 }
@@ -36,10 +36,10 @@ func NewObjectCache(maxBytes int64, ttl time.Duration) (*ObjectCache, error) {
 	}
 
 	return &ObjectCache{
-		items:   make(map[string]*list.Element),
-		lruList: list.New(),
+		items:    make(map[string]*list.Element),
+		lruList:  list.New(),
 		maxBytes: maxBytes,
-		ttl:     ttl,
+		ttl:      ttl,
 	}, nil
 }
 
@@ -86,10 +86,10 @@ func (c *ObjectCache) Set(ctx context.Context, key string, value []byte) {
 	}
 
 	item := &CacheItem{
-		Key:        key,
-		Value:      value,
-		Size:       itemSize,
-		CreatedAt:  time.Now(),
+		Key:         key,
+		Value:       value,
+		Size:        itemSize,
+		CreatedAt:   time.Now(),
 		AccessedAt:  time.Now(),
 		AccessCount: 1,
 	}
@@ -136,12 +136,12 @@ func (c *ObjectCache) Stats() CacheStats {
 	defer c.mu.RUnlock()
 
 	return CacheStats{
-		ItemCount:   int64(len(c.items)),
-		SizeBytes:   c.size,
-		MaxBytes:    c.maxBytes,
-		Hits:        c.hits,
-		Misses:      c.misses,
-		HitRate:     c.calculateHitRate(),
+		ItemCount: int64(len(c.items)),
+		SizeBytes: c.size,
+		MaxBytes:  c.maxBytes,
+		Hits:      c.hits,
+		Misses:    c.misses,
+		HitRate:   c.calculateHitRate(),
 	}
 }
 
@@ -225,9 +225,9 @@ func (m *MetadataCache) Clear() {
 }
 
 type QueryResultCache struct {
-	mu    sync.RWMutex
-	items map[string]*QueryCacheItem
-	ttl   time.Duration
+	mu      sync.RWMutex
+	items   map[string]*QueryCacheItem
+	ttl     time.Duration
 	maxSize int
 }
 

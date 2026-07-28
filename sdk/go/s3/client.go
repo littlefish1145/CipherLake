@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
-// Client wraps the AWS S3 client with Nexus-specific extensions.
+// Client wraps the AWS S3 client with CipherLake-specific extensions.
 type Client struct {
 	client *s3.Client
 }
@@ -27,7 +27,7 @@ type Config struct {
 	Insecure  bool
 }
 
-// NewClient creates a new S3-compatible client configured for Nexus.
+// NewClient creates a new S3-compatible client configured for CipherLake.
 func NewClient(cfg Config) (*Client, error) {
 	if cfg.Endpoint == "" {
 		return nil, fmt.Errorf("endpoint is required")
@@ -132,12 +132,12 @@ func (c *Client) HeadObject(ctx context.Context, bucket, key string) (*ObjectInf
 	}
 
 	info := &ObjectInfo{
-		Key:         key,
-		Size:        aws.ToInt64(resp.ContentLength),
+		Key:          key,
+		Size:         aws.ToInt64(resp.ContentLength),
 		LastModified: aws.ToTime(resp.LastModified),
-		ETag:        aws.ToString(resp.ETag),
-		ContentType: aws.ToString(resp.ContentType),
-		Metadata:    make(map[string]string),
+		ETag:         aws.ToString(resp.ETag),
+		ContentType:  aws.ToString(resp.ContentType),
+		Metadata:     make(map[string]string),
 	}
 	for k, v := range resp.Metadata {
 		info.Metadata[k] = v

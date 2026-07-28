@@ -228,3 +228,67 @@ func TestFlatHNSWSearchReturnsScores(t *testing.T) {
 		}
 	}
 }
+
+func TestFlatHNSWSearchWithStats(t *testing.T) {
+	dim := 8
+	h := NewFlatHNSW(dim, 16, 64, 0.5, MetricCosine)
+	rng := rand.New(rand.NewSource(42))
+	for i := 0; i < 200; i++ {
+		v := make([]float32, dim)
+		for j := range v {
+			v[j] = rng.Float32()
+		}
+		if err := h.Insert(uint64(i), v); err != nil {
+			t.Fatalf("insert %d: %v", i, err)
+		}
+	}
+
+	query := make([]float32, dim)
+	for i := range query {
+		query[i] = rng.Float32()
+	}
+
+	results, stats, err := h.SearchWithStats(query, 10)
+	if err != nil {
+		t.Fatalf("search with stats: %v", err)
+	}
+	if len(results) == 0 {
+		t.Fatal("expected results")
+	}
+	if stats.DistanceCalls == 0 {
+		t.Fatal("expected distance calls to be recorded")
+	}
+	if stats.CandidatePops == 0 {
+		t.Fatal("expected candidate pops to be recorded")
+	}
+}
+
+func TestFlatHNSWSearchAllocs(t *testing.T) {
+	dim := 8
+	h := NewFlatHNSW(dim, 16, 64, 0.5, MetricCosine)
+	rng := rand.New(rand.NewSource(42))
+	for i := 0; i < 500; i++ {
+		v := make([]float32, dim)
+		for j := range v {
+			v[j] = rng.Float32()
+		}
+		if err := h.Insert(uint64(i), v); err != nil {
+			t.Fatalf("insert %d: %v", i, err)
+		}
+	}
+
+	query := make([]float32, dim)
+	for i := range query {
+		query[i] = rng.Float32()
+	}
+
+	allocs := testing.AllocsPerRun(100, func() {
+		results, err := h.Search(query, 10)
+		if err != nil || len(results) == 0 {
+			t.Fatalf("search failed: %v", err)
+		}
+	})
+	if allocs > 0 {
+		t.Fatalf("expected zero alloc search path, got %.2f allocs/run", allocs)
+	}
+}

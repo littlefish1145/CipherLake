@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"net"
 	"testing"
 
@@ -10,7 +11,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 
-	pbkeygen "nexus/proto/keygen"
+	pbkeygen "cipherlake/proto/keygen"
 )
 
 type stubKeyGenServer struct {
@@ -57,4 +58,43 @@ func TestGRPCClient_Close_WithConn(t *testing.T) {
 	}
 
 	require.NoError(t, client.Close())
+}
+
+type recordingCloser struct {
+	closed *int
+	err    error
+}
+
+func (c recordingCloser) Close() error {
+	*c.closed++
+	return c.err
+}
+
+func TestCloseDistributedCoordinatorClientsClosesAllAndJoinsErrors(t *testing.T) {
+	firstErr := errors.New("first close failed")
+	secondErr := errors.New("second close failed")
+	closed := 0
+
+	err := closeDistributedCoordinatorClients(
+		recordingCloser{closed: &closed, err: firstErr},
+		nil,
+		recordingCloser{closed: &closed, err: secondErr},
+	)
+
+	require.Equal(t, 2, closed)
+	require.ErrorIs(t, err, firstErr)
+	require.ErrorIs(t, err, secondErr)
+}
+
+func TestDistributedCoordinatorSetupErrorIncludesSetupAndCleanupErrors(t *testing.T) {
+	setupErr := errors.New("dial failed")
+	closeErr := errors.New("close failed")
+	closed := 0
+
+	err := distributedCoordinatorSetupError("keygen", setupErr, recordingCloser{closed: &closed, err: closeErr})
+
+	require.Equal(t, 1, closed)
+	require.ErrorIs(t, err, setupErr)
+	require.ErrorIs(t, err, closeErr)
+	require.Contains(t, err.Error(), "keygen service")
 }

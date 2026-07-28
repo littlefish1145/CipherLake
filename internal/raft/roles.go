@@ -3,6 +3,7 @@ package raft
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/hashicorp/raft"
 )
@@ -15,8 +16,11 @@ func (n *RaftNode) IsLeader() bool {
 }
 
 // GetLeaderAddr returns the address of the current Raft leader.
+//
+// hashicorp/raft v1.7.x returns (ServerAddress, ServerID) from LeaderWithID
+// despite the older (ID, Address) ordering, so we use the first return value.
 func (n *RaftNode) GetLeaderAddr() string {
-	_, addr := n.raft.LeaderWithID()
+	addr, _ := n.raft.LeaderWithID()
 	return string(addr)
 }
 
@@ -25,10 +29,22 @@ func (n *RaftNode) State() raft.RaftState {
 	return n.raft.State()
 }
 
-// LinearizableRead performs a linearizable read by verifying leadership
-// before allowing the read to proceed.
+// LinearizableRead performs a linearizable read by issuing a Raft Barrier.
+// The barrier is committed and applied locally before returning, so any
+// subsequent local read is guaranteed to observe all entries committed at
+// the time the barrier started. This approximates the ReadIndex semantics
+// required by spec §12.3 P5-2 for hashicorp/raft versions that do not
+// expose a native ReadIndex API.
 func (n *RaftNode) LinearizableRead(ctx context.Context) error {
-	f := n.raft.VerifyLeader()
+	// Use a timeout that respects the caller context. A short default keeps
+	// tests responsive when the cluster is healthy.
+	timeout := 5 * time.Second
+	if deadline, ok := ctx.Deadline(); ok {
+		if d := time.Until(deadline); d > 0 && d < timeout {
+			timeout = d
+		}
+	}
+	f := n.raft.Barrier(timeout)
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- f.Error()
@@ -36,7 +52,7 @@ func (n *RaftNode) LinearizableRead(ctx context.Context) error {
 	select {
 	case err := <-errCh:
 		if err != nil {
-			return fmt.Errorf("linearizable read failed - not leader: %w", err)
+			return fmt.Errorf("read barrier failed: %w", err)
 		}
 		return nil
 	case <-ctx.Done():

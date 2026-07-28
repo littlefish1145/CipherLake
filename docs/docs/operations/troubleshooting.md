@@ -27,13 +27,13 @@ gateway:
 ### Symptom: "permission denied" on data directory
 
 ```
-Error: open /var/lib/nexus/data: permission denied
+Error: open /var/lib/cipherlake/data: permission denied
 ```
 
 **Solution**: Fix directory ownership:
 
 ```bash
-sudo chown -R nexus:nexus /var/lib/nexus
+sudo chown -R cipherlake:cipherlake /var/lib/cipherlake
 ```
 
 ### Symptom: Microservice connection refused
@@ -46,13 +46,13 @@ Error: rpc error: code = Unavailable desc = connection refused
 
 ```bash
 # Check service status
-sudo systemctl status nexus-encrypt
+sudo systemctl status cipherlake-encrypt
 
 # Test connectivity
 grpcurl -plaintext localhost:50051 list
 
 # Verify configuration
-grep -A2 encrypt /etc/nexus/config.yaml
+grep -A2 encrypt /etc/cipherlake/config.yaml
 ```
 
 ## Performance Issues
@@ -81,7 +81,7 @@ gateway:
 2. **Metadata store fragmentation**: Run compaction:
 
 ```bash
-nexusctl metadata compact
+cipherlakectl metadata compact
 ```
 
 ### High Memory Usage
@@ -106,7 +106,7 @@ cache:
 1. Verify the correct bucket and key:
 
 ```bash
-nexusctl object head my-bucket path/to/object
+cipherlakectl object head my-bucket path/to/object
 ```
 
 2. Check if versioning is enabled and you're accessing the right version
@@ -117,13 +117,13 @@ nexusctl object head my-bucket path/to/object
 1. Verify object integrity:
 
 ```bash
-nexusctl object verify my-bucket path/to/object
+cipherlakectl object verify my-bucket path/to/object
 ```
 
 2. Restore from backup:
 
 ```bash
-nexusctl backup restore /backups/latest.tar.gz --bucket my-bucket --key path/to/object
+cipherlakectl backup restore /backups/latest.tar.gz --bucket my-bucket --key path/to/object
 ```
 
 ## Cluster Issues
@@ -137,14 +137,14 @@ nexusctl backup restore /backups/latest.tar.gz --bucket my-bucket --key path/to/
 1. Check connectivity between Raft nodes:
 
 ```bash
-nexusctl cluster status
+cipherlakectl cluster status
 ```
 
 2. If a majority of nodes are down, force a new cluster:
 
 ```bash
 # WARNING: This is a last resort
-nexusctl cluster force-new --node-id node1
+cipherlakectl cluster force-new --node-id node1
 ```
 
 ### Split Brain
@@ -158,7 +158,7 @@ nexusctl cluster force-new --node-id node1
 3. Verify cluster state:
 
 ```bash
-nexusctl cluster status
+cipherlakectl cluster status
 ```
 
 ## Encryption Issues
@@ -205,14 +205,14 @@ observability:
 Or via environment variable:
 
 ```bash
-export NEXUS_OBSERVABILITY_LOGGING_LEVEL=debug
-sudo systemctl restart nexus
+export CIPHERLAKE_OBSERVABILITY_LOGGING_LEVEL=debug
+sudo systemctl restart cipherlake
 ```
 
 ### Collect Diagnostic Information
 
 ```bash
-nexusctl debug --output /tmp/nexus-debug.tar.gz
+cipherlakectl debug --output /tmp/cipherlake-debug.tar.gz
 ```
 
 This collects:
@@ -227,11 +227,11 @@ This collects:
 
 ```bash
 # Overall health
-curl http://localhost:9091/metrics | grep nexus_
+curl http://localhost:9091/metrics | grep cipherlake_
 
 # Request latency
-curl http://localhost:9091/metrics | grep nexus_request_duration
+curl http://localhost:9091/metrics | grep cipherlake_request_duration
 
 # Error rates
-curl http://localhost:9091/metrics | grep nexus_errors
+curl http://localhost:9091/metrics | grep cipherlake_errors
 ```

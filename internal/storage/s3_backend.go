@@ -18,18 +18,18 @@ import (
 const s3MultipartThreshold = 8 * 1024 * 1024 // 8MB
 
 type S3Config struct {
-	Endpoint      string
-	Region        string
-	Bucket        string
-	AccessKey     string
-	SecretKey     string
+	Endpoint       string
+	Region         string
+	Bucket         string
+	AccessKey      string
+	SecretKey      string
 	ForcePathStyle bool
 }
 
 type S3Backend struct {
-	client *s3.Client
+	client   *s3.Client
 	uploader *manager.Uploader
-	bucket string
+	bucket   string
 }
 
 func NewS3Backend(cfg S3Config) (*S3Backend, error) {

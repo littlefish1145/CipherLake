@@ -19,8 +19,8 @@ import (
 //   - DecryptDataKey:  POST /v1/transit/decrypt/{key_name}
 //   - GetPublicKey:    GET  /v1/transit/keys/{key_name}
 type VaultTransitKMS struct {
-	client    *api.Client
-	keyName   string
+	client     *api.Client
+	keyName    string
 	maxRetries int
 }
 
@@ -107,8 +107,8 @@ func (v *VaultTransitKMS) GenerateDataKey(ctx context.Context, keyID string, len
 	path := fmt.Sprintf("transit/datakey/%s", v.keyName)
 
 	var result *api.Secret
-	result, err = v.retry(func() (*api.Secret, error) {
-		return v.client.Logical().Write(path, map[string]interface{}{
+	result, err = v.retry(ctx, func() (*api.Secret, error) {
+		return v.client.Logical().WriteWithContext(ctx, path, map[string]interface{}{
 			"bits": bits,
 		})
 	})
@@ -142,8 +142,8 @@ func (v *VaultTransitKMS) DecryptDataKey(ctx context.Context, keyID string, encr
 	ciphertext := string(encrypted)
 
 	var result *api.Secret
-	result, err = v.retry(func() (*api.Secret, error) {
-		return v.client.Logical().Write(path, map[string]interface{}{
+	result, err = v.retry(ctx, func() (*api.Secret, error) {
+		return v.client.Logical().WriteWithContext(ctx, path, map[string]interface{}{
 			"ciphertext": ciphertext,
 		})
 	})
@@ -172,8 +172,8 @@ func (v *VaultTransitKMS) GetPublicKey(ctx context.Context, keyID string) (pub [
 	path := fmt.Sprintf("transit/keys/%s", v.keyName)
 
 	var result *api.Secret
-	result, err = v.retry(func() (*api.Secret, error) {
-		return v.client.Logical().Read(path)
+	result, err = v.retry(ctx, func() (*api.Secret, error) {
+		return v.client.Logical().ReadWithContext(ctx, path)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("kms/vault: GetPublicKey failed: %w", err)
@@ -235,9 +235,12 @@ func (v *VaultTransitKMS) Close() error {
 }
 
 // retry executes a Vault operation with exponential backoff on transient errors.
-func (v *VaultTransitKMS) retry(fn func() (*api.Secret, error)) (*api.Secret, error) {
+func (v *VaultTransitKMS) retry(ctx context.Context, fn func() (*api.Secret, error)) (*api.Secret, error) {
 	var lastErr error
 	for attempt := 0; attempt <= v.maxRetries; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		result, err := fn()
 		if err == nil {
 			return result, nil
@@ -256,7 +259,9 @@ func (v *VaultTransitKMS) retry(fn func() (*api.Secret, error)) (*api.Secret, er
 				zap.Int("attempt", attempt+1),
 				zap.Duration("backoff", backoff),
 				zap.Error(err))
-			time.Sleep(backoff)
+			if err := waitForRetry(ctx, backoff); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return nil, fmt.Errorf("kms/vault: max retries exceeded: %w", lastErr)

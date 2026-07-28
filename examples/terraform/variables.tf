@@ -1,7 +1,7 @@
 variable "name" {
   description = "Name prefix for all resources"
   type        = string
-  default     = "nexus"
+  default     = "cipherlake"
 }
 
 variable "region" {
@@ -18,7 +18,7 @@ variable "tags" {
 
 # VPC
 variable "create_vpc" {
-  description = "Create a new VPC for Nexus"
+  description = "Create a new VPC for CipherLake"
   type        = bool
   default     = true
 }
@@ -49,7 +49,7 @@ variable "availability_zones" {
 
 # Network
 variable "allowed_cidr" {
-  description = "CIDR block allowed to access Nexus"
+  description = "CIDR block allowed to access CipherLake"
   type        = string
   default     = "10.0.0.0/8"
 }
@@ -62,9 +62,9 @@ variable "internal" {
 
 # ECS
 variable "container_image" {
-  description = "Docker image for Nexus"
+  description = "Docker image for CipherLake"
   type        = string
-  default     = "ghcr.io/nexus/nexus:1.0.0"
+  default     = "ghcr.io/cipherlake/cipherlake:1.0.0"
 }
 
 variable "task_cpu" {
@@ -80,7 +80,7 @@ variable "task_memory" {
 }
 
 variable "service_count" {
-  description = "Desired count of Nexus instances"
+  description = "Desired count of CipherLake instances"
   type        = number
   default     = 2
 }
@@ -94,13 +94,13 @@ variable "storage_backend" {
 
 # Credentials
 variable "access_key" {
-  description = "Nexus access key"
+  description = "CipherLake access key"
   type        = string
   sensitive   = true
 }
 
 variable "secret_key" {
-  description = "Nexus secret key"
+  description = "CipherLake secret key"
   type        = string
   sensitive   = true
 }
@@ -120,13 +120,13 @@ variable "log_retention_days" {
 
 # Auto scaling
 variable "min_capacity" {
-  description = "Minimum number of Nexus instances"
+  description = "Minimum number of CipherLake instances"
   type        = number
   default     = 2
 }
 
 variable "max_capacity" {
-  description = "Maximum number of Nexus instances"
+  description = "Maximum number of CipherLake instances"
   type        = number
   default     = 10
 }

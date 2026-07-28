@@ -1,12 +1,12 @@
 # Upgrade Procedures
 
-Guide for upgrading Nexus between versions.
+Guide for upgrading CipherLake between versions.
 
 ## Pre-Upgrade Checklist
 
 - [ ] Read the release notes for the target version
 - [ ] Verify system requirements haven't changed
-- [ ] Create a full backup: `nexusctl backup create --output /backups/pre-upgrade.tar.gz`
+- [ ] Create a full backup: `cipherlakectl backup create --output /backups/pre-upgrade.tar.gz`
 - [ ] Test the upgrade in a staging environment
 - [ ] Plan a maintenance window for major upgrades
 - [ ] Notify users of any planned downtime
@@ -19,11 +19,11 @@ Patch releases contain only bug fixes and are safe to apply directly.
 
 ```bash
 # Download new version
-curl -L https://github.com/nexus/nexus/releases/download/v1.2.4/nexus-linux-amd64 -o /usr/local/bin/nexus
-chmod +x /usr/local/bin/nexus
+curl -L https://github.com/cipherlake/cipherlake/releases/download/v1.2.4/cipherlake-linux-amd64 -o /usr/local/bin/cipherlake
+chmod +x /usr/local/bin/cipherlake
 
 # Restart services
-sudo systemctl restart nexus.target
+sudo systemctl restart cipherlake.target
 ```
 
 ### Docker
@@ -37,7 +37,7 @@ docker compose up -d
 
 ```bash
 helm repo update
-helm upgrade nexus nexus/nexus --namespace nexus
+helm upgrade cipherlake cipherlake/cipherlake --namespace cipherlake
 ```
 
 ## Minor Release Upgrade (e.g., 1.2.x → 1.3.0)
@@ -55,16 +55,16 @@ For clusters, perform a rolling upgrade:
 
 ```bash
 # Upgrade one gateway at a time
-nexusctl cluster upgrade --node gateway1 --version v1.3.0
-nexusctl cluster upgrade --node gateway2 --version v1.3.0
-nexusctl cluster upgrade --node gateway3 --version v1.3.0
+cipherlakectl cluster upgrade --node gateway1 --version v1.3.0
+cipherlakectl cluster upgrade --node gateway2 --version v1.3.0
+cipherlakectl cluster upgrade --node gateway3 --version v1.3.0
 
 # Upgrade metadata nodes (followers first, leader last)
-nexusctl cluster upgrade --node meta2 --version v1.3.0
-nexusctl cluster upgrade --node meta3 --version v1.3.0
+cipherlakectl cluster upgrade --node meta2 --version v1.3.0
+cipherlakectl cluster upgrade --node meta3 --version v1.3.0
 # Step down leader before upgrading
-nexusctl cluster step-down --node meta1
-nexusctl cluster upgrade --node meta1 --version v1.3.0
+cipherlakectl cluster step-down --node meta1
+cipherlakectl cluster upgrade --node meta1 --version v1.3.0
 ```
 
 ## Major Release Upgrade (e.g., 1.x → 2.0.0)
@@ -72,27 +72,27 @@ nexusctl cluster upgrade --node meta1 --version v1.3.0
 Major releases may include breaking changes. Follow these steps carefully:
 
 1. **Read the migration guide** in the release notes
-2. **Full backup**: `nexusctl backup create --output /backups/pre-major-upgrade.tar.gz`
+2. **Full backup**: `cipherlakectl backup create --output /backups/pre-major-upgrade.tar.gz`
 3. **Test in staging**: Restore the backup to a test environment and verify
 4. **Plan downtime**: Major upgrades typically require a maintenance window
 5. **Execute the upgrade**:
 
 ```bash
 # Stop all services
-sudo systemctl stop nexus.target
+sudo systemctl stop cipherlake.target
 
 # Run migration (if required)
-nexusctl migrate --from v1.x --to v2.0.0
+cipherlakectl migrate --from v1.x --to v2.0.0
 
 # Update binaries
-curl -L https://github.com/nexus/nexus/releases/download/v2.0.0/nexus-linux-amd64 -o /usr/local/bin/nexus
-chmod +x /usr/local/bin/nexus
+curl -L https://github.com/cipherlake/cipherlake/releases/download/v2.0.0/cipherlake-linux-amd64 -o /usr/local/bin/cipherlake
+chmod +x /usr/local/bin/cipherlake
 
 # Update configuration
-nexusctl config migrate --from v1 --to v2 /etc/nexus/config.yaml
+cipherlakectl config migrate --from v1 --to v2 /etc/cipherlake/config.yaml
 
 # Start services
-sudo systemctl start nexus.target
+sudo systemctl start cipherlake.target
 ```
 
 6. **Verify**: Check all services are healthy and data is accessible
@@ -105,28 +105,28 @@ If the upgrade fails:
 
 ```bash
 # Revert to previous version
-sudo systemctl stop nexus.target
+sudo systemctl stop cipherlake.target
 # Install previous binary
-curl -L https://github.com/nexus/nexus/releases/download/v1.2.3/nexus-linux-amd64 -o /usr/local/bin/nexus
-chmod +x /usr/local/bin/nexus
-sudo systemctl start nexus.target
+curl -L https://github.com/cipherlake/cipherlake/releases/download/v1.2.3/cipherlake-linux-amd64 -o /usr/local/bin/cipherlake
+chmod +x /usr/local/bin/cipherlake
+sudo systemctl start cipherlake.target
 ```
 
 ### Major Rollback
 
 ```bash
 # Stop services
-sudo systemctl stop nexus.target
+sudo systemctl stop cipherlake.target
 
 # Restore from backup
-nexusctl backup restore /backups/pre-major-upgrade.tar.gz
+cipherlakectl backup restore /backups/pre-major-upgrade.tar.gz
 
 # Install previous version
-curl -L https://github.com/nexus/nexus/releases/download/v1.2.4/nexus-linux-amd64 -o /usr/local/bin/nexus
-chmod +x /usr/local/bin/nexus
+curl -L https://github.com/cipherlake/cipherlake/releases/download/v1.2.4/cipherlake-linux-amd64 -o /usr/local/bin/cipherlake
+chmod +x /usr/local/bin/cipherlake
 
 # Start services
-sudo systemctl start nexus.target
+sudo systemctl start cipherlake.target
 ```
 
 ## Post-Upgrade Verification
@@ -138,12 +138,12 @@ After any upgrade, verify:
 curl http://localhost:9000/health
 
 # Verify data access
-nexusctl bucket list
-nexusctl object list my-bucket
+cipherlakectl bucket list
+cipherlakectl object list my-bucket
 
 # Check cluster status (if applicable)
-nexusctl cluster status
+cipherlakectl cluster status
 
 # Review metrics
-curl http://localhost:9091/metrics | grep nexus_up
+curl http://localhost:9091/metrics | grep cipherlake_up
 ```

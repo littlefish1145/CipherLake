@@ -17,9 +17,9 @@ import (
 	"testing"
 	"time"
 
-	"nexus/internal/common"
-	"nexus/internal/config"
-	"nexus/internal/metadata"
+	"cipherlake/internal/common"
+	"cipherlake/internal/config"
+	"cipherlake/internal/metadata"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,7 +29,7 @@ import (
 func setupTestGateway(t *testing.T) (*S3Gateway, string) {
 	t.Helper()
 
-	tmpDir, err := os.MkdirTemp("", "nexus-resumable-test-*")
+	tmpDir, err := os.MkdirTemp("", "cipherlake-resumable-test-*")
 	require.NoError(t, err)
 
 	cfg := &config.Config{
@@ -103,7 +103,7 @@ func createTestSession(t *testing.T, gw *S3Gateway, bucket, key string) string {
 	err := gw.resumableHandler.HandleCreateSession(w, req, bucket, key)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusCreated, w.Code)
-	uploadID := w.Header().Get("X-Nexus-Upload-Id")
+	uploadID := w.Header().Get("X-CipherLake-Upload-Id")
 	require.NotEmpty(t, uploadID)
 	return uploadID
 }
@@ -138,7 +138,7 @@ func TestHandleCreateSession(t *testing.T) {
 		location := w.Header().Get("Location")
 		assert.Contains(t, location, "uploadId=")
 
-		uploadID := w.Header().Get("X-Nexus-Upload-Id")
+		uploadID := w.Header().Get("X-CipherLake-Upload-Id")
 		assert.NotEmpty(t, uploadID)
 
 		// Verify session is stored in metadata
@@ -287,7 +287,7 @@ func TestHandleHead(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusCreated, w.Code)
 
-	uploadID := w.Header().Get("X-Nexus-Upload-Id")
+	uploadID := w.Header().Get("X-CipherLake-Upload-Id")
 	require.NotEmpty(t, uploadID)
 
 	// Append data
@@ -304,7 +304,7 @@ func TestHandleHead(t *testing.T) {
 		assert.Equal(t, "18", w.Header().Get("Upload-Offset"))
 		assert.Equal(t, "1024", w.Header().Get("Upload-Length"))
 		assert.NotEmpty(t, w.Header().Get("Upload-Checksum"))
-		assert.Equal(t, uploadID, w.Header().Get("X-Nexus-Upload-Id"))
+		assert.Equal(t, uploadID, w.Header().Get("X-CipherLake-Upload-Id"))
 	})
 
 	t.Run("non-existent uploadId returns 404", func(t *testing.T) {
@@ -359,11 +359,11 @@ func TestHandleFinalizeViaHeader(t *testing.T) {
 	gw, _ := setupTestGateway(t)
 	uploadID := createTestSession(t, gw, "test-bucket", "finalize-header.bin")
 
-	// Append data with X-Nexus-Finalize: 1 header
+	// Append data with X-CipherLake-Finalize: 1 header
 	data := []byte("finalize via header")
 	req := httptest.NewRequest("PATCH", "/test-bucket/finalize-header.bin?uploadId="+uploadID, bytes.NewReader(data))
 	req.Header.Set("Upload-Offset", "0")
-	req.Header.Set("X-Nexus-Finalize", "1")
+	req.Header.Set("X-CipherLake-Finalize", "1")
 	withAuth(gw, req)
 
 	w := httptest.NewRecorder()
@@ -375,6 +375,10 @@ func TestHandleFinalizeViaHeader(t *testing.T) {
 	objMeta, err := gw.metadata.GetObject(context.Background(), "test-bucket", "finalize-header.bin")
 	assert.NoError(t, err)
 	assert.Equal(t, int64(len(data)), objMeta.Size)
+
+	tempPath := gw.resumableHandler.getTempFilePath(uploadID)
+	_, err = os.Stat(tempPath)
+	assert.True(t, os.IsNotExist(err), "temp file should be deleted after finalize")
 }
 
 func TestSessionExpiration(t *testing.T) {
@@ -406,7 +410,7 @@ func TestSessionExpiration(t *testing.T) {
 
 	// Run cleanup
 	cleanup := NewResumableCleanup(gw.resumableHandler, 5*time.Minute)
-	cleanup.cleanup()
+	require.NoError(t, cleanup.cleanup())
 
 	// Verify session is deleted
 	_, err = gw.metadata.GetResumableSession(context.Background(), "expire-test-id")
@@ -530,7 +534,7 @@ func TestFullResumableWorkflow(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusCreated, w.Code)
 
-	uploadID := w.Header().Get("X-Nexus-Upload-Id")
+	uploadID := w.Header().Get("X-CipherLake-Upload-Id")
 	require.NotEmpty(t, uploadID)
 
 	// Step 2: Query offset (should be 0)
@@ -604,7 +608,7 @@ func TestFullResumableWorkflow(t *testing.T) {
 }
 
 func TestResumableMetadataStore(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "nexus-metadata-test-*")
+	tmpDir, err := os.MkdirTemp("", "cipherlake-metadata-test-*")
 	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
@@ -738,15 +742,15 @@ func TestResumableConfigDefaults(t *testing.T) {
 	assert.Equal(t, "5m", cfg.Resumable.CleanupInterval)
 }
 
-func TestResumableRoutingWithXNexusHeader(t *testing.T) {
+func TestResumableRoutingWithXCipherLakeHeader(t *testing.T) {
 	gw, _ := setupTestGateway(t)
 	uploadID := createTestSession(t, gw, "test-bucket", "route-test.bin")
 
-	// Verify that with X-Nexus-Resumable: 1, the PATCH is routed to resumable handler
+	// Verify that with X-CipherLake-Resumable: 1, the PATCH is routed to resumable handler
 	data := []byte("routed data")
 	patchReq := httptest.NewRequest("PATCH", "/test-bucket/route-test.bin?uploadId="+uploadID, bytes.NewReader(data))
 	patchReq.Header.Set("Upload-Offset", "0")
-	patchReq.Header.Set("X-Nexus-Resumable", "1")
+	patchReq.Header.Set("X-CipherLake-Resumable", "1")
 	withAuth(gw, patchReq)
 
 	patchW := httptest.NewRecorder()

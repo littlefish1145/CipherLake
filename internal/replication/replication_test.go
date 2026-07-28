@@ -100,6 +100,46 @@ func TestReplicationManager_StartStop(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// TestReplicationManager_StopIdempotent verifies that calling Stop() multiple
+// times does not panic (close on closed channel would panic).
+func TestReplicationManager_StopIdempotent(t *testing.T) {
+	mgr := NewReplicationManager(nil)
+	require.NoError(t, mgr.Start())
+
+	require.NoError(t, mgr.Stop())
+	assert.NotPanics(t, func() {
+		mgr.Stop()
+		mgr.Stop()
+	})
+}
+
+// TestReplicationManager_StartIdempotent verifies that calling Start() twice
+// does not spawn duplicate worker goroutines.
+func TestReplicationManager_StartIdempotent(t *testing.T) {
+	mgr := NewReplicationManager(nil)
+	require.NoError(t, mgr.Start())
+	require.NoError(t, mgr.Start()) // should be a no-op
+	require.NoError(t, mgr.Stop())
+}
+
+// TestReplicationManager_StopWaitsForWorkers verifies that Stop() waits for
+// worker goroutines to exit before returning.
+func TestReplicationManager_StopWaitsForWorkers(t *testing.T) {
+	mgr := NewReplicationManager(nil)
+	require.NoError(t, mgr.Start())
+
+	done := make(chan struct{})
+	go func() {
+		mgr.Stop()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Stop() did not return within 5 seconds")
+	}
+}
+
 func TestReplicationRule(t *testing.T) {
 	rule := &ReplicationRule{
 		ID:             "rule-001",

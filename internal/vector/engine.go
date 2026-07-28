@@ -5,15 +5,12 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"hash/fnv"
 	"math"
-	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	"nexus/internal/vector/vse"
 )
 
 var (
@@ -69,46 +66,10 @@ type IndexStats struct {
 	LastBuiltAt   time.Time
 	QueryCount    int64
 	AvgLatencyMs  float64
-	// 可观测性扩展指标
-	P50LatencyMs   float64 // 中位数延迟
-	P99LatencyMs   float64 // P99 延迟
-	S3FetchCount   int64   // S3 预取次数
-	CacheHitRate   float64 // 缓存命中率
-	HotOnlyHitRate float64 // 仅热段查询比例
 }
 
-// VSEConfig 是 VSE(Vector Storage Engine)后端的配置。
-type VSEConfig struct {
-	DataDir          string `mapstructure:"data_dir"`
-	MaxHotSegments   int    `mapstructure:"max_hot_segments"`
-	MaxColdSegments  int    `mapstructure:"max_cold_segments"`
-	HotSegmentSize   int    `mapstructure:"hot_segment_size"`
-	ColdSegmentSize  int    `mapstructure:"cold_segment_size"`
-	IVFCentroids     int    `mapstructure:"ivf_centroids"`
-	IVFNProbe        int    `mapstructure:"ivf_nprobe"`
-	PQSubQuantizers  int    `mapstructure:"pq_sub_quantizers"`
-	PQBits           int    `mapstructure:"pq_bits"`
-	HNSWM            int    `mapstructure:"hnsw_m"`
-	HNSWEfSearch     int    `mapstructure:"hnsw_ef_search"`
-	SearchWorkers    int    `mapstructure:"search_workers"`
-	GPUAccel         bool   `mapstructure:"gpu_accel"`
-	GPUBatchMin      int    `mapstructure:"gpu_batch_min"`
-	QuantizerType    string `mapstructure:"quantizer_type"`
-	CacheSize        int    `mapstructure:"cache_size"`
-	AutoMerge        bool   `mapstructure:"auto_merge"`
-	MergeInterval    string `mapstructure:"merge_interval"`
-	S3Endpoint       string `mapstructure:"s3_endpoint"`
-	S3Region         string `mapstructure:"s3_region"`
-	S3Bucket         string `mapstructure:"s3_bucket"`
-	S3AccessKey      string `mapstructure:"s3_access_key"`
-	S3SecretKey      string `mapstructure:"s3_secret_key"`
-	EnableS3         bool   `mapstructure:"enable_s3"`
-	MergePolicy      vse.MergePolicy
-	WarmupPolicy     vse.WarmupPolicy
-}
-
-// VectorManager 管理向量索引,支持双后端:Milvus 或 VSE。
-// VSE 是自研的 Vector Storage Engine,使用 BoltDB + mmap + HNSW + IVF-PQ。
+// VectorManager 管理向量索引,统一使用 Milvus 作为后端。
+// 自研 HNSW/IVFPQ/MMap/BucketIndex 已退役。
 type VectorManager struct {
 	mu                sync.RWMutex
 	index             VectorIndex
@@ -119,6 +80,8 @@ type VectorManager struct {
 	cache             *QueryCache
 	embeddingCache    *embeddingCache
 	embeddingProvider EmbeddingProvider
+	closeOnce         sync.Once
+	closeErr          error
 }
 
 // embeddingCache 缓存 text -> embedding,避免重复 API 调用。
@@ -197,10 +160,8 @@ type VectorConfig struct {
 	RequireAuth         bool
 	AllowedContentTypes []string
 	MaxIndexContentSize int64
-	// Milvus 后端配置(当 IndexType == "milvus" 时使用)
+	// Milvus 后端配置(必填,全面转向 Milvus)
 	Milvus *MilvusConfig
-	// VSE 后端配置(当 IndexType == "vse" 时使用)
-	VSE *VSEConfig
 }
 
 type QueryCache struct {
@@ -258,8 +219,8 @@ func (qc *QueryCache) set(key string, results []SearchResult) {
 	}
 }
 
-// NewVectorManager 创建向量管理器,支持双后端:Milvus 或 VSE。
-// IndexType 指定后端类型:"milvus"(默认)或"vse"。
+// NewVectorManager 创建向量管理器,统一使用 Milvus 后端。
+// 如果 config.Milvus 为 nil,则不创建索引后端(用于测试或不启用向量索引的场景)。
 func NewVectorManager(config *VectorConfig) (*VectorManager, error) {
 	dim := config.Dimension
 	if dim == 0 {
@@ -274,36 +235,8 @@ func NewVectorManager(config *VectorConfig) (*VectorManager, error) {
 	var index VectorIndex
 	var err error
 
-	idxType := config.IndexType
-	if idxType == "" {
-		idxType = "milvus"
-	}
-
-	switch idxType {
-	case "vse":
-		if config.VSE == nil {
-			return nil, fmt.Errorf("VSE config is required when index_type is 'vse'")
-		}
-		vseCfg := config.VSE
-		boltPath := vseCfg.DataDir + "/vse.db"
-		if vseCfg.DataDir == "" {
-			boltPath = "data/vector/vse.db"
-		}
-		boltStore, err := NewBoltStore(boltPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create bolt store: %w", err)
-		}
-		vseBackend, err := NewVSEBackend(dim, metric, vseCfg, boltStore)
-		if err != nil {
-			boltStore.Close()
-			return nil, fmt.Errorf("failed to create vse backend: %w", err)
-		}
-		index = vseBackend
-	default:
-		// 向后兼容:Milvus 为默认后端
-		if config.Milvus == nil {
-			config.Milvus = &MilvusConfig{}
-		}
+	// 全面转向 Milvus:唯一支持的索引后端
+	if config.Milvus != nil {
 		index, err = NewMilvusBackend(dim, metric, config.Milvus)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create milvus backend: %w", err)
@@ -323,12 +256,12 @@ func NewVectorManager(config *VectorConfig) (*VectorManager, error) {
 	var embeddingProvider EmbeddingProvider
 	if config.Enabled {
 		embConfig := &EmbeddingConfig{
-			Provider:      config.EmbeddingProvider,
-			ModelPath:     config.EmbeddingModelPath,
-			APIEndpoint:   config.EmbeddingAPIEndpoint,
-			APIKey:        config.EmbeddingAPIKey,
-			ModelName:     config.EmbeddingModelName,
-			Dimension:     dim,
+			Provider:    config.EmbeddingProvider,
+			ModelPath:   config.EmbeddingModelPath,
+			APIEndpoint: config.EmbeddingAPIEndpoint,
+			APIKey:      config.EmbeddingAPIKey,
+			ModelName:   config.EmbeddingModelName,
+			Dimension:   dim,
 		}
 		embeddingProvider, err = NewEmbeddingProvider(embConfig)
 		if err != nil {
@@ -427,25 +360,18 @@ func (vm *VectorManager) getIndex() VectorIndex {
 }
 
 func (vm *VectorManager) generateCacheKey(query Vector, topK int, filters map[string]string) string {
-	h := fnv.New128a()
-	buf := make([]byte, 4)
-	for _, v := range query.Values {
-		binary.LittleEndian.PutUint32(buf, math.Float32bits(v))
-		h.Write(buf)
+	key := fmt.Sprintf("%v:%d", query.Values[:minInt(10, len(query.Values))], topK)
+	for k, v := range filters {
+		key += fmt.Sprintf(":%s=%s", k, v)
 	}
-	binary.LittleEndian.PutUint32(buf, uint32(topK))
-	h.Write(buf)
+	return key
+}
 
-	keys := make([]string, 0, len(filters))
-	for k := range filters {
-		keys = append(keys, k)
+func minInt(a, b int) int {
+	if a < b {
+		return a
 	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		h.Write([]byte(k))
-		h.Write([]byte(filters[k]))
-	}
-	return fmt.Sprintf("%x", h.Sum(nil))
+	return b
 }
 
 func (vm *VectorManager) DeleteVector(ctx context.Context, bucket, objectKey string) error {
@@ -558,22 +484,23 @@ func (vm *VectorManager) SearchByText(ctx context.Context, queryText string, top
 }
 
 func (vm *VectorManager) Close() error {
-	if vm.index != nil {
-		switch backend := vm.index.(type) {
-		case *MilvusBackend:
-			if err := backend.Close(); err != nil {
-				return fmt.Errorf("milvus backend close failed: %w", err)
-			}
-		case *VSEBackend:
-			if err := backend.Close(); err != nil {
-				return fmt.Errorf("vse backend close failed: %w", err)
+	vm.closeOnce.Do(func() {
+		var closeErr error
+		if vm.index != nil {
+			if mb, ok := vm.index.(*MilvusBackend); ok {
+				if err := mb.Close(); err != nil {
+					closeErr = errors.Join(closeErr, fmt.Errorf("milvus backend close failed: %w", err))
+				}
 			}
 		}
-	}
-	if vm.embeddingProvider != nil {
-		return vm.embeddingProvider.Close()
-	}
-	return nil
+		if vm.embeddingProvider != nil {
+			if err := vm.embeddingProvider.Close(); err != nil {
+				closeErr = errors.Join(closeErr, fmt.Errorf("embedding provider close failed: %w", err))
+			}
+		}
+		vm.closeErr = closeErr
+	})
+	return vm.closeErr
 }
 
 func EncodeVector(v []float32) []byte {

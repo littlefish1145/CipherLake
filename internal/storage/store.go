@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"nexus/internal/common"
-	"nexus/internal/config"
-	"nexus/internal/metadata"
+	"cipherlake/internal/common"
+	"cipherlake/internal/config"
+	"cipherlake/internal/metadata"
 )
 
 var (
@@ -79,28 +79,41 @@ func (f *FileBackend) Put(ctx context.Context, path string, data io.Reader, size
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	file, err := os.Create(fullPath)
+	file, err := os.CreateTemp(filepath.Dir(fullPath), ".tmp-"+filepath.Base(fullPath))
 	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
+		return fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer file.Close()
+	tmpPath := file.Name()
 
 	written, err := io.Copy(file, data)
 	if err != nil {
-		os.Remove(fullPath)
+		file.Close()
+		os.Remove(tmpPath)
 		return fmt.Errorf("failed to write file: %w", err)
 	}
 
 	// Only validate size if it was specified (size > 0)
 	// size == 0 means the size is unknown (e.g., encrypted data with GCM overhead)
 	if size > 0 && written != size {
-		os.Remove(fullPath)
+		file.Close()
+		os.Remove(tmpPath)
 		return fmt.Errorf("incomplete write: expected %d, got %d", size, written)
 	}
 
 	if err := file.Sync(); err != nil {
-		os.Remove(fullPath)
+		file.Close()
+		os.Remove(tmpPath)
 		return fmt.Errorf("failed to sync file: %w", err)
+	}
+
+	if err := file.Close(); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to close temp file: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, fullPath); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
 	return nil
@@ -162,6 +175,13 @@ func (f *FileBackend) Size(ctx context.Context, path string) (int64, error) {
 func (f *FileBackend) List(ctx context.Context, prefix string) ([]string, error) {
 	files := make([]string, 0)
 	searchPath := filepath.Join(f.rootDir, prefix)
+
+	if _, err := os.Stat(searchPath); err != nil {
+		if os.IsNotExist(err) {
+			return files, nil
+		}
+		return nil, fmt.Errorf("failed to stat list prefix: %w", err)
+	}
 
 	err := filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -429,13 +449,18 @@ func (s *TieredObjectStore) Migrate(ctx context.Context, bucket, key string, fro
 	if err != nil {
 		return fmt.Errorf("failed to read from source: %w", err)
 	}
-	defer reader.Close()
 
 	if err := dstBackend.Put(ctx, srcPath, reader, meta.Size); err != nil {
+		reader.Close()
 		return fmt.Errorf("failed to write to destination: %w", err)
 	}
+	if err := reader.Close(); err != nil {
+		return fmt.Errorf("failed to close source after migration: %w", err)
+	}
 
-	_ = srcBackend.Delete(ctx, srcPath)
+	if err := srcBackend.Delete(ctx, srcPath); err != nil {
+		return fmt.Errorf("failed to delete source after migration: %w", err)
+	}
 
 	s.mu.Lock()
 	s.currentSize[fromTier] -= meta.Size

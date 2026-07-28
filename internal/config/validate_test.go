@@ -13,7 +13,7 @@ func validConfig() *Config {
 		Node: NodeConfig{
 			Role:         "all",
 			ListenAddr:   ":8080",
-			DataDir:      "/var/lib/nexus",
+			DataDir:      "/var/lib/cipherlake",
 			ClusterPeers: []string{},
 		},
 		Tiering: TieringConfig{
@@ -21,7 +21,7 @@ func validConfig() *Config {
 			HotMaxSize: "32GB",
 		},
 		Encryption: EncryptionConfig{
-			KMSType:     "local",
+			KMSType:       "local",
 			MasterKeyPath: "/data/master.key",
 		},
 		CryptoServices: CryptoServicesConfig{
@@ -173,8 +173,8 @@ func TestValidateVectorDim(t *testing.T) {
 
 func TestValidateVectorDimWarning(t *testing.T) {
 	tests := []struct {
-		dim          int
-		wantWarning  bool
+		dim         int
+		wantWarning bool
 	}{
 		{768, false},  // 768 is common, no warning
 		{1024, false}, // 1024 is a multiple of 64, no warning
@@ -476,8 +476,8 @@ func TestValidateCrossFieldVectorEnabledDim(t *testing.T) {
 
 func TestIsHotReloadable(t *testing.T) {
 	tests := []struct {
-		field     string
-		expected  bool
+		field    string
+		expected bool
 	}{
 		{"logging.level", true},
 		{"logging.format", true},
@@ -503,8 +503,8 @@ func TestIsHotReloadable(t *testing.T) {
 
 func TestRequiresRestart(t *testing.T) {
 	tests := []struct {
-		field     string
-		expected  bool
+		field    string
+		expected bool
 	}{
 		{"node.role", true},
 		{"node.listen_addr", true},
@@ -552,10 +552,10 @@ func TestDiffConfigs(t *testing.T) {
 func TestApplyHotReload(t *testing.T) {
 	oldCfg := validConfig()
 	newCfg := validConfig()
-	newCfg.Logging.Level = "debug"       // hot-reloadable
-	newCfg.Node.Role = "storage"          // requires restart
-	newCfg.Cache.TTL = 10 * time.Minute  // hot-reloadable
-	newCfg.Encryption.KMSType = "vault"   // requires restart
+	newCfg.Logging.Level = "debug"                    // hot-reloadable
+	newCfg.Node.Role = "storage"                      // requires restart
+	newCfg.Cache.TTL = 10 * time.Minute               // hot-reloadable
+	newCfg.Encryption.KMSType = "vault"               // requires restart
 	newCfg.Encryption.VaultAddr = "http://vault:8200" // requires restart
 
 	merged, reloaded, skipped := ApplyHotReload(oldCfg, newCfg)

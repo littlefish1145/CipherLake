@@ -2,40 +2,37 @@ package gateway
 
 import (
 	"bytes"
-	"crypto/md5"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/base64"
 	"encoding/xml"
 	"fmt"
-	"hash"
-	"hash/crc32"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
-	"go.uber.org/zap"
-
-	"nexus/internal/auth"
-	"nexus/internal/common"
-	"nexus/internal/events"
-	"nexus/internal/metadata"
-	"nexus/internal/pipeline"
-	"nexus/internal/s3"
-	"nexus/internal/services"
-	"nexus/internal/taskqueue"
+	"cipherlake/internal/auth"
+	"cipherlake/internal/common"
+	"cipherlake/internal/events"
+	"cipherlake/internal/metadata"
+	"cipherlake/internal/s3"
+	"cipherlake/internal/services"
 
 	"github.com/google/uuid"
 )
 
 type ObjectService struct {
-	gateway *S3Gateway
+	gateway    *S3Gateway
+	writeTasks objectWriteTaskScheduler
 }
 
 func NewObjectService(gateway *S3Gateway) *ObjectService {
-	return &ObjectService{gateway: gateway}
+	writeTasks := gateway.writeTasks
+	if writeTasks == nil {
+		writeTasks = newGatewayObjectWriteTaskScheduler(gateway)
+	}
+	return &ObjectService{
+		gateway:    gateway,
+		writeTasks: writeTasks,
+	}
 }
 
 func (s *ObjectService) handlePutObject(w http.ResponseWriter, r *http.Request, bucket, key string) error {
@@ -54,87 +51,29 @@ func (s *ObjectService) handlePutObject(w http.ResponseWriter, r *http.Request, 
 		return fmt.Errorf("access denied: %w", err)
 	}
 
-	contentType := r.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = "application/octet-stream"
+	contentType, err := s.gateway.parseObjectContentType(r.Header)
+	if err != nil {
+		return err
 	}
 
-	if !s.gateway.validateContentType(contentType) {
-		return fmt.Errorf("unsupported content type: %s", contentType)
-	}
-
-	contentLength := r.ContentLength
-	if contentLength < 0 {
-		bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, s.gateway.config.Performance.MaxUploadBytes))
-		if err != nil {
-			return fmt.Errorf("failed to read request body: %w", err)
-		}
-		contentLength = int64(len(bodyBytes))
-		r.Body = io.NopCloser(strings.NewReader(string(bodyBytes)))
-	}
-
-	if s.gateway.config != nil && s.gateway.config.Performance.MaxUploadBytes > 0 {
-		if contentLength > s.gateway.config.Performance.MaxUploadBytes {
+	contentLength, err := s.gateway.resolveUploadContentLength(r)
+	if err != nil {
+		if tooLarge, ok := err.(*uploadTooLargeError); ok {
 			s.gateway.writeError(w, http.StatusRequestEntityTooLarge, "EntityTooLarge",
-				fmt.Sprintf("Object size %d exceeds maximum allowed size %d",
-					contentLength, s.gateway.config.Performance.MaxUploadBytes))
+				fmt.Sprintf("Object size %d exceeds maximum allowed size %d", tooLarge.size, tooLarge.max))
 			return nil
 		}
+		return err
 	}
 
-	metadataMap := make(map[string]string)
-	for k, values := range r.Header {
-		if strings.HasPrefix(strings.ToLower(k), "x-amz-meta-") {
-			metadataMap[strings.TrimPrefix(k, "x-amz-meta-")] = values[0]
-		}
-	}
+	metadataMap := parseUserMetadata(r.Header)
 
-	userID := s.gateway.getUserID(r)
-	if userID == "" {
-		userID = "anonymous"
-	}
+	userID := s.gateway.requestUserID(r)
 
 	etag := uuid.New().String()
 
-	var providedChecksum string
-	var providedChecksumType string
-
-	if c := r.Header.Get("x-amz-checksum-crc32c"); c != "" {
-		providedChecksum = c
-		providedChecksumType = "crc32c"
-	} else if c := r.Header.Get("x-amz-checksum-sha256"); c != "" {
-		providedChecksum = c
-		providedChecksumType = "sha256"
-	} else if c := r.Header.Get("x-amz-checksum-md5"); c != "" {
-		providedChecksum = c
-		providedChecksumType = "md5"
-	} else if c := r.Header.Get("Content-MD5"); c != "" {
-		providedChecksum = c
-		providedChecksumType = "md5"
-	}
-
-	sha256Hasher := sha256.New()
-	var crc32cHasher hash.Hash
-	var md5Hasher hash.Hash
-
-	if providedChecksumType == "crc32c" {
-		crc32cHasher = crc32.New(crc32.MakeTable(crc32.Castagnoli))
-	}
-	if providedChecksumType == "md5" {
-		md5Hasher = md5.New()
-	}
-
-	var hashWriters []io.Writer
-	hashWriters = append(hashWriters, sha256Hasher)
-	if crc32cHasher != nil {
-		hashWriters = append(hashWriters, crc32cHasher)
-	}
-	if md5Hasher != nil {
-		hashWriters = append(hashWriters, md5Hasher)
-	}
-	multiWriter := io.MultiWriter(hashWriters...)
-
-	var plaintextReader io.Reader = io.TeeReader(r.Body, multiWriter)
+	checksumRecorder := newObjectChecksumRecorder(r.Header)
+	var plaintextReader io.Reader = io.TeeReader(r.Body, checksumRecorder.Writer())
 
 	var dataReader io.Reader = plaintextReader
 	var encryptedDEKMetadata []byte
@@ -154,9 +93,7 @@ func (s *ObjectService) handlePutObject(w http.ResponseWriter, r *http.Request, 
 		ssecKeySHA256 = services.ComputeSSECKeySHA256(clientKey)
 
 		encryptedReader, ssecMetadata, ciphertextSize, err := s.gateway.cryptoCoordinator.EncryptWithClientKey(r.Context(), plaintextReader, clientKey, contentLength)
-		for i := range clientKey {
-			clientKey[i] = 0
-		}
+		zeroClientKey(clientKey)
 		if err != nil {
 			return fmt.Errorf("SSE-C encryption failed")
 		}
@@ -165,9 +102,7 @@ func (s *ObjectService) handlePutObject(w http.ResponseWriter, r *http.Request, 
 		encrypted = true
 		actualStorageSize = ciphertextSize
 	} else if clientKey != nil {
-		for i := range clientKey {
-			clientKey[i] = 0
-		}
+		zeroClientKey(clientKey)
 		return fmt.Errorf("SSE-C encryption requested but encryption services are not enabled")
 	} else if s.gateway.cryptoCoordinator != nil && s.gateway.config != nil && s.gateway.config.CryptoServices.Enabled {
 		encryptedReader, _, metadata, ciphertextSize, err := s.gateway.cryptoCoordinator.EncryptOperation(r.Context(), userID, bucket, key, plaintextReader, contentLength)
@@ -180,138 +115,66 @@ func (s *ObjectService) handlePutObject(w http.ResponseWriter, r *http.Request, 
 		actualStorageSize = ciphertextSize
 	}
 
-	objMetadata := &common.ObjectMetadata{
-		Key:            key,
-		Bucket:         bucket,
-		Size:           contentLength,
-		ContentType:    contentType,
-		ETag:           etag,
-		UserMetadata:   metadataMap,
-		StorageTier:    common.TierHot,
-		CreatedAt:      time.Now(),
-		ModifiedAt:     time.Now(),
-		AccessCount:    0,
-		LastAccessedAt: time.Now(),
-		Encrypted:      encrypted,
-		VersionID:      uuid.New().String(),
-	}
+	objMetadata, meta := buildActiveObjectMetadata(activeObjectMetadataInput{
+		Bucket:               bucket,
+		Key:                  key,
+		Size:                 contentLength,
+		ContentType:          contentType,
+		ETag:                 etag,
+		UserMetadata:         metadataMap,
+		StorageTier:          common.TierHot,
+		Encrypted:            encrypted,
+		EncryptedDEK:         encryptedDEKMetadata,
+		SSECUsed:             ssecUsed,
+		SSECKeySHA256:        ssecKeySHA256,
+		ServerSideEncryption: objectSSECAlgorithm(ssecUsed),
+	})
 
 	storageTier := common.TierHot
 	if err := s.gateway.store.Put(r.Context(), bucket, key, dataReader, actualStorageSize, storageTier, objMetadata); err != nil {
 		return fmt.Errorf("failed to store object: %w", err)
 	}
 
-	computedSHA256 := base64.StdEncoding.EncodeToString(sha256Hasher.Sum(nil))
-
-	var storedChecksum string
-	var storedChecksumType string
-
-	switch providedChecksumType {
-	case "crc32c":
-		storedChecksum = base64.StdEncoding.EncodeToString(crc32cHasher.Sum(nil))
-		storedChecksumType = "crc32c"
-		if providedChecksum != storedChecksum {
-			s.gateway.store.Delete(r.Context(), bucket, key, storageTier)
-			s.gateway.writeError(w, http.StatusBadRequest, "BadDigest",
-				fmt.Sprintf("CRC32C checksum mismatch: expected %s, got %s", providedChecksum, storedChecksum))
+	storedChecksum, storedChecksumType, checksumErr := checksumRecorder.Finalize()
+	if checksumErr != nil {
+		s.gateway.store.Delete(r.Context(), bucket, key, storageTier)
+		if mismatch, ok := checksumErr.(*objectChecksumMismatch); ok {
+			s.gateway.writeError(w, http.StatusBadRequest, "BadDigest", mismatch.clientMessage())
 			return nil
 		}
-	case "sha256":
-		storedChecksum = computedSHA256
-		storedChecksumType = "sha256"
-		if providedChecksum != storedChecksum {
-			s.gateway.store.Delete(r.Context(), bucket, key, storageTier)
-			s.gateway.writeError(w, http.StatusBadRequest, "BadDigest",
-				fmt.Sprintf("SHA256 checksum mismatch: expected %s, got %s", providedChecksum, storedChecksum))
-			return nil
-		}
-	case "md5":
-		storedChecksum = base64.StdEncoding.EncodeToString(md5Hasher.Sum(nil))
-		storedChecksumType = "md5"
-		if providedChecksum != storedChecksum {
-			s.gateway.store.Delete(r.Context(), bucket, key, storageTier)
-			s.gateway.writeError(w, http.StatusBadRequest, "BadDigest",
-				fmt.Sprintf("MD5 checksum mismatch: expected %s, got %s", providedChecksum, storedChecksum))
-			return nil
-		}
-	default:
-		storedChecksum = computedSHA256
-		storedChecksumType = "sha256"
+		return checksumErr
 	}
 
-	meta := &metadata.ObjectMetadata{
-		Key:            key,
-		Bucket:         bucket,
-		Size:           contentLength,
-		ContentType:    contentType,
-		ETag:           etag,
-		UserMetadata:   metadataMap,
-		StorageTier:    int(common.TierHot),
-		CreatedAt:      time.Now(),
-		ModifiedAt:     time.Now(),
-		AccessCount:    0,
-		LastAccessedAt: time.Now(),
-		Encrypted:      encrypted,
-		VersionID:      objMetadata.VersionID,
-		IsLatest:       true,
-		ObjectStatus:   "active",
-		Checksum:       storedChecksum,
-		ChecksumType:   storedChecksumType,
-		SSECUsed:       ssecUsed,
-		SSECKeySHA256:  ssecKeySHA256,
-		SSECAlgorithm: func() string {
-			if ssecUsed {
-				return "AES256"
-			}
-			return ""
-		}(),
-	}
-
-	if encryptedDEKMetadata != nil {
-		meta.EncryptedDEK = encryptedDEKMetadata
-	}
+	meta.Checksum = storedChecksum
+	meta.ChecksumType = storedChecksumType
 
 	if ssecUsed && s.gateway.config != nil && s.gateway.config.Encryption.EnableDedup {
 	}
 
-	if err := s.gateway.metadata.PutObject(r.Context(), bucket, key, meta); err != nil {
-		s.gateway.store.Delete(r.Context(), bucket, key, storageTier)
-		return fmt.Errorf("failed to store metadata: %w", err)
+	if err := s.gateway.putObjectMetadataAfterStore(
+		r.Context(),
+		bucket,
+		key,
+		storageTier,
+		meta,
+	); err != nil {
+		return err
 	}
 
 	if s.gateway.tiering != nil {
 		s.gateway.tiering.RecordAccess(r.Context(), bucket, key, "PUT", userID)
 	}
 
-	if s.gateway.vector != nil && s.gateway.config.Vector.Enabled {
-		if r.Header.Get("X-Vectorize") != "false" {
-			s.gateway.submitBackgroundTask(r.Context(), taskqueue.KindVectorize, taskqueue.VectorizePayload{
-				Bucket:      bucket,
-				Key:         key,
-				ContentType: contentType,
-				Metadata:    metadataMap,
-				UserID:      userID,
-			})
-		}
-	}
-
-	if s.gateway.ftsIndex != nil && s.gateway.config.FTS.Enabled {
-		if r.Header.Get("X-FTS-Index") != "false" {
-			s.gateway.submitBackgroundTask(r.Context(), taskqueue.KindFTS, taskqueue.FTSPayload{
-				Bucket:      bucket,
-				Key:         key,
-				ContentType: contentType,
-				VersionID:   objMetadata.VersionID,
-			})
-		}
-	}
-
-	if s.gateway.pipeline != nil {
-		s.gateway.submitBackgroundTask(r.Context(), taskqueue.KindPipeline, taskqueue.PipelinePayload{
-			Bucket:      bucket,
-			Key:         key,
-			ContentType: contentType,
-			Metadata:    metadataMap,
+	if s.writeTasks != nil {
+		s.writeTasks.ScheduleObjectWriteTasks(r.Context(), objectWriteTaskRequest{
+			Bucket:        bucket,
+			Key:           key,
+			ContentType:   contentType,
+			Metadata:      metadataMap,
+			UserID:        userID,
+			VersionID:     objMetadata.VersionID,
+			SkipVectorize: r.Header.Get("X-Vectorize") == "false",
+			SkipFTS:       r.Header.Get("X-FTS-Index") == "false",
 		})
 	}
 
@@ -384,10 +247,7 @@ func (s *ObjectService) handleGetObject(w http.ResponseWriter, r *http.Request, 
 		}
 	}
 
-	userID := s.gateway.getUserID(r)
-	if userID == "" {
-		userID = "anonymous"
-	}
+	userID := s.gateway.requestUserID(r)
 
 	if s.gateway.tiering != nil {
 		s.gateway.tiering.RecordAccess(r.Context(), bucket, key, "GET", userID)
@@ -433,17 +293,13 @@ func (s *ObjectService) handleGetObject(w http.ResponseWriter, r *http.Request, 
 
 	if s.gateway.objectCache != nil && objMetadata.Size < 1<<20 && rangeHeader == "" && !objMetadata.Encrypted {
 		if cachedData, found := s.gateway.objectCache.Get(r.Context(), cacheKey); found {
-			w.Header().Set("Content-Type", objMetadata.ContentType)
-			w.Header().Set("Content-Length", strconv.FormatInt(int64(len(cachedData)), 10))
-			w.Header().Set("ETag", etag)
-			w.Header().Set("Last-Modified", objMetadata.ModifiedAt.Format(http.TimeFormat))
-			w.Header().Set("Accept-Ranges", "bytes")
-			w.Header().Set("Cache-Control", "max-age=3600")
-			w.Header().Set("X-Cache", "HIT")
-			for k, v := range objMetadata.UserMetadata {
-				w.Header().Set("X-Amz-Meta-"+k, v)
-			}
-			setChecksumResponseHeaders(w, objMetadata, r)
+			writeObjectResponseHeaders(w, r, objMetadata, objectResponseHeaderOptions{
+				ContentLength: int64(len(cachedData)),
+				ETag:          etag,
+				AcceptRanges:  true,
+				CacheControl:  "max-age=3600",
+				CacheStatus:   "HIT",
+			})
 			w.WriteHeader(http.StatusOK)
 			w.Write(cachedData)
 			return nil
@@ -462,37 +318,20 @@ func (s *ObjectService) handleGetObject(w http.ResponseWriter, r *http.Request, 
 	var contentLength = objMetadata.Size
 
 	if objMetadata.SSECUsed {
-		clientKey, ssecErr := s3.ParseSSECHeaders(r)
-		if ssecErr != nil {
-			s.gateway.writeError(w, http.StatusBadRequest, "InvalidRequest", "Invalid SSE-C customer key headers")
-			return nil
-		}
-		if clientKey == nil {
-			s.gateway.writeError(w, http.StatusForbidden, "AccessDenied", "Object encrypted with SSE-C requires customer key headers")
-			return nil
-		}
-		keySHA256 := services.ComputeSSECKeySHA256(clientKey)
-		if subtle.ConstantTimeCompare([]byte(keySHA256), []byte(objMetadata.SSECKeySHA256)) != 1 {
-			s.gateway.writeError(w, http.StatusForbidden, "AccessDenied", "The provided SSE-C key does not match the key used to encrypt the object")
-			for i := range clientKey {
-				clientKey[i] = 0
-			}
+		clientKey, ok := s.validateObjectSSECKey(w, r, objMetadata, "Invalid SSE-C customer key headers")
+		if !ok {
 			return nil
 		}
 		if s.gateway.cryptoCoordinator != nil && len(objMetadata.EncryptedDEK) > 0 {
 			decryptedReader, err := s.gateway.cryptoCoordinator.DecryptWithClientKey(r.Context(), reader, clientKey, objMetadata.EncryptedDEK, objMetadata.Size)
-			for i := range clientKey {
-				clientKey[i] = 0
-			}
+			zeroClientKey(clientKey)
 			if err != nil {
 				s.gateway.writeError(w, http.StatusInternalServerError, "InternalError", "An internal error occurred while processing the object")
 				return nil
 			}
 			dataReader = decryptedReader
 		} else {
-			for i := range clientKey {
-				clientKey[i] = 0
-			}
+			zeroClientKey(clientKey)
 		}
 	} else if objMetadata.Encrypted && s.gateway.cryptoCoordinator != nil && len(objMetadata.EncryptedDEK) > 0 {
 		encryptedDEKMetadata := objMetadata.EncryptedDEK
@@ -523,35 +362,6 @@ func (s *ObjectService) handleGetObject(w http.ResponseWriter, r *http.Request, 
 		}
 	}
 
-	// Execute on_get pipelines (watermark, transformation, etc.)
-	if s.gateway.pipeline != nil {
-		onGetPipelines := s.gateway.pipeline.GetMatchingPipelines(r.Context(), pipeline.TriggerOnGet, objMetadata.ContentType, objMetadata.UserMetadata)
-		for _, p := range onGetPipelines {
-			input := &pipeline.ObjectInput{
-				Key:          key,
-				Bucket:       bucket,
-				Content:      dataReader,
-				Size:         contentLength,
-				ContentType:  objMetadata.ContentType,
-				UserMetadata: objMetadata.UserMetadata,
-			}
-			result, err := s.gateway.pipeline.Execute(r.Context(), p.Name, input)
-			if err != nil {
-				zap.L().Error("on_get pipeline failed", zap.String("pipeline", p.Name), zap.Error(err))
-				continue
-			}
-			if result != nil && len(result.Outputs) > 0 {
-				dataReader = result.Outputs[0].Content
-				if result.Outputs[0].Size > 0 {
-					contentLength = result.Outputs[0].Size
-				}
-				if result.Outputs[0].ContentType != "" {
-					objMetadata.ContentType = result.Outputs[0].ContentType
-				}
-			}
-		}
-	}
-
 	var statusCode = http.StatusOK
 	var contentRange string
 
@@ -563,7 +373,9 @@ func (s *ObjectService) handleGetObject(w http.ResponseWriter, r *http.Request, 
 		}
 
 		if seeker, ok := dataReader.(io.Seeker); ok {
-			seeker.Seek(start, io.SeekStart)
+			if _, err := seeker.Seek(start, io.SeekStart); err != nil {
+				return fmt.Errorf("failed to seek object reader to range start: %w", err)
+			}
 			dataReader = io.LimitReader(dataReader, end-start+1)
 		} else {
 			discard := start
@@ -587,35 +399,18 @@ func (s *ObjectService) handleGetObject(w http.ResponseWriter, r *http.Request, 
 		statusCode = http.StatusPartialContent
 	}
 
-	w.Header().Set("Content-Type", objMetadata.ContentType)
-	w.Header().Set("Content-Length", strconv.FormatInt(contentLength, 10))
-	w.Header().Set("ETag", etag)
-	w.Header().Set("Last-Modified", objMetadata.ModifiedAt.Format(http.TimeFormat))
-	w.Header().Set("Accept-Ranges", "bytes")
-	w.Header().Set("Cache-Control", "max-age=3600")
-
+	cacheStatus := ""
 	if s.gateway.objectCache != nil {
-		w.Header().Set("X-Cache", "MISS")
+		cacheStatus = "MISS"
 	}
-
-	if objMetadata.SSECUsed {
-		w.Header().Set("x-amz-server-side-encryption-customer-algorithm", "AES256")
-		if keyMD5 := r.Header.Get("x-amz-server-side-encryption-customer-key-MD5"); keyMD5 != "" {
-			w.Header().Set("x-amz-server-side-encryption-customer-key-MD5", keyMD5)
-		}
-	} else if objMetadata.Encrypted {
-		w.Header().Set("x-amz-server-side-encryption", "AES256")
-	}
-
-	if contentRange != "" {
-		w.Header().Set("Content-Range", contentRange)
-	}
-
-	for k, v := range objMetadata.UserMetadata {
-		w.Header().Set("X-Amz-Meta-"+k, v)
-	}
-
-	setChecksumResponseHeaders(w, objMetadata, r)
+	writeObjectResponseHeaders(w, r, objMetadata, objectResponseHeaderOptions{
+		ContentLength: contentLength,
+		ETag:          etag,
+		AcceptRanges:  true,
+		CacheControl:  "max-age=3600",
+		CacheStatus:   cacheStatus,
+		ContentRange:  contentRange,
+	})
 
 	w.WriteHeader(statusCode)
 
@@ -623,12 +418,22 @@ func (s *ObjectService) handleGetObject(w http.ResponseWriter, r *http.Request, 
 		data, err := io.ReadAll(io.LimitReader(dataReader, 1<<20))
 		if err == nil {
 			s.gateway.objectCache.Set(r.Context(), cacheKey, data)
-			w.Write(data)
+			if _, writeErr := w.Write(data); writeErr != nil {
+				if isClientDisconnected(writeErr) {
+					return nil
+				}
+				return fmt.Errorf("failed to write cached object body: %w", writeErr)
+			}
 			return nil
 		}
 	}
 
-	io.Copy(w, dataReader)
+	if _, err := io.Copy(w, dataReader); err != nil {
+		if isClientDisconnected(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to stream object body: %w", err)
+	}
 
 	if s.gateway.metrics != nil {
 		s.gateway.metrics.RecordGetObject(bucket, "success", contentLength)
@@ -654,45 +459,17 @@ func (s *ObjectService) handleHeadObject(w http.ResponseWriter, r *http.Request,
 	}
 
 	if objMetadata.SSECUsed {
-		clientKey, ssecErr := s3.ParseSSECHeaders(r)
-		if ssecErr != nil {
-			s.gateway.writeError(w, http.StatusBadRequest, "InvalidRequest", ssecErr.Error())
+		clientKey, ok := s.validateObjectSSECKey(w, r, objMetadata, "Invalid SSE-C customer key headers")
+		if !ok {
 			return nil
 		}
-		if clientKey == nil {
-			s.gateway.writeError(w, http.StatusForbidden, "AccessDenied", "Object encrypted with SSE-C requires customer key headers")
-			return nil
-		}
-		keySHA256 := services.ComputeSSECKeySHA256(clientKey)
-		if subtle.ConstantTimeCompare([]byte(keySHA256), []byte(objMetadata.SSECKeySHA256)) != 1 {
-			s.gateway.writeError(w, http.StatusForbidden, "AccessDenied", "The provided SSE-C key does not match the key used to encrypt the object")
-			return nil
-		}
-		for i := range clientKey {
-			clientKey[i] = 0
-		}
+		zeroClientKey(clientKey)
 	}
 
-	w.Header().Set("Content-Type", objMetadata.ContentType)
-	w.Header().Set("Content-Length", strconv.FormatInt(objMetadata.Size, 10))
-	w.Header().Set("ETag", `"`+objMetadata.ETag+`"`)
-	w.Header().Set("Last-Modified", objMetadata.ModifiedAt.Format(http.TimeFormat))
-	w.Header().Set("X-Amz-Storage-Class", common.StorageTier(objMetadata.StorageTier).String())
-
-	if objMetadata.SSECUsed {
-		w.Header().Set("x-amz-server-side-encryption-customer-algorithm", "AES256")
-		if keyMD5 := r.Header.Get("x-amz-server-side-encryption-customer-key-MD5"); keyMD5 != "" {
-			w.Header().Set("x-amz-server-side-encryption-customer-key-MD5", keyMD5)
-		}
-	} else if objMetadata.Encrypted {
-		w.Header().Set("x-amz-server-side-encryption", "AES256")
-	}
-
-	for k, v := range objMetadata.UserMetadata {
-		w.Header().Set("X-Amz-Meta-"+k, v)
-	}
-
-	setChecksumResponseHeaders(w, objMetadata, r)
+	writeObjectResponseHeaders(w, r, objMetadata, objectResponseHeaderOptions{
+		ContentLength:       objMetadata.Size,
+		IncludeStorageClass: true,
+	})
 
 	w.WriteHeader(http.StatusOK)
 	return nil
@@ -751,7 +528,9 @@ func (s *ObjectService) handleDeleteObject(w http.ResponseWriter, r *http.Reques
 		w.Header().Set("x-amz-version-id", deleteMarker.VersionID)
 	} else {
 		storageTier := common.StorageTier(objMetadata.StorageTier)
-		s.gateway.store.Delete(r.Context(), bucket, key, storageTier)
+		if err := s.gateway.store.Delete(r.Context(), bucket, key, storageTier); err != nil {
+			return fmt.Errorf("failed to delete object data: %w", err)
+		}
 
 		if s.gateway.vector != nil {
 			s.gateway.vector.DeleteVector(r.Context(), bucket, key)
@@ -765,10 +544,12 @@ func (s *ObjectService) handleDeleteObject(w http.ResponseWriter, r *http.Reques
 			s.gateway.objectCache.Delete(r.Context(), bucket+"/"+key)
 		}
 
-		s.gateway.metadata.DeleteObject(r.Context(), bucket, key)
+		if err := s.gateway.metadata.DeleteObject(r.Context(), bucket, key); err != nil {
+			return fmt.Errorf("failed to delete object metadata: %w", err)
+		}
 	}
 
-	userID := s.gateway.getUserID(r)
+	userID := s.gateway.requestUserID(r)
 	s.gateway.auditLog(r, "DELETE", bucket, key, userID, "success", map[string]interface{}{
 		"soft_delete": softDelete && versioningEnabled,
 	})
@@ -810,28 +591,30 @@ func (s *ObjectService) handleDeleteObjects(w http.ResponseWriter, r *http.Reque
 		return fmt.Errorf("failed to parse delete request: %w", err)
 	}
 
-	userID := s.gateway.getUserID(r)
-	if userID == "" {
-		userID = "anonymous"
-	}
+	userID := s.gateway.requestUserID(r)
 
 	result := DeleteObjectsResult{}
 
 	for _, obj := range req.Objects {
 		objMetadata, err := s.gateway.metadata.GetObject(r.Context(), bucket, obj.Key)
 		if err != nil {
-			if !req.Quiet {
-				result.Error = append(result.Error, DeleteObjectsError{
-					Key:     obj.Key,
-					Code:    "NoSuchKey",
-					Message: fmt.Sprintf("Object '%s' not found", obj.Key),
-				})
-			}
+			result.Error = append(result.Error, DeleteObjectsError{
+				Key:     obj.Key,
+				Code:    "NoSuchKey",
+				Message: fmt.Sprintf("Object '%s' not found", obj.Key),
+			})
 			continue
 		}
 
 		storageTier := common.StorageTier(objMetadata.StorageTier)
-		s.gateway.store.Delete(r.Context(), bucket, obj.Key, storageTier)
+		if err := s.gateway.store.Delete(r.Context(), bucket, obj.Key, storageTier); err != nil {
+			result.Error = append(result.Error, DeleteObjectsError{
+				Key:     obj.Key,
+				Code:    "InternalError",
+				Message: fmt.Sprintf("Failed to delete object data: %v", err),
+			})
+			continue
+		}
 
 		if s.gateway.vector != nil {
 			s.gateway.vector.DeleteVector(r.Context(), bucket, obj.Key)
@@ -845,7 +628,14 @@ func (s *ObjectService) handleDeleteObjects(w http.ResponseWriter, r *http.Reque
 			s.gateway.objectCache.Delete(r.Context(), bucket+"/"+obj.Key)
 		}
 
-		s.gateway.metadata.DeleteObject(r.Context(), bucket, obj.Key)
+		if err := s.gateway.metadata.DeleteObject(r.Context(), bucket, obj.Key); err != nil {
+			result.Error = append(result.Error, DeleteObjectsError{
+				Key:     obj.Key,
+				Code:    "InternalError",
+				Message: fmt.Sprintf("Failed to delete object metadata: %v", err),
+			})
+			continue
+		}
 
 		if s.gateway.eventBus != nil {
 			s.gateway.eventBus.Publish(r.Context(), &events.Event{
@@ -860,10 +650,12 @@ func (s *ObjectService) handleDeleteObjects(w http.ResponseWriter, r *http.Reque
 			})
 		}
 
-		result.Deleted = append(result.Deleted, DeleteObjectsDeleted{
-			Key:       obj.Key,
-			VersionID: objMetadata.VersionID,
-		})
+		if !req.Quiet {
+			result.Deleted = append(result.Deleted, DeleteObjectsDeleted{
+				Key:       obj.Key,
+				VersionID: objMetadata.VersionID,
+			})
+		}
 	}
 
 	s.gateway.auditLog(r, "DELETE_OBJECTS", bucket, "", userID, "success", map[string]interface{}{
@@ -910,10 +702,7 @@ func (s *ObjectService) handleCopyObject(w http.ResponseWriter, r *http.Request,
 		return nil
 	}
 
-	userID := s.gateway.getUserID(r)
-	if userID == "" {
-		userID = "anonymous"
-	}
+	userID := s.gateway.requestUserID(r)
 
 	srcStorageTier := common.StorageTier(srcMeta.StorageTier)
 	srcReader, _, err := s.gateway.store.Get(r.Context(), srcBucket, srcKey, srcStorageTier)
@@ -926,10 +715,8 @@ func (s *ObjectService) handleCopyObject(w http.ResponseWriter, r *http.Request,
 	for k, v := range srcMeta.UserMetadata {
 		metadataMap[k] = v
 	}
-	for k, values := range r.Header {
-		if strings.HasPrefix(strings.ToLower(k), "x-amz-meta-") {
-			metadataMap[strings.TrimPrefix(k, "x-amz-meta-")] = values[0]
-		}
+	for k, v := range parseUserMetadata(r.Header) {
+		metadataMap[k] = v
 	}
 
 	contentType := srcMeta.ContentType
@@ -940,47 +727,32 @@ func (s *ObjectService) handleCopyObject(w http.ResponseWriter, r *http.Request,
 	etag := uuid.New().String()
 	versionID := uuid.New().String()
 
-	objMetadata := &common.ObjectMetadata{
-		Key:            key,
-		Bucket:         bucket,
-		Size:           srcMeta.Size,
-		ContentType:    contentType,
-		ETag:           etag,
-		UserMetadata:   metadataMap,
-		StorageTier:    common.TierHot,
-		CreatedAt:      time.Now(),
-		ModifiedAt:     time.Now(),
-		AccessCount:    0,
-		LastAccessedAt: time.Now(),
-		Encrypted:      srcMeta.Encrypted,
-		VersionID:      versionID,
-	}
+	objMetadata, meta := buildActiveObjectMetadata(activeObjectMetadataInput{
+		Bucket:       bucket,
+		Key:          key,
+		Size:         srcMeta.Size,
+		ContentType:  contentType,
+		ETag:         etag,
+		UserMetadata: metadataMap,
+		StorageTier:  common.TierHot,
+		Encrypted:    srcMeta.Encrypted,
+		VersionID:    versionID,
+	})
 
 	storageTier := common.TierHot
-	if err := s.gateway.store.Put(r.Context(), bucket, key, srcReader, srcMeta.Size, storageTier, objMetadata); err != nil {
-		return fmt.Errorf("failed to copy object: %w", err)
-	}
 
-	meta := &metadata.ObjectMetadata{
-		Key:            key,
-		Bucket:         bucket,
-		Size:           srcMeta.Size,
-		ContentType:    contentType,
-		ETag:           etag,
-		UserMetadata:   metadataMap,
-		StorageTier:    int(common.TierHot),
-		CreatedAt:      time.Now(),
-		ModifiedAt:     time.Now(),
-		AccessCount:    0,
-		LastAccessedAt: time.Now(),
-		Encrypted:      srcMeta.Encrypted,
-		VersionID:      versionID,
-		IsLatest:       true,
-		ObjectStatus:   "active",
-	}
-
-	if err := s.gateway.metadata.PutObject(r.Context(), bucket, key, meta); err != nil {
-		return fmt.Errorf("failed to store metadata: %w", err)
+	if err := s.gateway.putStoredObjectWithMetadata(
+		r.Context(),
+		bucket,
+		key,
+		srcReader,
+		srcMeta.Size,
+		storageTier,
+		objMetadata,
+		meta,
+		"failed to copy object",
+	); err != nil {
+		return err
 	}
 
 	if s.gateway.tiering != nil {

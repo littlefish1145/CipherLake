@@ -7,9 +7,9 @@
 package decrypt
 
 import (
+	common "cipherlake/proto/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	common "nexus/proto/common"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -434,42 +434,42 @@ var File_decrypt_proto protoreflect.FileDescriptor
 
 const file_decrypt_proto_rawDesc = "" +
 	"\n" +
-	"\rdecrypt.proto\x12\rnexus.decrypt\x1a\fcommon.proto\"\xa3\x02\n" +
-	"\x0eDecryptRequest\x12L\n" +
-	"\x12ecdh_encrypted_dek\x18\x01 \x01(\v2\x1e.nexus.common.ECDHEncryptedDEKR\x10ecdhEncryptedDek\x125\n" +
-	"\x17client_ecdh_private_key\x18\x02 \x01(\fR\x14clientEcdhPrivateKey\x12E\n" +
-	"\x10service_ecdh_pub\x18\x03 \x01(\v2\x1b.nexus.common.ECDHPublicKeyR\x0eserviceEcdhPub\x12\x1c\n" +
+	"\rdecrypt.proto\x12\x12cipherlake.decrypt\x1a\x17cipherlake/common.proto\"\xad\x02\n" +
+	"\x0eDecryptRequest\x12Q\n" +
+	"\x12ecdh_encrypted_dek\x18\x01 \x01(\v2#.cipherlake.common.ECDHEncryptedDEKR\x10ecdhEncryptedDek\x125\n" +
+	"\x17client_ecdh_private_key\x18\x02 \x01(\fR\x14clientEcdhPrivateKey\x12J\n" +
+	"\x10service_ecdh_pub\x18\x03 \x01(\v2 .cipherlake.common.ECDHPublicKeyR\x0eserviceEcdhPub\x12\x1c\n" +
 	"\talgorithm\x18\x04 \x01(\tR\talgorithm\x12'\n" +
-	"\x0fassociated_data\x18\x05 \x01(\fR\x0eassociatedData\"\x9a\x01\n" +
+	"\x0fassociated_data\x18\x05 \x01(\fR\x0eassociatedData\"\x9f\x01\n" +
 	"\x0fDecryptResponse\x12'\n" +
 	"\x0fplaintext_chunk\x18\x01 \x01(\fR\x0eplaintextChunk\x12\x1a\n" +
 	"\bsequence\x18\x02 \x01(\x03R\bsequence\x12\x17\n" +
-	"\ais_last\x18\x03 \x01(\bR\x06isLast\x12)\n" +
-	"\x05error\x18\x04 \x01(\v2\x13.nexus.common.ErrorR\x05error\"\xf9\x02\n" +
-	"\x13DecryptChunkRequest\x12L\n" +
-	"\x12ecdh_encrypted_dek\x18\x01 \x01(\v2\x1e.nexus.common.ECDHEncryptedDEKR\x10ecdhEncryptedDek\x125\n" +
-	"\x17client_ecdh_private_key\x18\x02 \x01(\fR\x14clientEcdhPrivateKey\x12E\n" +
-	"\x10service_ecdh_pub\x18\x03 \x01(\v2\x1b.nexus.common.ECDHPublicKeyR\x0eserviceEcdhPub\x12\x1e\n" +
+	"\ais_last\x18\x03 \x01(\bR\x06isLast\x12.\n" +
+	"\x05error\x18\x04 \x01(\v2\x18.cipherlake.common.ErrorR\x05error\"\x83\x03\n" +
+	"\x13DecryptChunkRequest\x12Q\n" +
+	"\x12ecdh_encrypted_dek\x18\x01 \x01(\v2#.cipherlake.common.ECDHEncryptedDEKR\x10ecdhEncryptedDek\x125\n" +
+	"\x17client_ecdh_private_key\x18\x02 \x01(\fR\x14clientEcdhPrivateKey\x12J\n" +
+	"\x10service_ecdh_pub\x18\x03 \x01(\v2 .cipherlake.common.ECDHPublicKeyR\x0eserviceEcdhPub\x12\x1e\n" +
 	"\n" +
 	"ciphertext\x18\x04 \x01(\fR\n" +
 	"ciphertext\x12\x14\n" +
 	"\x05nonce\x18\x05 \x01(\fR\x05nonce\x12\x19\n" +
 	"\bauth_tag\x18\x06 \x01(\fR\aauthTag\x12\x1c\n" +
 	"\talgorithm\x18\a \x01(\tR\talgorithm\x12'\n" +
-	"\x0fassociated_data\x18\b \x01(\fR\x0eassociatedData\"_\n" +
+	"\x0fassociated_data\x18\b \x01(\fR\x0eassociatedData\"d\n" +
 	"\x14DecryptChunkResponse\x12\x1c\n" +
-	"\tplaintext\x18\x01 \x01(\fR\tplaintext\x12)\n" +
-	"\x05error\x18\x02 \x01(\v2\x13.nexus.common.ErrorR\x05error\"\x0f\n" +
+	"\tplaintext\x18\x01 \x01(\fR\tplaintext\x12.\n" +
+	"\x05error\x18\x02 \x01(\v2\x18.cipherlake.common.ErrorR\x05error\"\x0f\n" +
 	"\rHealthRequest\"\x8e\x01\n" +
 	"\x0eHealthResponse\x12\x18\n" +
 	"\ahealthy\x18\x01 \x01(\bR\ahealthy\x12!\n" +
 	"\fservice_name\x18\x02 \x01(\tR\vserviceName\x12\x18\n" +
 	"\aversion\x18\x03 \x01(\tR\aversion\x12%\n" +
-	"\x0euptime_seconds\x18\x04 \x01(\x03R\ruptimeSeconds2\xfc\x01\n" +
-	"\x0eDecryptService\x12J\n" +
-	"\aDecrypt\x12\x1d.nexus.decrypt.DecryptRequest\x1a\x1e.nexus.decrypt.DecryptResponse0\x01\x12W\n" +
-	"\fDecryptChunk\x12\".nexus.decrypt.DecryptChunkRequest\x1a#.nexus.decrypt.DecryptChunkResponse\x12E\n" +
-	"\x06Health\x12\x1c.nexus.decrypt.HealthRequest\x1a\x1d.nexus.decrypt.HealthResponseB\x15Z\x13nexus/proto/decryptb\x06proto3"
+	"\x0euptime_seconds\x18\x04 \x01(\x03R\ruptimeSeconds2\x9a\x02\n" +
+	"\x0eDecryptService\x12T\n" +
+	"\aDecrypt\x12\".cipherlake.decrypt.DecryptRequest\x1a#.cipherlake.decrypt.DecryptResponse0\x01\x12a\n" +
+	"\fDecryptChunk\x12'.cipherlake.decrypt.DecryptChunkRequest\x1a(.cipherlake.decrypt.DecryptChunkResponse\x12O\n" +
+	"\x06Health\x12!.cipherlake.decrypt.HealthRequest\x1a\".cipherlake.decrypt.HealthResponseB\x1aZ\x18cipherlake/proto/decryptb\x06proto3"
 
 var (
 	file_decrypt_proto_rawDescOnce sync.Once
@@ -485,29 +485,29 @@ func file_decrypt_proto_rawDescGZIP() []byte {
 
 var file_decrypt_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_decrypt_proto_goTypes = []any{
-	(*DecryptRequest)(nil),          // 0: nexus.decrypt.DecryptRequest
-	(*DecryptResponse)(nil),         // 1: nexus.decrypt.DecryptResponse
-	(*DecryptChunkRequest)(nil),     // 2: nexus.decrypt.DecryptChunkRequest
-	(*DecryptChunkResponse)(nil),    // 3: nexus.decrypt.DecryptChunkResponse
-	(*HealthRequest)(nil),           // 4: nexus.decrypt.HealthRequest
-	(*HealthResponse)(nil),          // 5: nexus.decrypt.HealthResponse
-	(*common.ECDHEncryptedDEK)(nil), // 6: nexus.common.ECDHEncryptedDEK
-	(*common.ECDHPublicKey)(nil),    // 7: nexus.common.ECDHPublicKey
-	(*common.Error)(nil),            // 8: nexus.common.Error
+	(*DecryptRequest)(nil),          // 0: cipherlake.decrypt.DecryptRequest
+	(*DecryptResponse)(nil),         // 1: cipherlake.decrypt.DecryptResponse
+	(*DecryptChunkRequest)(nil),     // 2: cipherlake.decrypt.DecryptChunkRequest
+	(*DecryptChunkResponse)(nil),    // 3: cipherlake.decrypt.DecryptChunkResponse
+	(*HealthRequest)(nil),           // 4: cipherlake.decrypt.HealthRequest
+	(*HealthResponse)(nil),          // 5: cipherlake.decrypt.HealthResponse
+	(*common.ECDHEncryptedDEK)(nil), // 6: cipherlake.common.ECDHEncryptedDEK
+	(*common.ECDHPublicKey)(nil),    // 7: cipherlake.common.ECDHPublicKey
+	(*common.Error)(nil),            // 8: cipherlake.common.Error
 }
 var file_decrypt_proto_depIdxs = []int32{
-	6, // 0: nexus.decrypt.DecryptRequest.ecdh_encrypted_dek:type_name -> nexus.common.ECDHEncryptedDEK
-	7, // 1: nexus.decrypt.DecryptRequest.service_ecdh_pub:type_name -> nexus.common.ECDHPublicKey
-	8, // 2: nexus.decrypt.DecryptResponse.error:type_name -> nexus.common.Error
-	6, // 3: nexus.decrypt.DecryptChunkRequest.ecdh_encrypted_dek:type_name -> nexus.common.ECDHEncryptedDEK
-	7, // 4: nexus.decrypt.DecryptChunkRequest.service_ecdh_pub:type_name -> nexus.common.ECDHPublicKey
-	8, // 5: nexus.decrypt.DecryptChunkResponse.error:type_name -> nexus.common.Error
-	0, // 6: nexus.decrypt.DecryptService.Decrypt:input_type -> nexus.decrypt.DecryptRequest
-	2, // 7: nexus.decrypt.DecryptService.DecryptChunk:input_type -> nexus.decrypt.DecryptChunkRequest
-	4, // 8: nexus.decrypt.DecryptService.Health:input_type -> nexus.decrypt.HealthRequest
-	1, // 9: nexus.decrypt.DecryptService.Decrypt:output_type -> nexus.decrypt.DecryptResponse
-	3, // 10: nexus.decrypt.DecryptService.DecryptChunk:output_type -> nexus.decrypt.DecryptChunkResponse
-	5, // 11: nexus.decrypt.DecryptService.Health:output_type -> nexus.decrypt.HealthResponse
+	6, // 0: cipherlake.decrypt.DecryptRequest.ecdh_encrypted_dek:type_name -> cipherlake.common.ECDHEncryptedDEK
+	7, // 1: cipherlake.decrypt.DecryptRequest.service_ecdh_pub:type_name -> cipherlake.common.ECDHPublicKey
+	8, // 2: cipherlake.decrypt.DecryptResponse.error:type_name -> cipherlake.common.Error
+	6, // 3: cipherlake.decrypt.DecryptChunkRequest.ecdh_encrypted_dek:type_name -> cipherlake.common.ECDHEncryptedDEK
+	7, // 4: cipherlake.decrypt.DecryptChunkRequest.service_ecdh_pub:type_name -> cipherlake.common.ECDHPublicKey
+	8, // 5: cipherlake.decrypt.DecryptChunkResponse.error:type_name -> cipherlake.common.Error
+	0, // 6: cipherlake.decrypt.DecryptService.Decrypt:input_type -> cipherlake.decrypt.DecryptRequest
+	2, // 7: cipherlake.decrypt.DecryptService.DecryptChunk:input_type -> cipherlake.decrypt.DecryptChunkRequest
+	4, // 8: cipherlake.decrypt.DecryptService.Health:input_type -> cipherlake.decrypt.HealthRequest
+	1, // 9: cipherlake.decrypt.DecryptService.Decrypt:output_type -> cipherlake.decrypt.DecryptResponse
+	3, // 10: cipherlake.decrypt.DecryptService.DecryptChunk:output_type -> cipherlake.decrypt.DecryptChunkResponse
+	5, // 11: cipherlake.decrypt.DecryptService.Health:output_type -> cipherlake.decrypt.HealthResponse
 	9, // [9:12] is the sub-list for method output_type
 	6, // [6:9] is the sub-list for method input_type
 	6, // [6:6] is the sub-list for extension type_name

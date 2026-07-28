@@ -5,11 +5,11 @@ import (
 	"os"
 	"time"
 
-	"nexus/internal/iam"
-	"nexus/internal/services/server"
-	"nexus/internal/services/sts_service"
+	"cipherlake/internal/iam"
+	"cipherlake/internal/services/server"
+	"cipherlake/internal/services/sts_service"
 
-	pb "nexus/proto/sts"
+	pb "cipherlake/proto/sts"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"

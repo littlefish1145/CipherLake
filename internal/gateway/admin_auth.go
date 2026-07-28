@@ -40,14 +40,14 @@ type AuditLogger struct {
 }
 
 type AuditEntry struct {
-	Timestamp  time.Time `json:"timestamp"`
-	UserID    string   `json:"user_id"`
-	IP        string   `json:"ip"`
-	Method    string   `json:"method"`
-	Path      string   `json:"path"`
-	Status    int      `json:"status"`
-	Error     string   `json:"error,omitempty"`
-	UserAgent string   `json:"user_agent"`
+	Timestamp time.Time `json:"timestamp"`
+	UserID    string    `json:"user_id"`
+	IP        string    `json:"ip"`
+	Method    string    `json:"method"`
+	Path      string    `json:"path"`
+	Status    int       `json:"status"`
+	Error     string    `json:"error,omitempty"`
+	UserAgent string    `json:"user_agent"`
 }
 
 func NewAuditLogger(maxSize int) *AuditLogger {
@@ -86,19 +86,19 @@ func (a *AuditLogger) GetEntries(limit int) []AuditEntry {
 }
 
 type AdminAuthenticator struct {
-	config  *AdminAuthConfig
-	users   map[string]*AdminUser
-	mu      sync.RWMutex
+	config *AdminAuthConfig
+	users  map[string]*AdminUser
+	mu     sync.RWMutex
 }
 
 type AdminUser struct {
-	ID        string   `json:"id"`
-	Name      string   `json:"name"`
-	Token     string   `json:"token"`
-	Role      string   `json:"role"`
-	AllowedIPs []string `json:"allowed_ips"`
-	CreatedAt time.Time `json:"created_at"`
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	ID         string     `json:"id"`
+	Name       string     `json:"name"`
+	Token      string     `json:"token"`
+	Role       string     `json:"role"`
+	AllowedIPs []string   `json:"allowed_ips"`
+	CreatedAt  time.Time  `json:"created_at"`
+	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
 }
 
 type AdminPermissions struct {
@@ -115,7 +115,7 @@ type AdminPermissions struct {
 func NewAdminAuthenticator(config *AdminAuthConfig) (*AdminAuthenticator, error) {
 	auth := &AdminAuthenticator{
 		config: config,
-		users: make(map[string]*AdminUser),
+		users:  make(map[string]*AdminUser),
 	}
 
 	if config.TokenFile != "" {
@@ -256,8 +256,8 @@ func (a *AdminAuthenticator) validateMTLS(r *http.Request) (*AdminUser, error) {
 func (a *AdminAuthenticator) GenerateToken(userID string, expiry time.Duration) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
-		"exp":    time.Now().Add(expiry).Unix(),
-		"iat":    time.Now().Unix(),
+		"exp":     time.Now().Add(expiry).Unix(),
+		"iat":     time.Now().Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -448,9 +448,12 @@ func isIPInRange(ip, cidr string) bool {
 }
 
 type SecureAdminServer struct {
-	server   *http.Server
-	auth     *AdminAuthenticator
-	listener net.Listener
+	server    *http.Server
+	auth      *AdminAuthenticator
+	listener  net.Listener
+	wg        sync.WaitGroup
+	startOnce sync.Once
+	stopOnce  sync.Once
 }
 
 func NewSecureAdminServer(port string, auth *AdminAuthenticator, gateway *S3Gateway) (*SecureAdminServer, error) {
@@ -626,17 +629,17 @@ func (s *SecureAdminServer) handleMetrics(gateway *S3Gateway) http.HandlerFunc {
 			return
 		}
 
-		metrics := `# HELP nexus_up Whether Nexus is up
-# TYPE nexus_up gauge
-nexus_up 1
+		metrics := `# HELP cipherlake_up Whether CipherLake is up
+# TYPE cipherlake_up gauge
+cipherlake_up 1
 
-# HELP nexus_requests_total Total number of requests
-# TYPE nexus_requests_total counter
-nexus_requests_total{endpoint="/"} 0
+# HELP cipherlake_requests_total Total number of requests
+# TYPE cipherlake_requests_total counter
+cipherlake_requests_total{endpoint="/"} 0
 
-# HELP nexus_tiering_decisions_total Total number of tiering decisions
-# TYPE nexus_tiering_decisions_total counter
-nexus_tiering_decisions_total 0
+# HELP cipherlake_tiering_decisions_total Total number of tiering decisions
+# TYPE cipherlake_tiering_decisions_total counter
+cipherlake_tiering_decisions_total 0
 `
 
 		w.Header().Set("Content-Type", "text/plain")
@@ -645,29 +648,49 @@ nexus_tiering_decisions_total 0
 }
 
 func (s *SecureAdminServer) Start() error {
-	ln, err := net.Listen("tcp", s.server.Addr)
-	if err != nil {
-		return err
-	}
-	s.listener = ln
-	go s.server.Serve(ln)
-	return nil
+	var startErr error
+	s.startOnce.Do(func() {
+		ln, err := net.Listen("tcp", s.server.Addr)
+		if err != nil {
+			startErr = err
+			return
+		}
+		s.listener = ln
+		s.wg.Add(1)
+		go func() {
+			defer s.wg.Done()
+			_ = s.server.Serve(ln)
+		}()
+	})
+	return startErr
 }
 
 func (s *SecureAdminServer) StartTLS(certFile, keyFile string) error {
-	ln, err := tls.Listen("tcp", s.server.Addr, &tls.Config{
-		MinVersion: tls.VersionTLS12,
+	var startErr error
+	s.startOnce.Do(func() {
+		ln, err := tls.Listen("tcp", s.server.Addr, &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		})
+		if err != nil {
+			startErr = err
+			return
+		}
+		s.listener = ln
+		s.wg.Add(1)
+		go func() {
+			defer s.wg.Done()
+			_ = s.server.Serve(ln)
+		}()
 	})
-	if err != nil {
-		return err
-	}
-	s.listener = ln
-	go s.server.Serve(ln)
-	return nil
+	return startErr
 }
 
 func (s *SecureAdminServer) Stop() error {
-	return s.server.Close()
+	s.stopOnce.Do(func() {
+		_ = s.server.Close()
+	})
+	s.wg.Wait()
+	return nil
 }
 
 func (s *SecureAdminServer) GetAuditLog(limit int) []AuditEntry {
@@ -707,8 +730,8 @@ func loadMTLSConfig(certFile, keyFile, caFile string) (*tls.Config, error) {
 
 	return &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		ClientAuth:  tls.RequireAndVerifyClientCert,
-		ClientCAs:   caCertPool,
-		MinVersion:  tls.VersionTLS12,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    caCertPool,
+		MinVersion:   tls.VersionTLS12,
 	}, nil
 }

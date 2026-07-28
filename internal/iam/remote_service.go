@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"time"
 
-	pb "nexus/proto/sts"
+	pb "cipherlake/proto/sts"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 // RemoteIAMService implements IAMServiceProvider via gRPC calls to sts-service.
-// This allows nexus to perform IAM lookups without opening the BoltDB database
+// This allows cipherlake to perform IAM lookups without opening the BoltDB database
 // directly, which is required in distributed mode where sts-service owns the DB.
 type RemoteIAMService struct {
 	conn   *grpc.ClientConn

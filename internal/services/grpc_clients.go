@@ -4,21 +4,23 @@ import (
 	"context"
 	"crypto/ecdh"
 	"crypto/tls"
+	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	pbcommon "nexus/proto/common"
-	pbdecrypt "nexus/proto/decrypt"
-	pbencrypt "nexus/proto/encrypt"
-	pbkeygen "nexus/proto/keygen"
-	pbkeystore "nexus/proto/keystore"
-	pbkeyunwrap "nexus/proto/keyunwrap"
-	pbtoken "nexus/proto/token"
+	pbcommon "cipherlake/proto/common"
+	pbdecrypt "cipherlake/proto/decrypt"
+	pbencrypt "cipherlake/proto/encrypt"
+	pbkeygen "cipherlake/proto/keygen"
+	pbkeystore "cipherlake/proto/keystore"
+	pbkeyunwrap "cipherlake/proto/keyunwrap"
+	pbtoken "cipherlake/proto/token"
 
-	"nexus/internal/services/token_service"
+	"cipherlake/internal/services/token_service"
 )
 
 // ---------------------------------------------------------------------------
@@ -467,7 +469,7 @@ var (
 // NewDistributedCoordinator – creates EncryptionCoordinator with gRPC clients
 // ===========================================================================
 
-func NewDistributedCoordinator(tokenAddr, keygenAddr, keyunwrapAddr, keystoreAddr string, opaClient *OPAClient, tlsCfg *tls.Config) (*EncryptionCoordinator, error) {
+func NewDistributedCoordinator(tokenAddr, keygenAddr, keyunwrapAddr, encryptAddr, decryptAddr, keystoreAddr string, opaClient *OPAClient, tlsCfg *tls.Config) (*EncryptionCoordinator, error) {
 	tokenSvc, err := NewGRPCTokenService(tokenAddr, tlsCfg)
 	if err != nil {
 		return nil, fmt.Errorf("token service: %w", err)
@@ -475,23 +477,27 @@ func NewDistributedCoordinator(tokenAddr, keygenAddr, keyunwrapAddr, keystoreAdd
 
 	keyGenSvc, err := NewGRPCKeyGenerator(keygenAddr, tlsCfg)
 	if err != nil {
-		tokenSvc.Close()
-		return nil, fmt.Errorf("keygen service: %w", err)
+		return nil, distributedCoordinatorSetupError("keygen", err, tokenSvc)
 	}
 
 	keyUnwrapSvc, err := NewGRPCKeyUnwrapper(keyunwrapAddr, tlsCfg)
 	if err != nil {
-		tokenSvc.Close()
-		keyGenSvc.Close()
-		return nil, fmt.Errorf("keyunwrap service: %w", err)
+		return nil, distributedCoordinatorSetupError("keyunwrap", err, tokenSvc, keyGenSvc)
+	}
+
+	encryptSvc, err := NewGRPCDataEncryptor(encryptAddr, tlsCfg)
+	if err != nil {
+		return nil, distributedCoordinatorSetupError("encrypt", err, tokenSvc, keyGenSvc, keyUnwrapSvc)
+	}
+
+	decryptSvc, err := NewGRPCDataDecryptor(decryptAddr, tlsCfg)
+	if err != nil {
+		return nil, distributedCoordinatorSetupError("decrypt", err, tokenSvc, keyGenSvc, keyUnwrapSvc, encryptSvc)
 	}
 
 	keyStoreSvc, err := NewGRPCKeyStorer(keystoreAddr, tlsCfg)
 	if err != nil {
-		tokenSvc.Close()
-		keyGenSvc.Close()
-		keyUnwrapSvc.Close()
-		return nil, fmt.Errorf("keystore service: %w", err)
+		return nil, distributedCoordinatorSetupError("keystore", err, tokenSvc, keyGenSvc, keyUnwrapSvc, encryptSvc, decryptSvc)
 	}
 
 	return NewEncryptionCoordinator(CoordinatorConfig{
@@ -500,5 +506,21 @@ func NewDistributedCoordinator(tokenAddr, keygenAddr, keyunwrapAddr, keystoreAdd
 		KeyUnwrapService: keyUnwrapSvc,
 		KeyStoreService:  keyStoreSvc,
 		OPAClient:        opaClient,
+		ServiceClosers:   []io.Closer{encryptSvc, decryptSvc},
 	}), nil
+}
+
+func distributedCoordinatorSetupError(service string, setupErr error, closers ...io.Closer) error {
+	return errors.Join(fmt.Errorf("%s service: %w", service, setupErr), closeDistributedCoordinatorClients(closers...))
+}
+
+func closeDistributedCoordinatorClients(closers ...io.Closer) error {
+	var err error
+	for _, closer := range closers {
+		if closer == nil {
+			continue
+		}
+		err = errors.Join(err, closer.Close())
+	}
+	return err
 }

@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"archive/tar"
 	"context"
 	"crypto/rand"
 	"fmt"
@@ -14,7 +15,7 @@ import (
 
 func setupTestDB(t *testing.T) (*bbolt.DB, string) {
 	t.Helper()
-	tmpDir, err := os.MkdirTemp("", "nexus-backup-test-*")
+	tmpDir, err := os.MkdirTemp("", "cipherlake-backup-test-*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,6 +51,74 @@ func teardownTestDB(t *testing.T, db *bbolt.DB, tmpDir string) {
 	t.Helper()
 	db.Close()
 	os.RemoveAll(tmpDir)
+}
+
+func TestCleanupOldBackupsRemovesExpiredFiles(t *testing.T) {
+	db, tmpDir := setupTestDB(t)
+	defer teardownTestDB(t, db, tmpDir)
+
+	backupDir := filepath.Join(tmpDir, "backups")
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatalf("create backup directory: %v", err)
+	}
+	expiredPath := filepath.Join(backupDir, "expired.db")
+	activePath := filepath.Join(backupDir, "active.db")
+	if err := os.WriteFile(expiredPath, []byte("expired"), 0644); err != nil {
+		t.Fatalf("write expired backup: %v", err)
+	}
+	if err := os.WriteFile(activePath, []byte("active"), 0644); err != nil {
+		t.Fatalf("write active backup: %v", err)
+	}
+	if err := os.Chtimes(expiredPath, time.Now().Add(-48*time.Hour), time.Now().Add(-48*time.Hour)); err != nil {
+		t.Fatalf("age expired backup: %v", err)
+	}
+
+	manager := NewBackupManager(db, &BackupConfig{
+		DataDir:       tmpDir,
+		BackupDir:     backupDir,
+		RetentionDays: []int{1},
+	})
+	if err := manager.CleanupOldBackups(context.Background()); err != nil {
+		t.Fatalf("CleanupOldBackups failed: %v", err)
+	}
+	if _, err := os.Stat(expiredPath); !os.IsNotExist(err) {
+		t.Fatalf("expired backup still exists: %v", err)
+	}
+	if _, err := os.Stat(activePath); err != nil {
+		t.Fatalf("active backup missing: %v", err)
+	}
+}
+
+func TestArchiveBucketNameRejectsNonTopLevelJSONEntries(t *testing.T) {
+	tests := []struct {
+		name    string
+		header  *tar.Header
+		want    string
+		wantErr bool
+	}{
+		{name: "valid", header: &tar.Header{Name: "objects.json", Typeflag: tar.TypeReg}, want: "objects"},
+		{name: "nested", header: &tar.Header{Name: "nested/objects.json", Typeflag: tar.TypeReg}, wantErr: true},
+		{name: "wrong extension", header: &tar.Header{Name: "objects.txt", Typeflag: tar.TypeReg}, wantErr: true},
+		{name: "directory", header: &tar.Header{Name: "objects.json", Typeflag: tar.TypeDir}, wantErr: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := archiveBucketName(test.header)
+			if test.wantErr {
+				if err == nil {
+					t.Fatal("archiveBucketName error = nil, want error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("archiveBucketName failed: %v", err)
+			}
+			if got != test.want {
+				t.Fatalf("archiveBucketName = %q, want %q", got, test.want)
+			}
+		})
+	}
 }
 
 func addTestObjects(t *testing.T, db *bbolt.DB, bucket, key, value string) {
@@ -225,7 +294,7 @@ func TestRestoreFromFullAndIncremental(t *testing.T) {
 	}
 
 	// Now restore to a new directory
-	restoreDir, err := os.MkdirTemp("", "nexus-restore-test-*")
+	restoreDir, err := os.MkdirTemp("", "cipherlake-restore-test-*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -396,7 +465,7 @@ func TestCreateConsistentSnapshot(t *testing.T) {
 }
 
 func TestGetLastBackupLSN(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "nexus-lsn-test-*")
+	tmpDir, err := os.MkdirTemp("", "cipherlake-lsn-test-*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -720,7 +789,7 @@ func TestBackupManagerCreateIncrementalBackup(t *testing.T) {
 }
 
 func TestEmptyBackupVerification(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "nexus-empty-test-*")
+	tmpDir, err := os.MkdirTemp("", "cipherlake-empty-test-*")
 	if err != nil {
 		t.Fatal(err)
 	}

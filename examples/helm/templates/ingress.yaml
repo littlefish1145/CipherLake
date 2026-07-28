@@ -2,9 +2,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "nexus.fullname" . }}
+  name: {{ include "cipherlake.fullname" . }}
   labels:
-    {{- include "nexus.labels" . | nindent 4 }}
+    {{- include "cipherlake.labels" . | nindent 4 }}
   {{- with .Values.gateway.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -31,7 +31,7 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ include "nexus.fullname" $ }}
+                name: {{ include "cipherlake.fullname" $ }}
                 port:
                   number: {{ .port }}
           {{- end }}

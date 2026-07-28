@@ -1,0 +1,28 @@
+// Nexus Plugin System — Host Task Interface
+//
+// Cron-style scheduled callbacks (spec §3.13).
+
+package nexus:plugin@1.0.0;
+
+interface task {
+    use nexus:plugin/types.{capability-token, capability-error};
+
+    // schedule registers a cron-triggered callback. When the cron
+    // expression fires, the loader borrows an instance and calls
+    // the plugin's on-task entry point with the given task-id.
+    //
+    // cron uses the standard 5-field unix cron format (minute hour
+    // day-of-month month day-of-week). Sub-minute granularity is
+    // not supported.
+    schedule: func(
+        token: capability-token,
+        cron: string,
+        task-id: u32,
+    ) -> result<u32, capability-error>;
+
+    // cancel cancels a previously scheduled task. Idempotent.
+    cancel: func(
+        token: capability-token,
+        task-id: u32,
+    ) -> result<_, capability-error>;
+}

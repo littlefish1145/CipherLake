@@ -5,8 +5,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"nexus/internal/services/server"
-	"nexus/internal/services/token_service"
+	"cipherlake/internal/services/server"
+	"cipherlake/internal/services/token_service"
 )
 
 func main() {

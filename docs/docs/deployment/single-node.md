@@ -1,6 +1,6 @@
 # Single Node Deployment
 
-This guide covers deploying Nexus on a single server for production use.
+This guide covers deploying CipherLake on a single server for production use.
 
 ## System Requirements
 
@@ -17,15 +17,15 @@ This guide covers deploying Nexus on a single server for production use.
 
 ```bash
 # Download the latest release
-curl -L https://github.com/nexus/nexus/releases/latest/download/nexus-linux-amd64 -o /usr/local/bin/nexus
-curl -L https://github.com/nexus/nexus/releases/latest/download/nexusctl-linux-amd64 -o /usr/local/bin/nexusctl
-chmod +x /usr/local/bin/nexus /usr/local/bin/nexusctl
+curl -L https://github.com/cipherlake/cipherlake/releases/latest/download/cipherlake-linux-amd64 -o /usr/local/bin/cipherlake
+curl -L https://github.com/cipherlake/cipherlake/releases/latest/download/cipherlakectl-linux-amd64 -o /usr/local/bin/cipherlakectl
+chmod +x /usr/local/bin/cipherlake /usr/local/bin/cipherlakectl
 ```
 
 ### Option 2: Docker
 
 ```bash
-docker pull ghcr.io/nexus/nexus:latest
+docker pull ghcr.io/cipherlake/cipherlake:latest
 ```
 
 ## Configuration
@@ -33,17 +33,17 @@ docker pull ghcr.io/nexus/nexus:latest
 1. Create the data directory:
 
 ```bash
-sudo mkdir -p /var/lib/nexus/data
-sudo mkdir -p /var/lib/nexus/metadata
-sudo useradd -r -s /bin/false nexus
-sudo chown -R nexus:nexus /var/lib/nexus
+sudo mkdir -p /var/lib/cipherlake/data
+sudo mkdir -p /var/lib/cipherlake/metadata
+sudo useradd -r -s /bin/false cipherlake
+sudo chown -R cipherlake:cipherlake /var/lib/cipherlake
 ```
 
 2. Create the configuration file:
 
 ```bash
-sudo cp config.yaml /etc/nexus/config.yaml
-sudo editor /etc/nexus/config.yaml
+sudo cp config.yaml /etc/cipherlake/config.yaml
+sudo editor /etc/cipherlake/config.yaml
 ```
 
 3. Set your credentials:
@@ -60,23 +60,23 @@ gateway:
 1. Install the systemd unit files:
 
 ```bash
-sudo cp packaging/systemd/nexus.service /etc/systemd/system/
-sudo cp packaging/systemd/nexus-*.service /etc/systemd/system/
-sudo cp packaging/systemd/nexus.target /etc/systemd/system/
+sudo cp packaging/systemd/cipherlake.service /etc/systemd/system/
+sudo cp packaging/systemd/cipherlake-*.service /etc/systemd/system/
+sudo cp packaging/systemd/cipherlake.target /etc/systemd/system/
 ```
 
 2. Enable and start all services:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable nexus.target
-sudo systemctl start nexus.target
+sudo systemctl enable cipherlake.target
+sudo systemctl start cipherlake.target
 ```
 
 3. Verify all services are running:
 
 ```bash
-sudo systemctl status nexus.target
+sudo systemctl status cipherlake.target
 ```
 
 ## Running with Docker Compose
@@ -93,21 +93,21 @@ For production, enable TLS:
 gateway:
   tls:
     enabled: true
-    cert_file: "/etc/nexus/tls/server.crt"
-    key_file: "/etc/nexus/tls/server.key"
+    cert_file: "/etc/cipherlake/tls/server.crt"
+    key_file: "/etc/cipherlake/tls/server.key"
 ```
 
 Use certbot for Let's Encrypt certificates:
 
 ```bash
-sudo certbot certonly --standalone -d nexus.example.com
-sudo cp /etc/letsencrypt/live/nexus.example.com/fullchain.pem /etc/nexus/tls/server.crt
-sudo cp /etc/letsencrypt/live/nexus.example.com/privkey.pem /etc/nexus/tls/server.key
+sudo certbot certonly --standalone -d cipherlake.example.com
+sudo cp /etc/letsencrypt/live/cipherlake.example.com/fullchain.pem /etc/cipherlake/tls/server.crt
+sudo cp /etc/letsencrypt/live/cipherlake.example.com/privkey.pem /etc/cipherlake/tls/server.key
 ```
 
 ## Health Checks
 
-Nexus exposes health endpoints:
+CipherLake exposes health endpoints:
 
 ```bash
 # Gateway health

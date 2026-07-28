@@ -1,6 +1,8 @@
 package scheduler
 
 import (
+	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -54,6 +56,37 @@ func TestRetryPolicy(t *testing.T) {
 	assert.Equal(t, 1*time.Second, policy.InitialDelay)
 	assert.Equal(t, 60*time.Second, policy.MaxDelay)
 	assert.Equal(t, 2.0, policy.BackoffMultiplier)
+}
+
+func TestRunTaskNowCancellationInterruptsRetryBackoff(t *testing.T) {
+	scheduler := NewScheduler()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	calls := 0
+	_, err := scheduler.RegisterTask(&TaskConfig{
+		Type: "cancellable",
+		Handler: func(context.Context) error {
+			calls++
+			cancel()
+			return errors.New("expected failure")
+		},
+		RetryPolicy: &RetryPolicy{
+			MaxRetries:   1,
+			InitialDelay: time.Hour,
+		},
+	})
+	if err != nil {
+		t.Fatalf("RegisterTask failed: %v", err)
+	}
+
+	err = scheduler.RunTaskNow(ctx, "cancellable")
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("RunTaskNow error = %v, want context canceled", err)
+	}
+	if calls != 1 {
+		t.Fatalf("handler calls = %d, want 1", calls)
+	}
 }
 
 func TestTaskResult(t *testing.T) {

@@ -870,8 +870,8 @@ func (pe *PolicyEvaluator) arnMatch(pattern, arn string) bool {
 
 // extractBucketFromResource extracts bucket name from an ARN resource
 func extractBucketFromResource(resource string) string {
-	// arn:nexus:s3:::bucket-name/key -> bucket-name
-	// arn:nexus:s3:::bucket-name -> bucket-name
+	// arn:cipherlake:s3:::bucket-name/key -> bucket-name
+	// arn:cipherlake:s3:::bucket-name -> bucket-name
 	if !strings.HasPrefix(resource, ARNPrefix+ServiceS3+":::") {
 		return ""
 	}

@@ -14,9 +14,9 @@ import (
 
 // memoryBackend is an in-memory BackendStorage for testing.
 type memoryBackend struct {
-	mu    sync.RWMutex
-	data  map[string][]byte
-	name  string
+	mu   sync.RWMutex
+	data map[string][]byte
+	name string
 	// failPut causes Put to fail for specific shard indices (for fault injection)
 	failPut map[int]bool
 }

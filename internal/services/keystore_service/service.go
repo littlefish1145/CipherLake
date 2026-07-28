@@ -12,7 +12,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"nexus/internal/services"
+	"cipherlake/internal/services"
 )
 
 // KeyStoreService stores encrypted DEKs
@@ -20,7 +20,7 @@ import (
 // Uses independent file storage for persistence
 type KeyStoreService struct {
 	mu       sync.RWMutex
-	dataPath string              // Base path for key storage
+	dataPath string               // Base path for key storage
 	keys     map[string]*KeyEntry // In-memory cache
 	auditLog *AuditLogger
 }

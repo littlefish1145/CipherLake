@@ -6,10 +6,10 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	pb "nexus/proto/keyunwrap"
-	common "nexus/proto/common"
-	"nexus/internal/services/server"
-	"nexus/internal/services"
+	"cipherlake/internal/services"
+	"cipherlake/internal/services/server"
+	common "cipherlake/proto/common"
+	pb "cipherlake/proto/keyunwrap"
 )
 
 // GRPCServer adapts KeyUnwrapService to gRPC interface

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Nexus Crypto Services Launcher - starts all services with color-coded logs."""
+"""CipherLake Crypto Services Launcher - starts all services with color-coded logs."""
 
 import subprocess
 import sys
@@ -18,7 +18,7 @@ SERVICES = [
     ("decrypt-service",   "decrypt-service.exe",    ["-port", "50055"],                                     "\033[94m",   None),
     ("keystore-service",  "keystore-service.exe",   ["-port", "50056", "-data-path", "./data/keystore"],     "\033[97m",   None),
     ("sts-service",       "sts-service.exe",        ["-port", "50057"],                                     "\033[35m",   None),
-    ("nexus",             "nexus.exe",              [],                                                     "\033[33m",   {"NEXUS_IAM_ENABLED": "true", "NEXUS_IAM_STS_SERVICE_ADDR": "localhost:50057"}),
+    ("cipherlake",             "cipherlake.exe",              [],                                                     "\033[33m",   {"CIPHERLAKE_IAM_ENABLED": "true", "CIPHERLAKE_IAM_STS_SERVICE_ADDR": "localhost:50057"}),
 ]
 
 RESET = "\033[0m"
@@ -148,7 +148,7 @@ def monitor():
 def main():
     # Banner
     print(f"\n{BOLD}{'='*60}")
-    print(f"  Nexus Crypto Services Launcher")
+    print(f"  CipherLake Crypto Services Launcher")
     print(f"  {DIM}{len(SERVICES)} services | Ctrl+C to stop all{RESET}")
     print(f"{'='*60}{RESET}\n")
 

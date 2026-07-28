@@ -1,12 +1,12 @@
 version: "2.0"
 
 # Docker 环境专用配置 — 分布式加密微服务 + Milvus 向量后端
-# 由 docker-compose.full.yml 挂载到 /etc/nexus/config.yaml
+# 由 docker-compose.full.yml 挂载到 /etc/cipherlake/config.yaml
 
 node:
   role: "all"
   listen_addr: ":8080"
-  data_dir: "/var/lib/nexus/data"
+  data_dir: "/var/lib/cipherlake/data"
   cluster_peers: []
   domain: "localhost"
 
@@ -22,13 +22,13 @@ encryption:
   kms_type: "local"
   kms_degradation_mode: "reject_writes"
   enable_dedup: true
-  master_key_path: "/var/lib/nexus/keys/master.key"
+  master_key_path: "/var/lib/cipherlake/keys/master.key"
 
 crypto_services:
   enabled: true
   distributed_mode: true           # 分布式模式:通过 gRPC 调用独立微服务
-  key_path: "/var/lib/nexus/keys"
-  keystore_path: "/var/lib/nexus/keystore"
+  key_path: "/var/lib/cipherlake/keys"
+  keystore_path: "/var/lib/cipherlake/keystore"
   opa_address: ""
   consul_address: ""
   audit_size: 10000
@@ -64,7 +64,7 @@ vector:
     username: ""
     password: ""
     db_name: "default"
-    collection_name: "nexus_vectors"
+    collection_name: "cipherlake_vectors"
     shards_num: 2
     replica_number: 1
     index_type: "HNSW"
@@ -89,7 +89,7 @@ vector:
       beam_width_ratio: 4.0
 
 pipelines:
-  config_file: "/etc/nexus/pipelines.yaml"
+  config_file: "/etc/cipherlake/pipelines.yaml"
   max_concurrent: 10
   enabled: true
 
@@ -122,8 +122,8 @@ auth:
 
 iam:
   enabled: true
-  db_path: "/var/lib/nexus/iam/iam.db"
-  master_key_path: "/var/lib/nexus/keys/master.key"
+  db_path: "/var/lib/cipherlake/iam/iam.db"
+  master_key_path: "/var/lib/cipherlake/keys/master.key"
   sts_service_addr: "sts-service:50057"
 
 tls:

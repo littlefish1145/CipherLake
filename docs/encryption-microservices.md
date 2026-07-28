@@ -1,6 +1,6 @@
 # 加密微服务架构
 
-本文档详细说明 Nexus 加密系统从单体模块重构为微服务架构的设计与实现。
+本文档详细说明 CipherLake 加密系统从单体模块重构为微服务架构的设计与实现。
 
 ---
 
@@ -8,7 +8,7 @@
 
 ### 1.1 单体架构的问题
 
-此前，Nexus 的加密功能以单体模块形式内嵌在主进程中：
+此前，CipherLake 的加密功能以单体模块形式内嵌在主进程中：
 
 - **密钥集中风险** — 加密密钥、解密密钥、DEK 全部在同一进程内存中，任一漏洞即可泄露全部密钥材料
 - **无法独立扩展** — 加密和解密的负载特征不同（写少读多），无法分别伸缩
@@ -29,7 +29,7 @@
 
 ```
                               ┌──────────────────────┐
-                              │    Nexus Gateway      │
+                              │    CipherLake Gateway      │
                               │  (S3 API / Admin API) │
                               └──────────┬───────────┘
                                          │
@@ -189,11 +189,11 @@ DEK 生成流程：
   ├─ 5. KeyStoreService.StoreKey(bucket, objectKey, EncryptedDEK)
   │     └─ 返回 keyID
   │
-  ├─ 6. EncryptService.Encrypt(clientECDHPriv, serviceECDHPub, ECDHEncryptedDEK, plaintext, "AES-256-GCM")
+  ├─ 6. EncryptionCoordinator 本地创建流式加密 reader
   │     ├─ ECDH 派生会话密钥 → 解密 ECDHEncryptedDEK → 明文 DEK
-  │     ├─ AES-256-GCM 加密明文
+  │     ├─ AES-256-GCM 分块加密明文,不整对象入内存
   │     └─ 清零 DEK 和会话密钥
-  │     返回: (ciphertext, nonce, authTag)
+  │     返回: (ciphertext reader, nonce metadata)
   │
   └─ 返回: (ciphertext, keyID, nonce+authTag)
 ```
@@ -221,11 +221,11 @@ DEK 生成流程：
   │     └─ 清零 DEK
   │     返回: (ECDHEncryptedDEK, serviceECDHPub)
   │
-  ├─ 6. DecryptService.Decrypt(clientECDHPriv, serviceECDHPub, ECDHEncryptedDEK, ciphertext, nonce, authTag, "AES-256-GCM")
+  ├─ 6. EncryptionCoordinator 本地创建流式解密 reader
   │     ├─ ECDH 派生会话密钥 → 解密 ECDHEncryptedDEK → 明文 DEK
-  │     ├─ AES-256-GCM 解密密文
+  │     ├─ AES-256-GCM 分块解密密文,不整对象入内存
   │     └─ 清零 DEK 和会话密钥
-  │     返回: plaintext
+  │     返回: plaintext reader
   │
   └─ 返回: plaintext
 ```
@@ -273,7 +273,7 @@ DEK 生成流程：
 
 ### 6.1 嵌入式模式（默认）
 
-`config.yaml` 中 `crypto_services.distributed_mode: false` 时，所有微服务以库形式嵌入 Nexus 主进程内运行，通过直接函数调用通信，无需启动独立进程。
+`config.yaml` 中 `crypto_services.distributed_mode: false` 时，所有微服务以库形式嵌入 CipherLake 主进程内运行，通过直接函数调用通信，无需启动独立进程。
 
 适用于：单机部署、开发测试、小型 VPS。
 
@@ -297,7 +297,7 @@ python start_services.py
 ./decrypt-service   -port 50055
 ./keystore-service  -port 50056 -data-path ./data/keystore
 ./sts-service       -port 50057
-./nexus
+./cipherlake
 ```
 
 ### 6.3 配置参考

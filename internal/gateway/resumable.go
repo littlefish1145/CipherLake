@@ -14,13 +14,12 @@ import (
 	"strings"
 	"time"
 
+	"cipherlake/internal/auth"
+	"cipherlake/internal/common"
+	"cipherlake/internal/events"
+	"cipherlake/internal/metadata"
+	"cipherlake/internal/observability"
 	"github.com/google/uuid"
-	"nexus/internal/auth"
-	"nexus/internal/common"
-	"nexus/internal/events"
-	"nexus/internal/metadata"
-	"nexus/internal/observability"
-	"nexus/internal/taskqueue"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -28,17 +27,17 @@ import (
 // Resumable upload metrics
 var (
 	resumableSessionActive = prometheus.NewGauge(prometheus.GaugeOpts{
-		Namespace: "nexus",
+		Namespace: "cipherlake",
 		Name:      "resumable_session_active",
 		Help:      "Current number of active resumable upload sessions",
 	})
 	resumableSessionCompleted = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: "nexus",
+		Namespace: "cipherlake",
 		Name:      "resumable_session_completed_total",
 		Help:      "Total number of completed resumable upload sessions",
 	})
 	resumableSessionExpired = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: "nexus",
+		Namespace: "cipherlake",
 		Name:      "resumable_session_expired_total",
 		Help:      "Total number of expired resumable upload sessions",
 	})
@@ -51,14 +50,14 @@ func init() {
 // ResumableUploadHandler handles tus-style resumable uploads.
 //
 // Coexistence with S3 multipart uploads:
-// When the X-Nexus-Resumable: 1 header is present on a POST request with ?resumable,
+// When the X-CipherLake-Resumable: 1 header is present on a POST request with ?resumable,
 // the resumable upload flow is used. Otherwise, standard S3 multipart upload flow applies.
 // Both flows can coexist for the same bucket because they use separate metadata buckets
 // in BoltDB (resumable_uploads vs uploads) and separate temp file directories
 // (data/uploads/{uploadId}.tmp vs data/uploads/{uploadId}/part-*).
 // The resumable flow uses PATCH to append data and supports offset verification,
 // while S3 multipart uses PUT with part numbers. Clients choose the flow via
-// the X-Nexus-Resumable header or the ?resumable query parameter.
+// the X-CipherLake-Resumable header or the ?resumable query parameter.
 type ResumableUploadHandler struct {
 	gateway    *S3Gateway
 	uploadsDir string
@@ -90,17 +89,9 @@ func (h *ResumableUploadHandler) HandleCreateSession(w http.ResponseWriter, r *h
 		return nil
 	}
 
-	contentType := r.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = "application/octet-stream"
-	}
+	contentType := objectContentType(r.Header)
 
-	metadataMap := make(map[string]string)
-	for k, values := range r.Header {
-		if strings.HasPrefix(strings.ToLower(k), "x-amz-meta-") {
-			metadataMap[strings.TrimPrefix(k, "x-amz-meta-")] = values[0]
-		}
-	}
+	metadataMap := parseUserMetadata(r.Header)
 
 	var totalSize int64 = -1
 	uploadLengthStr := r.Header.Get("Upload-Length")
@@ -149,7 +140,7 @@ func (h *ResumableUploadHandler) HandleCreateSession(w http.ResponseWriter, r *h
 
 	w.Header().Set("Location", "/"+bucket+"/"+key+"?uploadId="+uploadID)
 	w.Header().Set("Upload-Offset", "0")
-	w.Header().Set("X-Nexus-Upload-Id", uploadID)
+	w.Header().Set("X-CipherLake-Upload-Id", uploadID)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 
@@ -230,7 +221,15 @@ func (h *ResumableUploadHandler) HandlePatch(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		return fmt.Errorf("failed to open temp file: %w", err)
 	}
-	defer tempFile.Close()
+	tempFileClosed := false
+	closeTempFile := func() error {
+		if tempFileClosed {
+			return nil
+		}
+		tempFileClosed = true
+		return tempFile.Close()
+	}
+	defer closeTempFile()
 
 	hasher := sha256.New()
 	teeReader := io.TeeReader(r.Body, hasher)
@@ -259,7 +258,7 @@ func (h *ResumableUploadHandler) HandlePatch(w http.ResponseWriter, r *http.Requ
 	// Verify checksum if provided
 	if providedChecksum != "" && computedChecksum != providedChecksum {
 		// Rollback: truncate file back to original offset
-		tempFile.Close()
+		_ = closeTempFile()
 		if err := os.Truncate(tempFilePath, session.Offset); err != nil {
 			// Log but don't fail the rollback
 		}
@@ -279,7 +278,10 @@ func (h *ResumableUploadHandler) HandlePatch(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Check if finalize is requested
-	if r.Header.Get("X-Nexus-Finalize") == "1" {
+	if r.Header.Get("X-CipherLake-Finalize") == "1" {
+		if err := closeTempFile(); err != nil {
+			return fmt.Errorf("failed to close temp file before finalize: %w", err)
+		}
 		return h.HandleFinalize(w, r, bucket, key)
 	}
 
@@ -287,7 +289,7 @@ func (h *ResumableUploadHandler) HandlePatch(w http.ResponseWriter, r *http.Requ
 	if computedChecksum != "" {
 		w.Header().Set("Upload-Checksum", "sha256 "+computedChecksum)
 	}
-	w.Header().Set("X-Nexus-Upload-Id", uploadID)
+	w.Header().Set("X-CipherLake-Upload-Id", uploadID)
 	w.WriteHeader(http.StatusNoContent)
 
 	return nil
@@ -330,14 +332,14 @@ func (h *ResumableUploadHandler) HandleHead(w http.ResponseWriter, r *http.Reque
 	if session.Checksum != "" {
 		w.Header().Set("Upload-Checksum", "sha256 "+session.Checksum)
 	}
-	w.Header().Set("X-Nexus-Upload-Id", uploadID)
+	w.Header().Set("X-CipherLake-Upload-Id", uploadID)
 	w.WriteHeader(http.StatusNoContent)
 
 	return nil
 }
 
 // HandleFinalize completes a resumable upload session.
-// Triggered by X-Nexus-Finalize: 1 header on a PATCH request,
+// Triggered by X-CipherLake-Finalize: 1 header on a PATCH request,
 // or by a separate POST with ?uploadId=...&finalize=1
 func (h *ResumableUploadHandler) HandleFinalize(w http.ResponseWriter, r *http.Request, bucket, key string) error {
 	if _, err := h.gateway.requireIdentity(r, auth.ActionWrite, bucket, key); err != nil {
@@ -379,7 +381,15 @@ func (h *ResumableUploadHandler) HandleFinalize(w http.ResponseWriter, r *http.R
 	if err != nil {
 		return fmt.Errorf("failed to open temp file: %w", err)
 	}
-	defer tempFile.Close()
+	tempFileClosed := false
+	closeTempFile := func() error {
+		if tempFileClosed {
+			return nil
+		}
+		tempFileClosed = true
+		return tempFile.Close()
+	}
+	defer closeTempFile()
 
 	fileInfo, err := tempFile.Stat()
 	if err != nil {
@@ -392,10 +402,7 @@ func (h *ResumableUploadHandler) HandleFinalize(w http.ResponseWriter, r *http.R
 	var encrypted bool
 	var actualStorageSize int64 = contentLength
 
-	userID := h.gateway.getUserID(r)
-	if userID == "" {
-		userID = "anonymous"
-	}
+	userID := h.gateway.requestUserID(r)
 
 	// Trigger encryption if enabled
 	if h.gateway.cryptoCoordinator != nil && h.gateway.config != nil && h.gateway.config.CryptoServices.Enabled {
@@ -414,26 +421,20 @@ func (h *ResumableUploadHandler) HandleFinalize(w http.ResponseWriter, r *http.R
 	etag := uuid.New().String()
 	versionID := uuid.New().String()
 
-	objMetadata := &common.ObjectMetadata{
-		Key:            key,
-		Bucket:         bucket,
-		Size:           contentLength,
-		ContentType:    session.ContentType,
-		ETag:           etag,
-		UserMetadata:   session.Metadata,
-		StorageTier:    common.TierHot,
-		CreatedAt:      time.Now(),
-		ModifiedAt:     time.Now(),
-		AccessCount:    0,
-		LastAccessedAt: time.Now(),
-		Encrypted:      encrypted,
-		VersionID:      versionID,
-	}
+	objMetadata, meta := buildActiveObjectMetadata(activeObjectMetadataInput{
+		Bucket:       bucket,
+		Key:          key,
+		Size:         contentLength,
+		ContentType:  session.ContentType,
+		ETag:         etag,
+		UserMetadata: session.Metadata,
+		StorageTier:  common.TierHot,
+		Encrypted:    encrypted,
+		VersionID:    versionID,
+		EncryptedDEK: encryptedDEKMetadata,
+	})
 
 	storageTier := common.TierHot
-	if err := h.gateway.store.Put(r.Context(), bucket, key, dataReader, actualStorageSize, storageTier, objMetadata); err != nil {
-		return fmt.Errorf("failed to store object: %w", err)
-	}
 
 	// Compute final checksum
 	finalChecksum := session.Checksum
@@ -443,33 +444,21 @@ func (h *ResumableUploadHandler) HandleFinalize(w http.ResponseWriter, r *http.R
 		}
 	}
 
-	meta := &metadata.ObjectMetadata{
-		Key:            key,
-		Bucket:         bucket,
-		Size:           contentLength,
-		ContentType:    session.ContentType,
-		ETag:           etag,
-		UserMetadata:   session.Metadata,
-		StorageTier:    int(common.TierHot),
-		CreatedAt:      time.Now(),
-		ModifiedAt:     time.Now(),
-		AccessCount:    0,
-		LastAccessedAt: time.Now(),
-		Encrypted:      encrypted,
-		VersionID:      versionID,
-		IsLatest:       true,
-		ObjectStatus:   "active",
-		Checksum:       finalChecksum,
-		ChecksumType:   "sha256",
-	}
+	meta.Checksum = finalChecksum
+	meta.ChecksumType = "sha256"
 
-	if encryptedDEKMetadata != nil {
-		meta.EncryptedDEK = encryptedDEKMetadata
-	}
-
-	if err := h.gateway.metadata.PutObject(r.Context(), bucket, key, meta); err != nil {
-		h.gateway.store.Delete(r.Context(), bucket, key, storageTier)
-		return fmt.Errorf("failed to store metadata: %w", err)
+	if err := h.gateway.putStoredObjectWithMetadata(
+		r.Context(),
+		bucket,
+		key,
+		dataReader,
+		actualStorageSize,
+		storageTier,
+		objMetadata,
+		meta,
+		"failed to store object",
+	); err != nil {
+		return err
 	}
 
 	// Mark session as finalized
@@ -477,7 +466,7 @@ func (h *ResumableUploadHandler) HandleFinalize(w http.ResponseWriter, r *http.R
 	h.gateway.metadata.PutResumableSession(r.Context(), session)
 
 	// Close temp file explicitly before cleanup so Windows can delete it.
-	if err := tempFile.Close(); err != nil {
+	if err := closeTempFile(); err != nil {
 		return fmt.Errorf("failed to close temp file: %w", err)
 	}
 
@@ -489,38 +478,16 @@ func (h *ResumableUploadHandler) HandleFinalize(w http.ResponseWriter, r *http.R
 		h.gateway.tiering.RecordAccess(r.Context(), bucket, key, "PUT", userID)
 	}
 
-	// Trigger vector indexing
-	if h.gateway.vector != nil && h.gateway.config.Vector.Enabled {
-		if r.Header.Get("X-Vectorize") != "false" {
-			h.gateway.submitBackgroundTask(r.Context(), taskqueue.KindVectorize, taskqueue.VectorizePayload{
-				Bucket:      bucket,
-				Key:         key,
-				ContentType: session.ContentType,
-				Metadata:    session.Metadata,
-				UserID:      userID,
-			})
-		}
-	}
-
-	// Trigger FTS indexing
-	if h.gateway.ftsIndex != nil && h.gateway.config.FTS.Enabled {
-		if r.Header.Get("X-FTS-Index") != "false" {
-			h.gateway.submitBackgroundTask(r.Context(), taskqueue.KindFTS, taskqueue.FTSPayload{
-				Bucket:      bucket,
-				Key:         key,
-				ContentType: session.ContentType,
-				VersionID:   versionID,
-			})
-		}
-	}
-
-	// Trigger pipeline processing
-	if h.gateway.pipeline != nil {
-		h.gateway.submitBackgroundTask(r.Context(), taskqueue.KindPipeline, taskqueue.PipelinePayload{
-			Bucket:      bucket,
-			Key:         key,
-			ContentType: session.ContentType,
-			Metadata:    session.Metadata,
+	if h.gateway.writeTasks != nil {
+		h.gateway.writeTasks.ScheduleObjectWriteTasks(r.Context(), objectWriteTaskRequest{
+			Bucket:        bucket,
+			Key:           key,
+			ContentType:   session.ContentType,
+			Metadata:      session.Metadata,
+			UserID:        userID,
+			VersionID:     versionID,
+			SkipVectorize: r.Header.Get("X-Vectorize") == "false",
+			SkipFTS:       r.Header.Get("X-FTS-Index") == "false",
 		})
 	}
 
@@ -558,7 +525,7 @@ func (h *ResumableUploadHandler) HandleFinalize(w http.ResponseWriter, r *http.R
 	if encrypted {
 		w.Header().Set("x-amz-server-side-encryption", "AES256")
 	}
-	w.Header().Set("X-Nexus-Upload-Id", uploadID)
+	w.Header().Set("X-CipherLake-Upload-Id", uploadID)
 	w.WriteHeader(http.StatusOK)
 
 	return nil

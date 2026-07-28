@@ -1,10 +1,10 @@
 syntax = "proto3";
 
-package nexus.token;
+package cipherlake.token;
 
-option go_package = "nexus/proto/token";
+option go_package = "cipherlake/proto/token";
 
-import "common.proto";
+import "cipherlake/common.proto";
 
 // TokenService - Issues and validates delegation tokens
 // Uses Ed25519 for signing
@@ -37,8 +37,8 @@ message IssueWriteTokenRequest {
 }
 
 message IssueWriteTokenResponse {
-  nexus.common.DelegationToken token = 1;
-  nexus.common.Error error = 2;
+  cipherlake.common.DelegationToken token = 1;
+  cipherlake.common.Error error = 2;
 }
 
 message IssueReadTokenRequest {
@@ -50,8 +50,8 @@ message IssueReadTokenRequest {
 }
 
 message IssueReadTokenResponse {
-  nexus.common.DelegationToken token = 1;
-  nexus.common.Error error = 2;
+  cipherlake.common.DelegationToken token = 1;
+  cipherlake.common.Error error = 2;
 }
 
 message IssueDeleteTokenRequest {
@@ -62,13 +62,13 @@ message IssueDeleteTokenRequest {
 }
 
 message IssueDeleteTokenResponse {
-  nexus.common.DelegationToken token = 1;
-  nexus.common.Error error = 2;
+  cipherlake.common.DelegationToken token = 1;
+  cipherlake.common.Error error = 2;
 }
 
 message ValidateTokenRequest {
-  nexus.common.DelegationToken token = 1;
-  nexus.common.TokenType expected_type = 2;
+  cipherlake.common.DelegationToken token = 1;
+  cipherlake.common.TokenType expected_type = 2;
 }
 
 message ValidateTokenResponse {
@@ -76,7 +76,7 @@ message ValidateTokenResponse {
   string user_id = 2;
   string bucket = 3;
   string object_key = 4;
-  nexus.common.Error error = 5;
+  cipherlake.common.Error error = 5;
 }
 
 message GetPublicKeyRequest {}
@@ -84,7 +84,7 @@ message GetPublicKeyRequest {}
 message GetPublicKeyResponse {
   bytes public_key = 1;  // Ed25519 public key
   string key_id = 2;
-  nexus.common.Error error = 3;
+  cipherlake.common.Error error = 3;
 }
 
 message HealthRequest {}

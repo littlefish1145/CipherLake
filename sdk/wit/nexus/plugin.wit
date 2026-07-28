@@ -1,0 +1,108 @@
+// Nexus Plugin System — Plugin Exports
+//
+// Entry points a plugin must or may export. The loader dispatches to
+// these based on the event type. See spec §4 for the full contract.
+//
+// All entry points take a capability-token as the first argument. The
+// token grants the plugin the right to call host imports during this
+// invocation; it is scoped to the calling instance.
+
+package nexus:plugin@1.0.0;
+
+interface exports {
+    use nexus:plugin/types.{capability-token, hook-result, ctx-handle, req-handle, payload-handle};
+
+    // wasm-init is called once when the instance is created (borrowed
+    // from the pool). The plugin should perform any per-instance setup
+    // here (caches, connection state). Returns 0 on success, non-zero
+    // on failure (instance creation fails).
+    //
+    // Mandatory (spec §4).
+    wasm-init: func(token: capability-token) -> u32;
+
+    // on-hook is called when a registered S3 hook fires. The plugin
+    // receives a ctx-handle that can be read via host imports
+    // (ctx-read, future) to inspect the operation input.
+    //
+    // hook-id identifies which registered hook fired (plugins can
+    // register multiple hooks with different priorities/handlers).
+    //
+    // Returns hook-result (ok / err / short-circuit / deny).
+    //
+    // Mandatory (spec §4).
+    on-hook: func(token: capability-token, hook-id: u32, ctx: ctx-handle) -> u32;
+
+    // on-request is called when an HTTP request hits a route prefix
+    // the plugin owns (spec §3.4). The plugin is responsible for
+    // sub-routing under its prefix.
+    //
+    // route-id identifies which registered route received the request
+    // (plugins can own multiple prefixes).
+    //
+    // Returns 0 on success, non-zero on error (the loader sends a
+    // 500 to the client).
+    //
+    // Mandatory (spec §4).
+    on-request: func(token: capability-token, route-id: u32, req: req-handle) -> u32;
+
+    // on-install is called once after the plugin is installed (spec §3.5).
+    // Use to initialize persistent state (state:kv keys, hook
+    // registrations, etc.). Returning non-zero aborts the install.
+    //
+    // Optional.
+    on-install: func(token: capability-token) -> u32;
+
+    // on-uninstall is called before the plugin is uninstalled (spec §3.5).
+    // Use to clean up. Returning non-zero aborts the uninstall (the
+    // plugin remains installed; admin must force-uninstall if needed).
+    //
+    // Optional.
+    on-uninstall: func(token: capability-token) -> u32;
+
+    // on-suspend is called before a hot reload (spec §3.5). The plugin
+    // should flush any in-memory state to state:kv. After on-suspend
+    // returns, the instance is destroyed.
+    //
+    // Optional.
+    on-suspend: func(token: capability-token) -> u32;
+
+    // on-resume is called after a hot reload, on the new instance.
+    // The plugin should restore any state it saved in on-suspend.
+    //
+    // Optional.
+    on-resume: func(token: capability-token) -> u32;
+
+    // on-event is called when an event the plugin subscribed to fires
+    // (spec §3.13). Also used for SSE event delivery — the host holds
+    // the long-lived SSE connection and borrows an instance from the
+    // pool to deliver each event.
+    //
+    // event-type-id identifies the event type (mapped by the loader
+    // from string event names to small integers at subscribe time).
+    //
+    // Optional.
+    on-event: func(token: capability-token, event-type-id: u32, payload: payload-handle) -> u32;
+
+    // on-sse-close is called when an SSE connection the plugin owns
+    // is closed (client disconnect / 30s heartbeat timeout, spec §3.13 A7).
+    // The plugin should clean up session state.
+    //
+    // session-id is the same integer the plugin passed to
+    // event:publish when pushing events to this session.
+    //
+    // reason is a small integer:
+    //   0 = client closed
+    //   1 = heartbeat timeout
+    //   2 = server shutting down
+    //   3 = plugin uninstalled
+    //
+    // Optional.
+    on-sse-close: func(token: capability-token, session-id: u32, reason: u32) -> u32;
+
+    // on-task is called when a cron-scheduled task fires (spec §3.13).
+    //
+    // task-id identifies the task (returned by task:schedule).
+    //
+    // Optional.
+    on-task: func(token: capability-token, task-id: u32, payload: payload-handle) -> u32;
+}

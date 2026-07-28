@@ -10,10 +10,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// Event represents a storage event in the Nexus system.
+// Event represents a storage event in the CipherLake system.
 type Event struct {
 	EventID      string    `json:"event_id"`
-	EventType    string    `json:"event_type"`    // e.g., "s3:ObjectCreated:Put"
+	EventType    string    `json:"event_type"` // e.g., "s3:ObjectCreated:Put"
 	Bucket       string    `json:"bucket"`
 	Key          string    `json:"key"`
 	VersionID    string    `json:"version_id"`
@@ -38,13 +38,16 @@ type eventDelivery struct {
 
 // eventWorker processes events sequentially, preserving order for same key.
 type eventWorker struct {
-	id      int
-	ch      chan *eventDelivery
-	sender  *WebhookSender
-	dlq     *DeadLetterQueue
-	metrics *Metrics
-	drainWg *sync.WaitGroup
-	stopCh  chan struct{}
+	id        int
+	ch        chan *eventDelivery
+	sender    *WebhookSender
+	dlq       *DeadLetterQueue
+	metrics   *Metrics
+	drainWg   *sync.WaitGroup
+	stopCh    chan struct{}
+	startOnce sync.Once
+	stopOnce  sync.Once
+	wg        sync.WaitGroup
 }
 
 func newEventWorker(id int, sender *WebhookSender, dlq *DeadLetterQueue, metrics *Metrics, drainWg *sync.WaitGroup) *eventWorker {
@@ -60,11 +63,17 @@ func newEventWorker(id int, sender *WebhookSender, dlq *DeadLetterQueue, metrics
 }
 
 func (w *eventWorker) start() {
-	go w.processLoop()
+	w.startOnce.Do(func() {
+		w.wg.Add(1)
+		go w.processLoop()
+	})
 }
 
 func (w *eventWorker) stop() {
-	close(w.stopCh)
+	w.stopOnce.Do(func() {
+		close(w.stopCh)
+		w.wg.Wait()
+	})
 }
 
 func (w *eventWorker) enqueue(delivery *eventDelivery) {
@@ -72,6 +81,7 @@ func (w *eventWorker) enqueue(delivery *eventDelivery) {
 }
 
 func (w *eventWorker) processLoop() {
+	defer w.wg.Done()
 	for {
 		select {
 		case <-w.stopCh:
@@ -107,11 +117,19 @@ func (w *eventWorker) deliver(delivery *eventDelivery) {
 	}
 }
 
+// callbackSubscription is a lightweight callback-based subscription used
+// by internal consumers such as the plugin loader.
+type callbackSubscription struct {
+	bucket string
+	fn     func(*Event)
+}
+
 // EventBus provides in-process publish/subscribe with key-based sharding
 // for same-key ordering guarantees.
 type EventBus struct {
 	mu            sync.RWMutex
 	subscriptions map[string][]*subscription // bucket -> list of subscriptions
+	callbacks     []*callbackSubscription    // callback subscriptions (e.g. plugin loader)
 	workers       []*eventWorker
 	numWorkers    int
 	sender        *WebhookSender
@@ -120,6 +138,9 @@ type EventBus struct {
 	eventCh       chan *Event
 	stopCh        chan struct{}
 	drainWg       sync.WaitGroup // tracks in-flight events from Publish to delivery completion
+	dispatchWg    sync.WaitGroup // tracks the dispatchLoop goroutine
+	startOnce     sync.Once
+	stopOnce      sync.Once
 }
 
 // NewEventBus creates a new EventBus with the given configuration.
@@ -152,13 +173,16 @@ func NewEventBus(numWorkers int, webhookTimeout time.Duration, dlqDir string, ma
 }
 
 // Start begins event processing workers and the DLQ retry loop.
+// It is safe to call multiple times; subsequent calls are no-ops.
 func (b *EventBus) Start() {
-	for _, w := range b.workers {
-		w.start()
-	}
-	b.dlq.Start(b.sender)
-
-	go b.dispatchLoop()
+	b.startOnce.Do(func() {
+		for _, w := range b.workers {
+			w.start()
+		}
+		b.dlq.Start(b.sender)
+		b.dispatchWg.Add(1)
+		go b.dispatchLoop()
+	})
 }
 
 // SetSSRFBypass enables or disables SSRF URL validation on the webhook sender.
@@ -168,31 +192,43 @@ func (b *EventBus) SetSSRFBypass(bypass bool) {
 }
 
 // Stop gracefully shuts down the event bus.
-// It waits up to 30 seconds for in-flight events to be delivered before closing channels.
+// It is safe to call multiple times; subsequent calls are no-ops.
+// Shutdown order: stop dispatch → drain in-flight → stop workers → stop DLQ.
+// Workers are stopped before the DLQ so that no new retry entries can be
+// enqueued after the DLQ retry loop has exited.
 func (b *EventBus) Stop() {
-	close(b.stopCh)
+	b.stopOnce.Do(func() {
+		close(b.stopCh)
 
-	// Wait for in-flight events to drain with a 30-second timeout
-	drained := make(chan struct{})
-	go func() {
-		b.drainWg.Wait()
-		close(drained)
-	}()
+		// Wait for the dispatch loop to exit so no new events are routed.
+		b.dispatchWg.Wait()
 
-	select {
-	case <-drained:
-		// All in-flight events delivered successfully
-	case <-time.After(30 * time.Second):
-		log.Printf("[nexus] EventBus: drain timeout expired, some events may have been lost")
-	}
+		// Wait for in-flight events to drain with a 30-second timeout.
+		drained := make(chan struct{})
+		go func() {
+			b.drainWg.Wait()
+			close(drained)
+		}()
 
-	b.dlq.Stop()
-	for _, w := range b.workers {
-		w.stop()
-	}
+		select {
+		case <-drained:
+			// All in-flight events delivered successfully
+		case <-time.After(30 * time.Second):
+			log.Printf("[cipherlake] EventBus: drain timeout expired, some events may have been lost")
+		}
+
+		// Stop workers before stopping the DLQ so that no new entries are
+		// enqueued after the DLQ retry loop has exited.
+		for _, w := range b.workers {
+			w.stop()
+		}
+		b.dlq.Stop()
+	})
 }
 
 // Publish publishes an event asynchronously to all matching subscribers.
+// If the bus is shutting down or the context is cancelled, the event is
+// dropped and the in-flight counter is decremented.
 func (b *EventBus) Publish(ctx context.Context, event *Event) {
 	if event.EventID == "" {
 		event.EventID = uuid.New().String()
@@ -206,6 +242,8 @@ func (b *EventBus) Publish(ctx context.Context, event *Event) {
 	select {
 	case b.eventCh <- event:
 	case <-ctx.Done():
+		b.drainWg.Done()
+	case <-b.stopCh:
 		b.drainWg.Done()
 	}
 }
@@ -243,6 +281,16 @@ func (b *EventBus) Unsubscribe(bucket, ruleID string) error {
 	return nil
 }
 
+// SubscribeCallback registers a synchronous callback for events matching
+// bucket. bucket "*" matches events from any bucket. Callbacks are invoked
+// in the dispatch goroutine; callers that need non-blocking delivery should
+// hand the event off to their own goroutine/channel inside fn.
+func (b *EventBus) SubscribeCallback(bucket string, fn func(*Event)) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.callbacks = append(b.callbacks, &callbackSubscription{bucket: bucket, fn: fn})
+}
+
 // GetMetrics returns the metrics instance.
 func (b *EventBus) GetMetrics() *Metrics {
 	return b.metrics
@@ -250,27 +298,77 @@ func (b *EventBus) GetMetrics() *Metrics {
 
 // dispatchLoop reads events from the channel and dispatches them to the
 // appropriate worker based on key hash (for same-key ordering).
+// After receiving the stop signal, it drains any remaining events from the
+// channel before exiting so that in-flight publishes are not silently dropped.
 func (b *EventBus) dispatchLoop() {
+	defer b.dispatchWg.Done()
 	for {
 		select {
 		case <-b.stopCh:
+			b.drainEventChannel()
 			return
 		case event := <-b.eventCh:
-			rules := b.getMatchingRules(event)
-			if len(rules) == 0 {
-				// No matching rules, event will not be delivered - decrement drainWg
-				b.drainWg.Done()
-				continue
-			}
-
-			delivery := &eventDelivery{
-				event: event,
-				rules: rules,
-			}
-
-			workerIdx := b.keyToWorker(event.Key)
-			b.workers[workerIdx].enqueue(delivery)
+			b.dispatch(event)
 		}
+	}
+}
+
+// drainEventChannel dispatches any events remaining in eventCh after the bus
+// has been signalled to stop. Publish checks stopCh before sending, so no new
+// events can arrive once draining begins.
+func (b *EventBus) drainEventChannel() {
+	for {
+		select {
+		case event := <-b.eventCh:
+			b.dispatch(event)
+		default:
+			return
+		}
+	}
+}
+
+// dispatch routes a single event to callbacks and then to the target worker,
+// or decrements the drain counter if no matching rules exist.
+func (b *EventBus) dispatch(event *Event) {
+	b.invokeCallbacks(event)
+
+	rules := b.getMatchingRules(event)
+	if len(rules) == 0 {
+		// No matching rules, event will not be delivered - decrement drainWg
+		b.drainWg.Done()
+		return
+	}
+
+	delivery := &eventDelivery{
+		event: event,
+		rules: rules,
+	}
+
+	workerIdx := b.keyToWorker(event.Key)
+	b.workers[workerIdx].enqueue(delivery)
+}
+
+// invokeCallbacks calls all registered callback subscriptions whose bucket
+// matches the event. Callback failures are swallowed so they cannot break
+// rule-based delivery.
+func (b *EventBus) invokeCallbacks(event *Event) {
+	b.mu.RLock()
+	callbacks := make([]*callbackSubscription, len(b.callbacks))
+	copy(callbacks, b.callbacks)
+	b.mu.RUnlock()
+
+	for _, cb := range callbacks {
+		if cb.bucket != "*" && cb.bucket != event.Bucket {
+			continue
+		}
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[cipherlake] EventBus callback panic: %v", r)
+				}
+			}()
+			cb.fn(event)
+		}()
 	}
 }
 
@@ -282,19 +380,20 @@ func (b *EventBus) keyToWorker(key string) int {
 }
 
 // getMatchingRules returns all rules that match the given event's bucket and filters.
+// Rules registered under bucket "*" match events from any bucket.
 func (b *EventBus) getMatchingRules(event *Event) []*NotificationRule {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
 	var rules []*NotificationRule
-	subs, ok := b.subscriptions[event.Bucket]
-	if !ok {
-		return rules
-	}
-
-	for _, sub := range subs {
-		if sub.rule.Matches(event) {
-			rules = append(rules, sub.rule)
+	for bucket, subs := range b.subscriptions {
+		if bucket != "*" && bucket != event.Bucket {
+			continue
+		}
+		for _, sub := range subs {
+			if sub.rule.Matches(event) {
+				rules = append(rules, sub.rule)
+			}
 		}
 	}
 	return rules

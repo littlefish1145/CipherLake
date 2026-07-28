@@ -6,11 +6,9 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
-	"nexus/internal/common"
-	"nexus/internal/metadata"
+	"cipherlake/internal/metadata"
 
 	"github.com/google/uuid"
 )
@@ -34,8 +32,8 @@ func (s *BucketService) handleListBuckets(w http.ResponseWriter, r *http.Request
 	}
 
 	output := ListBucketsOutput{}
-	output.Owner.ID = "nexus-owner"
-	output.Owner.DisplayName = "Nexus Owner"
+	output.Owner.ID = defaultOwnerID
+	output.Owner.DisplayName = defaultOwnerDisplayName
 	output.Buckets = make([]struct {
 		Bucket struct {
 			Name         string    `xml:"Name"`
@@ -102,6 +100,28 @@ func (s *BucketService) handleDeleteBucket(w http.ResponseWriter, r *http.Reques
 		return fmt.Errorf("method not allowed")
 	}
 
+	// S3 semantics: deleting a non-existent bucket returns 404 NoSuchBucket,
+	// and deleting a non-empty bucket returns 409 BucketNotEmpty. The
+	// metadata layer's DeleteBucket cascades deletes and treats missing
+	// buckets as a no-op for internal/admin callers, so the gateway must
+	// enforce the public S3 contract here.
+	if _, err := s.gateway.metadata.GetBucket(r.Context(), bucket); err != nil {
+		return fmt.Errorf("failed to delete bucket: %w", err)
+	}
+
+	objects, err := s.gateway.metadata.ListObjects(r.Context(), bucket, "", 1)
+	if err != nil {
+		return fmt.Errorf("failed to list objects for bucket emptiness check: %w", err)
+	}
+	if len(objects) > 0 {
+		return fmt.Errorf("%w: bucket %s still has objects", metadata.ErrBucketNotEmpty, bucket)
+	}
+
+	uploads, _ := s.gateway.metadata.ListUploads(r.Context(), bucket)
+	if len(uploads) > 0 {
+		return fmt.Errorf("%w: bucket %s still has in-progress multipart uploads", metadata.ErrBucketNotEmpty, bucket)
+	}
+
 	if err := s.gateway.metadata.DeleteBucket(r.Context(), bucket); err != nil {
 		return fmt.Errorf("failed to delete bucket: %w", err)
 	}
@@ -162,30 +182,14 @@ func (s *BucketService) handleListObjects(w http.ResponseWriter, r *http.Request
 	}
 
 	for _, obj := range objects {
-		if delimiter != "" {
-			idx := strings.Index(obj.Key[len(prefix):], delimiter)
-			if idx >= 0 {
-				output.CommonPrefixes = append(output.CommonPrefixes, struct {
-					Prefix string `xml:"Prefix"`
-				}{Prefix: obj.Key[:len(prefix)+idx+len(delimiter)]})
-				continue
-			}
+		if commonPrefix, ok := commonPrefixForObject(obj.Key, prefix, delimiter); ok {
+			output.CommonPrefixes = append(output.CommonPrefixes, struct {
+				Prefix string `xml:"Prefix"`
+			}{Prefix: commonPrefix})
+			continue
 		}
 
-		output.Contents = append(output.Contents, ListObjectsV2Content{
-			Key:          obj.Key,
-			LastModified: obj.ModifiedAt,
-			ETag:         obj.ETag,
-			Size:         obj.Size,
-			StorageClass: common.StorageTier(obj.StorageTier).String(),
-			Owner: &struct {
-				ID          string `xml:"ID"`
-				DisplayName string `xml:"DisplayName"`
-			}{
-				ID:          "nexus-owner",
-				DisplayName: "nexus-owner",
-			},
-		})
+		output.Contents = append(output.Contents, objectListContent(obj))
 	}
 
 	if output.IsTruncated && len(output.Contents) > 0 {
@@ -255,30 +259,14 @@ func (s *BucketService) handleListObjectsV2(w http.ResponseWriter, r *http.Reque
 	}
 
 	for _, obj := range objects {
-		if delimiter != "" {
-			idx := strings.Index(obj.Key[len(prefix):], delimiter)
-			if idx >= 0 {
-				output.CommonPrefixes = append(output.CommonPrefixes, struct {
-					Prefix string `xml:"Prefix"`
-				}{Prefix: obj.Key[:len(prefix)+idx+len(delimiter)]})
-				continue
-			}
+		if commonPrefix, ok := commonPrefixForObject(obj.Key, prefix, delimiter); ok {
+			output.CommonPrefixes = append(output.CommonPrefixes, struct {
+				Prefix string `xml:"Prefix"`
+			}{Prefix: commonPrefix})
+			continue
 		}
 
-		output.Contents = append(output.Contents, ListObjectsV2Content{
-			Key:          obj.Key,
-			LastModified: obj.ModifiedAt,
-			ETag:         obj.ETag,
-			Size:         obj.Size,
-			StorageClass: common.StorageTier(obj.StorageTier).String(),
-			Owner: &struct {
-				ID          string `xml:"ID"`
-				DisplayName string `xml:"DisplayName"`
-			}{
-				ID:          "nexus-owner",
-				DisplayName: "nexus-owner",
-			},
-		})
+		output.Contents = append(output.Contents, objectListContent(obj))
 	}
 
 	if isTruncated && len(output.Contents) > 0 {
