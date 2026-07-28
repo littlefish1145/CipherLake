@@ -3,8 +3,8 @@ package index
 import (
 	"fmt"
 
-	"nexus/internal/vector/vse/engine/quantizer"
-	"nexus/internal/vector/vse/simd"
+	"cipherlake/internal/vector/vse/engine/quantizer"
+	"cipherlake/internal/vector/vse/simd"
 )
 
 // VamanaIndex wraps VamanaGraph with the same interface as HNSWIndex.
@@ -388,4 +388,4 @@ func (d *DiskANNIndex) PrecomputeADCTable(query []float32) [][]float32 {
 	return d.PQ.PrecomputeQueryDistances(query)
 }
 
-const VamanaDistNorm = 0.0  // not used in ADC, just a marker
+const VamanaDistNorm = 0.0 // not used in ADC, just a marker

@@ -65,6 +65,18 @@ unsafe extern "C" {
         out_result_len: *mut u32,
     );
 
+    #[link_name = "vector.index"]
+    fn host_vector_index(
+        token: u64,
+        bucket_ptr: u32,
+        bucket_len: u32,
+        key_ptr: u32,
+        key_len: u32,
+        vec_ptr: u32,
+        vec_len_floats: u32,
+        out_status: *mut u32,
+    );
+
     #[link_name = "state.get"]
     fn host_state_get(
         token: u64,
@@ -116,13 +128,49 @@ fn vec_to_ptr(v: &Vec<u8>) -> (u32, u32) {
     (v.as_ptr() as u32, v.len() as u32)
 }
 
+fn escape_json_string(s: &str) -> String {
+    let mut out = String::new();
+    for ch in s.chars() {
+        match ch {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if c.is_control() => out.push(' '),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+fn embedding_for_text(text: &str) -> [f32; 4] {
+    let mut hash: u32 = 2166136261;
+    for b in text.as_bytes() {
+        hash ^= *b as u32;
+        hash = hash.wrapping_mul(16777619);
+    }
+    [
+        ((hash & 0xff) as f32) / 255.0,
+        (((hash >> 8) & 0xff) as f32) / 255.0,
+        (((hash >> 16) & 0xff) as f32) / 255.0,
+        (((hash >> 24) & 0xff) as f32) / 255.0,
+    ]
+}
+
 /// Read the request metadata JSON from the host.
 fn read_request_info(req_handle: u64) -> Vec<u8> {
     let mut buf = vec![0u8; 4096];
     let mut len: u32 = 0;
     let mut status: u32 = 0;
     unsafe {
-        host_request_read(req_handle, buf.as_mut_ptr() as u32, buf.len() as u32, &mut len, &mut status);
+        host_request_read(
+            req_handle,
+            buf.as_mut_ptr() as u32,
+            buf.len() as u32,
+            &mut len,
+            &mut status,
+        );
     }
     if status != 0 || len == 0 || len as usize > buf.len() {
         return Vec::new();
@@ -137,7 +185,13 @@ fn read_request_body(req_handle: u64) -> Vec<u8> {
     let mut len: u32 = 0;
     let mut status: u32 = 0;
     unsafe {
-        host_request_body(req_handle, buf.as_mut_ptr() as u32, buf.len() as u32, &mut len, &mut status);
+        host_request_body(
+            req_handle,
+            buf.as_mut_ptr() as u32,
+            buf.len() as u32,
+            &mut len,
+            &mut status,
+        );
     }
     if status != 0 || len as usize > buf.len() {
         return Vec::new();
@@ -160,7 +214,9 @@ fn extract_json_number(json: &str, field: &str) -> Option<u32> {
     let needle = format!("\"{}\":", field);
     let start = json.find(&needle)? + needle.len();
     let rest = &json[start..];
-    let end = rest.find(|c: char| !c.is_ascii_digit() && c != '-' && c != '.').unwrap_or(rest.len());
+    let end = rest
+        .find(|c: char| !c.is_ascii_digit() && c != '-' && c != '.')
+        .unwrap_or(rest.len());
     rest[..end].parse().ok()
 }
 
@@ -203,7 +259,12 @@ fn handle_mcp_messages(req_handle: u64) {
     let body_str = match str::from_utf8(&body) {
         Ok(s) => s,
         Err(_) => {
-            write_response(req_handle, 400, r#"{"Content-Type":"application/json"}"#, b"{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32700,\"message\":\"parse error\"}}");
+            write_response(
+                req_handle,
+                400,
+                r#"{"Content-Type":"application/json"}"#,
+                b"{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32700,\"message\":\"parse error\"}}",
+            );
             return;
         }
     };
@@ -222,33 +283,40 @@ fn handle_mcp_messages(req_handle: u64) {
             let name = extract_json_string(body_str, "name").unwrap_or("");
             match name {
                 "memory_search" => {
-                    // Call vector.search with a hardcoded query and return the
-                    // raw host result (or a friendly fallback).
-                    let vbody = handle_memory_search_body();
-                    format!(r#"{{"jsonrpc":"2.0","result":{{"content":[{{"type":"text","text":"{vbody}"}}]}},":{}}}"#, id.map(|n| n.to_string()).unwrap_or("null".to_string()))
+                    let query = extract_json_string(body_str, "query").unwrap_or("");
+                    let vbody = handle_memory_search_body(query);
+                    let escaped = escape_json_string(&vbody);
+                    format!(r#"{{"jsonrpc":"2.0","result":{{"content":[{{"type":"text","text":"{escaped}"}}]}},"id":{}}}"#, id.map(|n| n.to_string()).unwrap_or("null".to_string()))
                 }
                 "memory_store" => {
                     let key = extract_json_string(body_str, "key").unwrap_or("");
                     let value = extract_json_string(body_str, "value").unwrap_or("");
-                    let result = state_put_str(key, value.as_bytes());
-                    let msg = if result == 0 {
-                        format!(r#"{{"status":"stored","key":"{key}"}}"#)
+                    let state_status = state_put_str(key, value.as_bytes());
+                    let vector_status = if state_status == 0 {
+                        vector_index_str("memory", key, &embedding_for_text(value))
                     } else {
-                        format!(r#"{{"status":"error","host_status":{result}}}"#)
+                        state_status
                     };
-                    let escaped = msg.replace('"', "\\\"");
-                    format!(r#"{{"jsonrpc":"2.0","result":{{"content":[{{"type":"text","text":"{escaped}"}}]}},":{}}}"#, id.map(|n| n.to_string()).unwrap_or("null".to_string()))
+                    let msg = if state_status == 0 && vector_status == 0 {
+                        format!(r#"{{"status":"stored","indexed":true,"key":"{key}"}}"#)
+                    } else if state_status == 0 {
+                        format!(r#"{{"status":"stored","indexed":false,"key":"{key}","vector_status":{vector_status}}}"#)
+                    } else {
+                        format!(r#"{{"status":"error","host_status":{state_status}}}"#)
+                    };
+                    let escaped = escape_json_string(&msg);
+                    format!(r#"{{"jsonrpc":"2.0","result":{{"content":[{{"type":"text","text":"{escaped}"}}]}},"id":{}}}"#, id.map(|n| n.to_string()).unwrap_or("null".to_string()))
                 }
                 "memory_retrieve" => {
                     let key = extract_json_string(body_str, "key").unwrap_or("");
                     let (val, status) = state_get_str(key);
                     let msg = if status == 0 {
-                        format!(r#"{{"status":"found","key":"{key}","value":"{}"}}"#, val.replace('"', "\\\""))
+                        format!(r#"{{"status":"found","key":"{key}","value":"{}"}}"#, escape_json_string(&val))
                     } else {
                         format!(r#"{{"status":"not_found","key":"{key}","host_status":{status}}}"#)
                     };
-                    let escaped = msg.replace('"', "\\\"");
-                    format!(r#"{{"jsonrpc":"2.0","result":{{"content":[{{"type":"text","text":"{escaped}"}}]}},":{}}}"#, id.map(|n| n.to_string()).unwrap_or("null".to_string()))
+                    let escaped = escape_json_string(&msg);
+                    format!(r#"{{"jsonrpc":"2.0","result":{{"content":[{{"type":"text","text":"{escaped}"}}]}},"id":{}}}"#, id.map(|n| n.to_string()).unwrap_or("null".to_string()))
                 }
                 _ => {
                     r#"{"jsonrpc":"2.0","error":{"code":-32601,"message":"tool not found"},"id":ID}"#.replace("ID", &id.map(|n| n.to_string()).unwrap_or("null".to_string()))
@@ -273,8 +341,10 @@ fn state_put_str(key: &str, value: &[u8]) -> u32 {
     unsafe {
         host_state_put(
             token(),
-            key_ptr, key_len,
-            val_ptr, val_len,
+            key_ptr,
+            key_len,
+            val_ptr,
+            val_len,
             0, // no CAS
             &mut status,
             &mut version,
@@ -294,8 +364,10 @@ fn state_get_str(key: &str) -> (String, u32) {
     unsafe {
         host_state_get(
             token(),
-            key_ptr, key_len,
-            buf.as_mut_ptr() as u32, buf.len() as u32,
+            key_ptr,
+            key_len,
+            buf.as_mut_ptr() as u32,
+            buf.len() as u32,
             &mut status,
             &mut len,
             &mut version,
@@ -308,10 +380,29 @@ fn state_get_str(key: &str) -> (String, u32) {
     (String::from_utf8_lossy(&buf).into_owned(), status)
 }
 
+fn vector_index_str(bucket: &str, key: &str, vec: &[f32; 4]) -> u32 {
+    let mut status: u32 = 0;
+    let (bucket_ptr, bucket_len) = string_to_ptr(bucket);
+    let (key_ptr, key_len) = string_to_ptr(key);
+    unsafe {
+        host_vector_index(
+            token(),
+            bucket_ptr,
+            bucket_len,
+            key_ptr,
+            key_len,
+            vec.as_ptr() as u32,
+            vec.len() as u32,
+            &mut status,
+        );
+    }
+    status
+}
+
 /// handle_memory_search_body returns the raw vector search result.
-fn handle_memory_search_body() -> String {
+fn handle_memory_search_body(query_text: &str) -> String {
     let bucket = "memory";
-    let query: [f32; 4] = [0.1, 0.2, 0.3, 0.4];
+    let query = embedding_for_text(query_text);
     let mut result_buf = vec![0u8; 4096];
     let mut len: u32 = 0;
     let mut status: u32 = 0;
@@ -322,8 +413,10 @@ fn handle_memory_search_body() -> String {
     unsafe {
         host_vector_search(
             token(),
-            bucket_ptr, bucket_len,
-            query_ptr, query.len() as u32,
+            bucket_ptr,
+            bucket_len,
+            query_ptr,
+            query.len() as u32,
             3,
             &mut status,
             result_buf.as_mut_ptr() as u32,
@@ -341,10 +434,11 @@ fn handle_memory_search_body() -> String {
 }
 
 fn handle_memory_search(req_handle: u64) {
-    // Phase 1 demo: call vector.search with a hardcoded query and return the
-    // raw host result (or a friendly fallback if unauthorized).
+    let body = read_request_body(req_handle);
+    let body_str = str::from_utf8(&body).unwrap_or("");
+    let query_text = extract_json_string(body_str, "query").unwrap_or("");
     let bucket = "memory";
-    let query: [f32; 4] = [0.1, 0.2, 0.3, 0.4];
+    let query = embedding_for_text(query_text);
     let mut result_buf = vec![0u8; 4096];
     let mut len: u32 = 0;
     let mut status: u32 = 0;
@@ -374,7 +468,9 @@ fn handle_memory_search(req_handle: u64) {
             str::from_utf8(&result_buf).unwrap_or("[]")
         )
     } else {
-        format!("{{\"status\":\"demo\",\"host_status\":{status},\"note\":\"vector.search not yet backed by a real index in Phase 1\"}}")
+        format!(
+            "{{\"status\":\"demo\",\"host_status\":{status},\"note\":\"vector.search not yet backed by a real index in Phase 1\"}}"
+        )
     };
 
     let headers = r#"{"Content-Type":"application/json"}"#;
@@ -408,28 +504,28 @@ fn handle_request(req_handle: u64) {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn wasm_init(token: u64) -> u32 {
-	set_token(token);
-	0
+    set_token(token);
+    0
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn on_hook(token: u64, hook_id: u64, ctx_handle: u64) -> u32 {
-	set_token(token);
-	// Phase 1: no hooks implemented; acknowledge the call.
-	let _ = ctx_handle;
-	let _ = hook_id;
-	0
+    set_token(token);
+    // Phase 1: no hooks implemented; acknowledge the call.
+    let _ = ctx_handle;
+    let _ = hook_id;
+    0
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn on_request(token: u64, route_id: u64, req_handle: u64) -> u32 {
-	set_token(token);
-	let _ = route_id;
-	handle_request(req_handle);
-	0
+    set_token(token);
+    let _ = route_id;
+    handle_request(req_handle);
+    0
 }
 
 fn main() {
-	// This crate is a wasm plugin; the loader calls exported entry points
-	// directly. The Rust std runtime provides _start, which we leave empty.
+    // This crate is a wasm plugin; the loader calls exported entry points
+    // directly. The Rust std runtime provides _start, which we leave empty.
 }

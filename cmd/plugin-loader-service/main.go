@@ -43,6 +43,7 @@ import (
 	"cipherlake/internal/pluginloader"
 	"cipherlake/internal/scheduler"
 	"cipherlake/internal/vector"
+	"cipherlake/internal/vector/vse"
 	pluginpb "cipherlake/proto/plugin"
 )
 
@@ -257,22 +258,19 @@ func wireTier2Services(loader *pluginloader.Loader, cfg *config.Config, logger *
 	// by default in pluginloader.New (see loader.go). No action needed.
 
 	// 5. Vector Search Engine (vector.search).
-	// Wire in the cipherlake VSE (VectorManager) so plugins can run real
-	// vector searches against the same Milvus backend used by the
-	// cipherlake gateway. When Milvus is not configured, the VSE still
-	// initializes but Search returns ErrIndexNotInitialized; plugins
-	// see statusInternal in that case.
+	// Wire in the configured vector backend so plugins can run real vector
+	// searches. index_type=vse uses the embedded VSE; all other values keep
+	// the existing VectorManager/Milvus path.
 	if cfg.Vector.Enabled {
-		vcfg := buildVectorConfig(&cfg.Vector)
-		vm, err := vector.NewVectorManager(vcfg)
+		searcher, backend, err := buildVectorSearcher(cfg)
 		if err != nil {
-			logger.Warn("tier-2: failed to initialize vector manager", zap.Error(err))
+			logger.Warn("tier-2: failed to initialize vector searcher", zap.String("backend", backend), zap.Error(err))
 		} else {
-			loader.SetVectorSearcher(vm)
+			loader.SetVectorSearcher(searcher)
 			logger.Info("tier-2: vector searcher wired",
-				zap.Int("dim", vcfg.Dimension),
-				zap.String("metric", vcfg.MetricType),
-				zap.Bool("milvus", vcfg.Milvus != nil))
+				zap.String("backend", backend),
+				zap.Int("dim", cfg.Vector.Dimension),
+				zap.String("metric", cfg.Vector.MetricType))
 		}
 	} else {
 		logger.Info("tier-2: vector disabled in config; vector.search will return ErrInternal")
@@ -297,6 +295,67 @@ func wireTier2Services(loader *pluginloader.Loader, cfg *config.Config, logger *
 	}
 
 	return nil
+}
+
+func buildVectorSearcher(cfg *config.Config) (pluginloader.VectorSearcher, string, error) {
+	if isEmbeddedVSE(cfg.Vector.IndexType) {
+		return buildEmbeddedVSESearcher(cfg)
+	}
+
+	vcfg := buildVectorConfig(&cfg.Vector)
+	vm, err := vector.NewVectorManager(vcfg)
+	if err != nil {
+		return nil, "milvus", err
+	}
+	return vm, "milvus", nil
+}
+
+func isEmbeddedVSE(indexType string) bool {
+	switch strings.ToLower(strings.TrimSpace(indexType)) {
+	case "vse", "builtin-vse", "embedded-vse":
+		return true
+	default:
+		return false
+	}
+}
+
+func buildEmbeddedVSESearcher(cfg *config.Config) (pluginloader.VectorSearcher, string, error) {
+	dim := cfg.Vector.Dimension
+	if dim <= 0 {
+		dim = 768
+	}
+	metric := vector.MetricType(cfg.Vector.MetricType)
+	if metric == "" {
+		metric = vector.MetricCosine
+	}
+
+	dataDir := filepath.Join(cfg.Node.DataDir, "vse")
+	if cfg.Node.DataDir == "" {
+		dataDir = filepath.Join("data", "plugin-loader-dev", "vse")
+	}
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		return nil, "vse", fmt.Errorf("create VSE data dir: %w", err)
+	}
+
+	store, err := vse.NewBoltStore(filepath.Join(dataDir, "metadata.db"))
+	if err != nil {
+		return nil, "vse", err
+	}
+
+	backend, err := vector.NewVSEBackend(dim, metric, &vse.VSEConfig{
+		DataDir:       dataDir,
+		CacheSize:     1024,
+		HNSWM:         16,
+		HNSWEfSearch:  64,
+		SearchWorkers: 4,
+		MergePolicy:   vse.DefaultMergePolicy(),
+		WarmupPolicy:  vse.DefaultWarmupPolicy(),
+	}, store)
+	if err != nil {
+		_ = store.Close()
+		return nil, "vse", err
+	}
+	return backend, "vse", nil
 }
 
 // buildVectorConfig translates the cipherlake vector config block into
@@ -329,7 +388,7 @@ func buildVectorConfig(cfg *config.VectorConfig) *vector.VectorConfig {
 			Address:          cfg.Milvus.Address,
 			Username:         cfg.Milvus.Username,
 			Password:         cfg.Milvus.Password,
-			DBName:            cfg.Milvus.DBName,
+			DBName:           cfg.Milvus.DBName,
 			CollectionName:   cfg.Milvus.CollectionName,
 			ShardsNum:        cfg.Milvus.ShardsNum,
 			IndexType:        cfg.Milvus.IndexType,
@@ -358,10 +417,10 @@ func buildVectorConfig(cfg *config.VectorConfig) *vector.VectorConfig {
 // loader side; the gateway must accept this token as a trusted internal
 // caller.
 type gatewayStorageClient struct {
-	endpoint    string
-	serviceTok  string
-	httpClient  *http.Client
-	logger      *zap.Logger
+	endpoint   string
+	serviceTok string
+	httpClient *http.Client
+	logger     *zap.Logger
 }
 
 func newGatewayStorageClient(endpoint, serviceToken string, logger *zap.Logger) *gatewayStorageClient {
@@ -591,10 +650,10 @@ func handleAdminInstall(w http.ResponseWriter, r *http.Request, loader *pluginlo
 		keyID = r.FormValue("key_id")
 	case strings.HasPrefix(ct, "application/json"):
 		var body struct {
-			Manifest   json.RawMessage `json:"manifest"`
-			WASM        []byte          `json:"wasm"`
-			Signature   []byte          `json:"signature"`
-			KeyID       string          `json:"key_id"`
+			Manifest  json.RawMessage `json:"manifest"`
+			WASM      []byte          `json:"wasm"`
+			Signature []byte          `json:"signature"`
+			KeyID     string          `json:"key_id"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, "invalid JSON body: "+err.Error(), http.StatusBadRequest)
@@ -626,10 +685,10 @@ func handleAdminInstall(w http.ResponseWriter, r *http.Request, loader *pluginlo
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"installed":    true,
-		"plugin_name":  manifest.Name,
-		"version":      manifest.Version,
-		"trust_tier":   manifest.TrustTierRequested,
+		"installed":   true,
+		"plugin_name": manifest.Name,
+		"version":     manifest.Version,
+		"trust_tier":  manifest.TrustTierRequested,
 	})
 }
 

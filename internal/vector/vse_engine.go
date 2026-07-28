@@ -10,12 +10,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"nexus/internal/vector/vse"
-	"nexus/internal/vector/vse/engine/cache"
-	"nexus/internal/vector/vse/engine/segment"
-	"nexus/internal/vector/vse/gpu"
-	"nexus/internal/vector/vse/planner"
-	"nexus/internal/vector/vse/prefetch"
+	"cipherlake/internal/vector/vse"
+	"cipherlake/internal/vector/vse/engine/cache"
+	"cipherlake/internal/vector/vse/engine/segment"
+	"cipherlake/internal/vector/vse/gpu"
+	"cipherlake/internal/vector/vse/planner"
+	"cipherlake/internal/vector/vse/prefetch"
 )
 
 type VSEBackend struct {
@@ -48,7 +48,7 @@ type VSEBackend struct {
 // latencySampleSize 控制延迟采样窗口大小
 const latencySampleSize = 1024
 
-func NewVSEBackend(dim int, metric MetricType, cfg *VSEConfig, boltStore *vse.BoltStore) (*VSEBackend, error) {
+func NewVSEBackend(dim int, metric MetricType, cfg *vse.VSEConfig, boltStore *vse.BoltStore) (*VSEBackend, error) {
 	vsecfg := &vse.VSEConfig{
 		DataDir:         cfg.DataDir,
 		QuantizerType:   cfg.QuantizerType,
@@ -78,17 +78,18 @@ func NewVSEBackend(dim int, metric MetricType, cfg *VSEConfig, boltStore *vse.Bo
 	if vsecfg.MergePolicy.MergeInterval <= 0 {
 		vsecfg.MergePolicy.MergeInterval = 5 * time.Minute
 	}
+	defaultMergePolicy := vse.DefaultMergePolicy()
 	if vsecfg.MergePolicy.HotTargetSize <= 0 {
-		vsecfg.MergePolicy.HotTargetSize = cfg.HotSegmentSize
+		vsecfg.MergePolicy.HotTargetSize = defaultMergePolicy.HotTargetSize
 	}
 	if vsecfg.MergePolicy.HotMaxSegments <= 0 {
-		vsecfg.MergePolicy.HotMaxSegments = cfg.MaxHotSegments
+		vsecfg.MergePolicy.HotMaxSegments = defaultMergePolicy.HotMaxSegments
 	}
 	if vsecfg.MergePolicy.ColdTargetSize <= 0 {
-		vsecfg.MergePolicy.ColdTargetSize = cfg.ColdSegmentSize
+		vsecfg.MergePolicy.ColdTargetSize = defaultMergePolicy.ColdTargetSize
 	}
 	if vsecfg.MergePolicy.ColdMaxSegments <= 0 {
-		vsecfg.MergePolicy.ColdMaxSegments = cfg.MaxColdSegments
+		vsecfg.MergePolicy.ColdMaxSegments = defaultMergePolicy.ColdMaxSegments
 	}
 
 	var mf vse.MetricType
@@ -468,44 +469,16 @@ func (vb *VSEBackend) GetStats() IndexStats {
 
 	memMB := float64(vb.hotVecCount.Load()) * float64(vb.dim) * 4 / 1024 / 1024
 
-	// 计算扩展指标
-	p50 := vb.percentile(50)
-	p99 := vb.percentile(99)
-
-	// 缓存命中率
-	cacheHitRate := float64(0)
-	if vb.blockCache != nil {
-		cacheHitRate = vb.blockCache.HitRate()
-	}
-
-	// 仅热段查询比例
-	hotOnlyRate := float64(0)
-	totalQ, hotOnlyQ := vb.planner.QueryStats()
-	if totalQ > 0 {
-		hotOnlyRate = float64(hotOnlyQ) / float64(totalQ)
-	}
-
-	// S3 预取次数
-	s3Fetch := int64(0)
-	if vb.prefetch != nil {
-		s3Fetch = vb.prefetch.FetchCount()
-	}
-
 	return IndexStats{
-		TotalVectors:   vb.hotVecCount.Load() + vb.coldVecCount.Load(),
-		HotVectors:     vb.hotVecCount.Load(),
-		ColdVectors:    vb.coldVecCount.Load(),
-		MemoryUsageMB:  memMB,
-		IndexType:      "VSE",
-		Dimension:      vb.dim,
-		LastBuiltAt:    time.Now(),
-		QueryCount:     qc,
-		AvgLatencyMs:   latencyMs,
-		P50LatencyMs:   p50,
-		P99LatencyMs:   p99,
-		S3FetchCount:   s3Fetch,
-		CacheHitRate:   cacheHitRate,
-		HotOnlyHitRate: hotOnlyRate,
+		TotalVectors:  vb.hotVecCount.Load() + vb.coldVecCount.Load(),
+		HotVectors:    vb.hotVecCount.Load(),
+		ColdVectors:   vb.coldVecCount.Load(),
+		MemoryUsageMB: memMB,
+		IndexType:     "VSE",
+		Dimension:     vb.dim,
+		LastBuiltAt:   time.Now(),
+		QueryCount:    qc,
+		AvgLatencyMs:  latencyMs,
 	}
 }
 

@@ -12,11 +12,11 @@ import (
 	"time"
 	"unsafe"
 
-	"nexus/internal/vector/vse"
-	"nexus/internal/vector/vse/engine/index"
-	"nexus/internal/vector/vse/engine/quantizer"
-	"nexus/internal/vector/vse/gpu"
-	"nexus/internal/vector/vse/simd"
+	"cipherlake/internal/vector/vse"
+	"cipherlake/internal/vector/vse/engine/index"
+	"cipherlake/internal/vector/vse/engine/quantizer"
+	"cipherlake/internal/vector/vse/gpu"
+	"cipherlake/internal/vector/vse/simd"
 )
 
 // CreateDiskANNSegment 在磁盘上创建 DiskANN 段：Vamana 图 + PQ 码表 + 精确向量。

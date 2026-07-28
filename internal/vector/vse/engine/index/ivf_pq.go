@@ -4,18 +4,18 @@ import (
 	"sort"
 	"sync"
 
-	"nexus/internal/vector/vse/engine/quantizer"
-	"nexus/internal/vector/vse/simd"
+	"cipherlake/internal/vector/vse/engine/quantizer"
+	"cipherlake/internal/vector/vse/simd"
 )
 
 type IVFPQIndex struct {
-	ivf         *quantizer.IVF
-	pq          *quantizer.PQQuantizer
-	mu          sync.RWMutex
-	dim         int
-	nprobe      int
-	ncentroids  int
-	topKVecs    int
+	ivf        *quantizer.IVF
+	pq         *quantizer.PQQuantizer
+	mu         sync.RWMutex
+	dim        int
+	nprobe     int
+	ncentroids int
+	topKVecs   int
 }
 
 func NewIVFPQIndex(dim, ncentroids, nprobe, subVecs, nbits, topKVecs int) *IVFPQIndex {
@@ -124,5 +124,5 @@ func (idx *IVFPQIndex) Len() int {
 	return total
 }
 
-func (idx *IVFPQIndex) IVF() *quantizer.IVF { return idx.ivf }
+func (idx *IVFPQIndex) IVF() *quantizer.IVF        { return idx.ivf }
 func (idx *IVFPQIndex) PQ() *quantizer.PQQuantizer { return idx.pq }

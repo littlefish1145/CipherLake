@@ -11,13 +11,13 @@
 //   - The first argument is always the capability token (u64).
 //   - String/byte buffers are passed as (ptr, len) pairs (i32 each).
 //   - Results are written through out-parameters; status is a u32:
-//       0 = OK
-//       1 = ErrUnauthorized
-//       2 = ErrNotFound
-//       3 = ErrVersionConflict
-//       4 = ErrBufferTooSmall
-//       5 = ErrInvalidArgs
-//       100 = ErrInternal
+//     0 = OK
+//     1 = ErrUnauthorized
+//     2 = ErrNotFound
+//     3 = ErrVersionConflict
+//     4 = ErrBufferTooSmall
+//     5 = ErrInvalidArgs
+//     100 = ErrInternal
 package pluginloader
 
 import (
@@ -67,6 +67,10 @@ var ErrNotFound = errors.New("pluginloader: object not found")
 // VectorSearcher is the subset of the vector manager used by host imports.
 type VectorSearcher interface {
 	Search(ctx context.Context, query vector.Vector, topK int, filters map[string]string) ([]vector.SearchResult, error)
+}
+
+type VectorIndexer interface {
+	Insert(ctx context.Context, vectors []vector.Vector) error
 }
 
 // StorageClient is the subset of the storage layer used by host imports.
@@ -127,7 +131,7 @@ type HostImports struct {
 	pluginTracer *PluginTracer
 
 	// Tier-2-only service integrations (spec §3.7 A4, P5-5).
-	policyEvaluator PolicyEvaluator
+	policyEvaluator  PolicyEvaluator
 	dataKeyGenerator DataKeyGenerator
 	auditSigner      AuditSigner
 	hookRegistrar    HookRegistrar
@@ -932,7 +936,55 @@ func (h *HostImports) vectorIndex(ctx context.Context, m api.Module, token uint6
 	if mem == nil {
 		return
 	}
-	writeStatus(mem, outStatus, statusUnauthorized)
+	if err := h.caps.Authorize(CapabilityToken(token), "vector:index"); err != nil {
+		writeStatus(mem, outStatus, statusUnauthorized)
+		return
+	}
+	bucket, ok := readString(mem, bucketPtr, bucketLen)
+	if !ok || bucket == "" {
+		writeStatus(mem, outStatus, statusInvalidArgs)
+		return
+	}
+	key, ok := readString(mem, keyPtr, keyLen)
+	if !ok || key == "" {
+		writeStatus(mem, outStatus, statusInvalidArgs)
+		return
+	}
+	requestedCap := "vector:index:" + bucket + "/*"
+	if err := h.caps.Authorize(CapabilityToken(token), requestedCap); err != nil {
+		writeStatus(mem, outStatus, statusUnauthorized)
+		return
+	}
+	indexer, ok := h.vector.(VectorIndexer)
+	if !ok || indexer == nil {
+		writeStatus(mem, outStatus, statusInternal)
+		return
+	}
+	vecBytes, ok := readBytes(mem, vecPtr, vecLenFloats*4)
+	if !ok || vecLenFloats == 0 {
+		writeStatus(mem, outStatus, statusInvalidArgs)
+		return
+	}
+	values := make([]float32, vecLenFloats)
+	for i := uint32(0); i < vecLenFloats; i++ {
+		bits := binary.LittleEndian.Uint32(vecBytes[i*4:])
+		values[i] = math.Float32frombits(bits)
+	}
+	if err := indexer.Insert(ctx, []vector.Vector{{
+		ID:        bucket + "/" + key,
+		Bucket:    bucket,
+		ObjectKey: key,
+		Values:    values,
+		Dimension: int(vecLenFloats),
+		Metadata: map[string]string{
+			"plugin": h.pluginNameForToken(CapabilityToken(token)),
+		},
+	}}); err != nil {
+		h.logger.Error("vector.index failed", zap.Error(err), zap.String("bucket", bucket), zap.String("key", key))
+		writeStatus(mem, outStatus, statusInternal)
+		return
+	}
+	writeStatus(mem, outStatus, statusOK)
 }
 
 // observability.log-emit(token, level_ptr, level_len, json_ptr, json_len)
@@ -1047,7 +1099,8 @@ func (h *HostImports) traceSpanEnd(ctx context.Context, m api.Module, token uint
 // Performs an outbound HTTP request on behalf of the plugin. The plugin must
 // hold the net:egress capability and the URL must pass the network egress
 // whitelist (spec §3.10, P2-3). The response is written as a JSON object:
-//   {"status":200,"status_text":"OK","headers":{},"body_b64":"..."}
+//
+//	{"status":200,"status_text":"OK","headers":{},"body_b64":"..."}
 func (h *HostImports) httpFetch(ctx context.Context, m api.Module, token uint64, methodPtr uint32, methodLen uint32, urlPtr uint32, urlLen uint32, headersPtr uint32, headersLen uint32, bodyPtr uint32, bodyLen uint32, timeoutMs uint32, outStatus uint32, outRespPtr uint32, outRespCap uint32, outRespLen uint32) {
 	mem := m.Memory()
 	if mem == nil {
@@ -1234,8 +1287,8 @@ func (h *HostImports) routeEventPublish(ctx context.Context, m api.Module, token
 	eventType, _ := readString(mem, eventTypePtr, eventTypeLen)
 	payload, _ := readBytes(mem, payloadPtr, payloadLen)
 	logger.AuditLogger("route.event-publish", c.PluginName, "", "allowed", map[string]interface{}{
-		"session_id": sessionID,
-		"event_type": eventType,
+		"session_id":    sessionID,
+		"event_type":    eventType,
 		"payload_bytes": len(payload),
 	})
 	writeStatus(mem, outStatus, statusOK)
@@ -1502,7 +1555,8 @@ func (h *HostImports) taskRead(ctx context.Context, m api.Module, token uint64, 
 // pipeline.read(token, step_handle, out_ptr, out_cap, out_len, out_status)
 //
 // Writes a JSON object describing the pipeline step input:
-//   {"key":"...","bucket":"...","content_type":"...","user_metadata":{},"body_len":N}
+//
+//	{"key":"...","bucket":"...","content_type":"...","user_metadata":{},"body_len":N}
 func (h *HostImports) pipelineRead(ctx context.Context, m api.Module, token uint64, stepHandle uint64, outPtr uint32, outCap uint32, outLen uint32, outStatus uint32) {
 	mem := m.Memory()
 	if mem == nil {

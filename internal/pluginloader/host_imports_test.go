@@ -17,8 +17,8 @@ import (
 
 	"cipherlake/internal/config"
 	"cipherlake/internal/events"
-	pluginpb "cipherlake/proto/plugin"
 	"cipherlake/internal/vector"
+	pluginpb "cipherlake/proto/plugin"
 )
 
 // newTestLoader creates a Loader backed by a temporary Raft data directory.
@@ -68,7 +68,8 @@ func newTestMemoryModule(t testing.TB, ctx context.Context, rt wazero.Runtime) a
 }
 
 // memoryModuleBytes is a hand-built WASM module:
-//   (module (memory 1) (export "memory" (memory 0)))
+//
+//	(module (memory 1) (export "memory" (memory 0)))
 var memoryModuleBytes = []byte{
 	0x00, 0x61, 0x73, 0x6d, // magic
 	0x01, 0x00, 0x00, 0x00, // version
@@ -127,7 +128,7 @@ func TestHostImports_StatePutGet(t *testing.T) {
 	// state.put(token, key_ptr, key_len, val_ptr, val_len, expected_version, out_status, out_version)
 	h.statePut(ctx, mod, uint64(tok),
 		base, uint32(len(key)),
-		base + 128, uint32(len(value)),
+		base+128, uint32(len(value)),
 		0,
 		base+256,
 		base+260,
@@ -142,7 +143,7 @@ func TestHostImports_StatePutGet(t *testing.T) {
 	// state.get(token, key_ptr, key_len, val_ptr, val_cap, out_status, out_len, out_version)
 	h.stateGet(ctx, mod, uint64(tok),
 		base, uint32(len(key)),
-		base + 512, 128,
+		base+512, 128,
 		base+256,
 		base+260,
 		base+268,
@@ -164,13 +165,13 @@ func TestHostImports_StatePutGet(t *testing.T) {
 
 func manifestBytesWithGrants(name string, grants []ManifestGrant) []byte {
 	m := Manifest{
-		ManifestVersion:      SupportedManifestVersion,
-		APIVersion:           ">=1.0.0 <2.0.0",
-		Name:                 name,
-		Version:              "1.0.0",
-		TrustTierRequested:   0,
-		Capabilities:         []string{"state:kv"},
-		Grants:               grants,
+		ManifestVersion:    SupportedManifestVersion,
+		APIVersion:         ">=1.0.0 <2.0.0",
+		Name:               name,
+		Version:            "1.0.0",
+		TrustTierRequested: 0,
+		Capabilities:       []string{"state:kv"},
+		Grants:             grants,
 	}
 	b, _ := json.Marshal(m)
 	return b
@@ -321,7 +322,7 @@ func TestHostImports_StateCAS(t *testing.T) {
 		writeTestMemory(t, mem, base+128, v)
 		h.statePut(ctx, mod, uint64(tok),
 			base, uint32(len(key)),
-			base + 128, uint32(len(v)),
+			base+128, uint32(len(v)),
 			expected,
 			base+256,
 			base+260,
@@ -340,7 +341,7 @@ func TestHostImports_StateCAS(t *testing.T) {
 	writeTestMemory(t, mem, base+128, []byte("v3"))
 	h.stateCas(ctx, mod, uint64(tok),
 		base, uint32(len(key)),
-		base + 128, uint32(len("v3")),
+		base+128, uint32(len("v3")),
 		3,
 		base+256,
 		base+260,
@@ -684,7 +685,7 @@ func TestHostImports_VectorSearchMock(t *testing.T) {
 
 	h.vectorSearch(ctx, mod, uint64(tok),
 		base, uint32(len(bucket)),
-		base + 128, 3,
+		base+128, 3,
 		10,
 		base+256,
 		base+1024,
@@ -1111,12 +1112,12 @@ func TestHostImports_PipelineReadBodyWrite(t *testing.T) {
 	}
 
 	inv := &pipelineInvocation{
-		pluginName:  "pipe-plugin",
-		key:         "obj",
-		bucket:      "b",
-		contentType: "text/plain",
+		pluginName:   "pipe-plugin",
+		key:          "obj",
+		bucket:       "b",
+		contentType:  "text/plain",
 		userMetadata: map[string]string{"m": "1"},
-		body:        []byte("input"),
+		body:         []byte("input"),
 	}
 	handle := l.allocatePipelineContext(inv)
 
@@ -1418,7 +1419,7 @@ func TestHostImports_StorageStubs(t *testing.T) {
 	}
 }
 
-func TestHostImports_VectorIndexStub(t *testing.T) {
+func TestHostImports_VectorIndexRequiresIndexer(t *testing.T) {
 	l := newTestLoader(t)
 	defer l.Shutdown()
 
@@ -1434,8 +1435,13 @@ func TestHostImports_VectorIndexStub(t *testing.T) {
 	}
 
 	const base uint32 = 64
+	writeTestMemory(t, mem, base, []byte("memories"))
+	writeTestMemory(t, mem, base+16, []byte("obj1"))
+	vec := make([]byte, 16)
+	writeTestMemory(t, mem, base+32, vec)
+
 	h.vectorIndex(ctx, mod, uint64(tok), base, 8, base+16, 8, base+32, 4, base+512)
-	if readTestUint32(t, mem, base+512) != statusUnauthorized {
+	if readTestUint32(t, mem, base+512) != statusInternal {
 		t.Fatalf("vector.index status = %d", readTestUint32(t, mem, base+512))
 	}
 }

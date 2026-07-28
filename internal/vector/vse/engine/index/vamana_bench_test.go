@@ -2,14 +2,14 @@ package index
 
 import (
 	"fmt"
-	"os"
 	"math/rand"
+	"os"
 	"sort"
 	"testing"
 	"time"
 
-	"nexus/internal/vector/vse/engine/quantizer"
-	"nexus/internal/vector/vse/simd"
+	"cipherlake/internal/vector/vse/engine/quantizer"
+	"cipherlake/internal/vector/vse/simd"
 )
 
 // ---------------------------------------------------------------------------
@@ -17,13 +17,13 @@ import (
 // ---------------------------------------------------------------------------
 
 type benchDataset struct {
-	dim    int
-	n      int
-	nq     int
-	vecs   []float32 // n*dim 扁平
-	ids    []uint64
-	queries []float32 // nq*dim 扁平
-	gt     [][]uint64 // nq × topK 精确近邻 ID
+	dim     int
+	n       int
+	nq      int
+	vecs    []float32 // n*dim 扁平
+	ids     []uint64
+	queries []float32  // nq*dim 扁平
+	gt      [][]uint64 // nq × topK 精确近邻 ID
 }
 
 func generateDataset(n, dim, nq, topK int, seed int64) *benchDataset {
@@ -47,7 +47,7 @@ func generateDataset(n, dim, nq, topK int, seed int64) *benchDataset {
 	for qi := 0; qi < nq; qi++ {
 		qOff := qi * dim
 		type nn struct {
-			id  uint64
+			id   uint64
 			dist float32
 		}
 		res := make([]nn, n)
@@ -89,8 +89,8 @@ func l2Sq(a, b []float32) float32 {
 
 func BenchmarkDiskANNRecallSynthetic(b *testing.B) {
 	dim := 128
-	n := 10000   // 训练向量数
-	nq := 100    // 查询数
+	n := 10000 // 训练向量数
+	nq := 100  // 查询数
 	topK := 10
 	R := 32
 	L := 128
@@ -184,7 +184,7 @@ func TestVamanaParameterScan(t *testing.T) {
 	ds := generateDataset(n, dim, nq, topK, 42)
 
 	configs := []struct {
-		R, L int
+		R, L  int
 		alpha float64
 	}{
 		{16, 64, 1.0},
@@ -300,15 +300,15 @@ func BenchmarkDiskANNRecallClustered(b *testing.B) {
 	topK := 10
 
 	type paramSet struct {
-		R, L        int
-		alpha       float64
-		M           int
+		R, L         int
+		alpha        float64
+		M            int
 		expectRecall float64
 	}
 	params := []paramSet{
-		{64, 128, 1.2, 64, 0.85},  // 推荐配置：宽图 + 细粒度 PQ
-		{32, 256, 1.2, 64, 0.70},  // 窄图 + 长搜索
-		{32, 128, 1.2, 32, 0.50},  // 粗粒度 PQ，低预期
+		{64, 128, 1.2, 64, 0.85}, // 推荐配置：宽图 + 细粒度 PQ
+		{32, 256, 1.2, 64, 0.70}, // 窄图 + 长搜索
+		{32, 128, 1.2, 32, 0.50}, // 粗粒度 PQ，低预期
 	}
 
 	for _, p := range params {
@@ -384,7 +384,7 @@ func BenchmarkDiskANNvsHNSW(b *testing.B) {
 			for qi := 0; qi < nq; qi++ {
 				query := ds.queries[qi*dim : (qi+1)*dim]
 				type nn struct {
-					id  uint64
+					id   uint64
 					dist float32
 				}
 				all := make([]nn, n)

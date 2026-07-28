@@ -5,7 +5,7 @@ import (
 	"os"
 	"unsafe"
 
-	"nexus/internal/vector/vse/simd"
+	"cipherlake/internal/vector/vse/simd"
 	"golang.org/x/sys/cpu"
 )
 
@@ -113,9 +113,9 @@ func MmapAoS(file *os.File, dim, count int) (*VectorPage, error) {
 	}, nil
 }
 
-func (vp *VectorPage) Dim() int    { return vp.dim }
-func (vp *VectorPage) Count() int  { return vp.count }
-func (vp *VectorPage) Cap() int    { return vp.capacity }
+func (vp *VectorPage) Dim() int             { return vp.dim }
+func (vp *VectorPage) Count() int           { return vp.count }
+func (vp *VectorPage) Cap() int             { return vp.capacity }
 func (vp *VectorPage) Base() unsafe.Pointer { return vp.base }
 
 func (vp *VectorPage) Close() error {

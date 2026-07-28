@@ -11,8 +11,8 @@ import (
 	"time"
 	"unsafe"
 
-	"nexus/internal/vector/vse/simd"
-	"nexus/internal/vector/vse/storage/mmap"
+	"cipherlake/internal/vector/vse/simd"
+	"cipherlake/internal/vector/vse/storage/mmap"
 )
 
 type searchScratch struct {
@@ -171,17 +171,17 @@ func distSIMDDotProduct(a, b []float32) float32 {
 // ---------------------------------------------------------------------------
 
 type FlatHNSW struct {
-	dim           int
-	M             int
-	Mmax          int
-	Mmax0         int
-	Ml            float64
-	EfSearch      int
-	EfConstruction int
-	metric        MetricType
+	dim                   int
+	M                     int
+	Mmax                  int
+	Mmax0                 int
+	Ml                    float64
+	EfSearch              int
+	EfConstruction        int
+	metric                MetricType
 	CheckRelativeDistance bool
 	PruneHeadroom         float32
-	rng      *rand.Rand
+	rng                   *rand.Rand
 
 	count    int
 	capacity int
@@ -241,8 +241,8 @@ func NewFlatHNSW(dim int, m int, efSearch int, ml float64, mt MetricType) *FlatH
 		efCon = 40
 	}
 	h := &FlatHNSW{
-		dim:             dim,
-		M:               m,
+		dim:                   dim,
+		M:                     m,
 		Mmax:                  m * 2,
 		Mmax0:                 m * 2,
 		Ml:                    ml,
@@ -251,15 +251,15 @@ func NewFlatHNSW(dim int, m int, efSearch int, ml float64, mt MetricType) *FlatH
 		metric:                mt,
 		CheckRelativeDistance: false,
 		PruneHeadroom:         0.0,
-		rng:             rand.New(rand.NewSource(time.Now().UnixNano())),
-		count:           0,
-		capacity:        initCap,
-		levels:          make([]int32, initCap),
-		vectors:         make([]float32, initCap*dim),
-		ids:             make([]uint64, initCap),
-		neighbors:       make([][]int32, initCap),
-		norms:           make([]float32, initCap),
-		neighborBuf:     make([]int32, 0, m),
+		rng:                   rand.New(rand.NewSource(time.Now().UnixNano())),
+		count:                 0,
+		capacity:              initCap,
+		levels:                make([]int32, initCap),
+		vectors:               make([]float32, initCap*dim),
+		ids:                   make([]uint64, initCap),
+		neighbors:             make([][]int32, initCap),
+		norms:                 make([]float32, initCap),
+		neighborBuf:           make([]int32, 0, m),
 	}
 	h.initScratchPool(bufSize)
 	return h
@@ -324,28 +324,28 @@ func MmapFlatHNSW(path string, mt MetricType) (*FlatHNSW, error) {
 		bufSize = 64
 	}
 	h := &FlatHNSW{
-		dim:             dim,
-		M:               m,
-		Mmax:            m,
-		Mmax0:           m * 2,
-		Ml:              ml,
-		EfSearch:        efSearch,
-		EfConstruction:  efSearch,
-		metric:          mt,
-		ep:              ep,
-		count:           count,
-		capacity:        count,
-		levels:          levels,
-		vectors:         vectors,
-		ids:             ids,
-		neighbors:       neighbors,
-		mmapReader:      r,
-		candHeap:        minHeap{data: make([]searchCandidate, 0, bufSize)},
-		resultMax:       maxHeap{data: make([]searchCandidate, 0, bufSize)},
-		visited:         make([]int32, count),
-		neighborBuf:     make([]int32, 0, m),
-		distsBuf:        make([]float32, 0, m*2),
-		idxBuf:          make([]int, 0, m*2),
+		dim:            dim,
+		M:              m,
+		Mmax:           m,
+		Mmax0:          m * 2,
+		Ml:             ml,
+		EfSearch:       efSearch,
+		EfConstruction: efSearch,
+		metric:         mt,
+		ep:             ep,
+		count:          count,
+		capacity:       count,
+		levels:         levels,
+		vectors:        vectors,
+		ids:            ids,
+		neighbors:      neighbors,
+		mmapReader:     r,
+		candHeap:       minHeap{data: make([]searchCandidate, 0, bufSize)},
+		resultMax:      maxHeap{data: make([]searchCandidate, 0, bufSize)},
+		visited:        make([]int32, count),
+		neighborBuf:    make([]int32, 0, m),
+		distsBuf:       make([]float32, 0, m*2),
+		idxBuf:         make([]int, 0, m*2),
 	}
 	h.initScratchPool(bufSize)
 	initMmapNorms(h)
